@@ -61,5 +61,5 @@ Publish **keep first, then rune** — generated rune code targets keep's publish
    produces the minor bump automatically. **Never cancel a publish run that looks hung** (JSR
    holds the package lock; server-side processing has taken ~22 min).
 2. **rune** — release after keep is live on JSR. Its generated projects pin
-   `jsr:@mrg-keystone/rune@^1`, which the new keep minor still satisfies — **no pin change
+   `jsr:@techgoose-labs/rune@^1`, which the new keep minor still satisfies — **no pin change
    needed**; freshly synced projects pick the new keep up on first `deno` run.

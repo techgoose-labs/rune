@@ -1,6 +1,6 @@
 import "#reflect-metadata";
 import { assert, assertEquals, assertStringIncludes } from "#assert";
-import { Bedrock } from "@mrg-keystone/bedrock";
+import { Bedrock } from "@techgoose-labs/bedrock";
 import { ApiProperty } from "#danet/swagger/decorators";
 import {
   Endpoint,

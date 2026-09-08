@@ -57,5 +57,5 @@ Sequential. Each item ends with its verification step. keep ships before rune wi
   - [ ] rune `lang/docs/spec.md`: `rune dev` section + stub lifecycle; `skills/rune/SKILL.md` updated (dev loop, ghost stubs, snap-together) and copied to `~/.claude/skills/rune/SKILL.md`; CLI help text.
   - [ ] keep sweep: `deno task test`, `deno task test:browser`, `KEEP_BROWSER=1 deno task test:e2e`, `deno fmt --check src/`, lint on touched scope, `deno task check:jsr`.
   - [ ] rune sweep: unit tests on touched modules; `deno run -A scripts/verify.ts` gate pattern identical to a stashed-baseline run (5 gates fail on clean develop today — no new failures allowed).
-  - [ ] Release sequencing: publish keep (minor) first; rune's generated code targets `jsr:@mrg-keystone/rune@^1` so no pin change.
+  - [ ] Release sequencing: publish keep (minor) first; rune's generated code targets `jsr:@techgoose-labs/rune@^1` so no pin change.
   - [ ] **Verify**: drive each of the four demo surfaces once (dev loop edit, stubs page mint, compose-and-snap, system map) with screenshots; `git status` review in both repos.

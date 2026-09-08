@@ -46,7 +46,7 @@ filling bodies.
 - Import-map writer: `REQUIRED_IMPORTS` in `src/rune/entrypoints/sync/mod.ts:198`
   (non-destructive merge).
 - `external-imports` lint bans only literal `npm:`/`jsr:` specifiers — importing the
-  `@mrg-keystone/rune` alias is allowed; no rule change.
+  `@techgoose-labs/rune` alias is allowed; no rule change.
 
 ## Changes (all in `rune`)
 
@@ -60,7 +60,7 @@ Replace per-ent `addEntrypoint` with a surface-grouped renderer in `rune-manifes
   `src/<m>/entrypoints/<surface>/mod.ts`:
 
 ```ts
-import { Endpoint, EndpointController, endpointModule } from "@mrg-keystone/rune";
+import { Endpoint, EndpointController, endpointModule } from "@techgoose-labs/rune";
 import { CreateOrderDto } from "@/src/<m>/dto/create-order.ts";   // value imports (DTO classes)
 import { OrderDto } from "@/src/<m>/dto/order.ts";
 import { place as orderPlace } from "@/src/<m>/domain/coordinators/order-place/mod.ts";
@@ -95,7 +95,7 @@ Replace `ENTRYPOINT_E2E_TPL` content (per surface):
 
 ```ts
 import { httpModule } from "./mod.ts";
-import { bootstrapServer, exerciseEndpoints } from "@mrg-keystone/rune";
+import { bootstrapServer, exerciseEndpoints } from "@techgoose-labs/rune";
 import { assertEquals } from "#std/assert";
 
 // Fill the coordinator bodies, then run with RUNE_E2E=1 to drive every endpoint to green.
@@ -111,9 +111,9 @@ Deno.test({ name: "<m>/http — endpoints run and chain", ignore: !Deno.env.get(
 Stays `create-once` (dev tunes seeds/auth).
 
 ### C4 — import map gains keep
-Add to `REQUIRED_IMPORTS` (sync/mod.ts:198): `"@mrg-keystone/rune": "jsr:@mrg-keystone/rune@^1"`.
+Add to `REQUIRED_IMPORTS` (sync/mod.ts:198): `"@techgoose-labs/rune": "jsr:@techgoose-labs/rune@^1"`.
 (`#std/assert` is already present for C3.) **Gating note:** generated projects only type-check if
-`@mrg-keystone/rune` resolves — confirm it's published to JSR at the pinned major, or document the
+`@techgoose-labs/rune` resolves — confirm it's published to JSR at the pinned major, or document the
 local override. This is the one external dependency that blocks the phase.
 
 ### C5 — fixtures, goldens, tests
@@ -141,7 +141,7 @@ already predicted; no new file kinds). `external-imports` (alias import is allow
 - End-to-end: `rune sync fixtures/corpus/valid/entrypoint.rune` into a temp project →
   - generated `entrypoints/http/mod.ts` is an `@EndpointController` with both methods, correct DTO
     + coordinator imports, and `order`/`dependsOn`/`bind` on `payOrder` referencing `createOrder`;
-  - `deno check` passes (requires `@mrg-keystone/rune` resolvable — C4);
+  - `deno check` passes (requires `@techgoose-labs/rune` resolvable — C4);
   - `rune lint` is clean — watch `layer-restrictions` for the entrypoints→coordinators edge; if it
     flags, add that edge to the rule's allowlist (the one possible extra change);
   - fill the two coordinator bodies, serve, open `/docs/<m>` → cake orders create→pay, Emulate

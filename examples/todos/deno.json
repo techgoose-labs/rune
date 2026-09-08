@@ -11,8 +11,8 @@
     "reflect-metadata": "npm:reflect-metadata@^0.2",
     "#std/assert": "jsr:@std/assert",
     "#std/path": "jsr:@std/path",
-    "@mrg-keystone/rune": "jsr:@mrg-keystone/rune@^4",
-    "#assert": "jsr:@mrg-keystone/rune@^4/assert",
+    "@techgoose-labs/rune": "jsr:@techgoose-labs/rune@^4",
+    "#assert": "jsr:@techgoose-labs/rune@^4/assert",
     "#api-doc": "jsr:@danet/swagger@^2.1.1/decorators"
   }
 }

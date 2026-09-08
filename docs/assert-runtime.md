@@ -13,9 +13,9 @@ labels, the `no-dto-cast` lint), see
 The runtime is a single module in the keep backend framework:
 
 - **Source:** `keep/src/assert/mod.ts` (this monorepo).
-- **Package:** `@mrg-keystone/rune` (keep's JSR package — see `keep/deno.json`).
+- **Package:** `@techgoose-labs/rune` (keep's JSR package — see `keep/deno.json`).
 - **Subpath export:** keep declares `"./assert": "./src/assert/mod.ts"` in its
-  `exports`, so consumers import it as **`@mrg-keystone/rune/assert`**.
+  `exports`, so consumers import it as **`@techgoose-labs/rune/assert`**.
 
 There is **one** copy of this code and it is maintained in keep. Generated
 projects do not vendor or inline it — they pull it from JSR. (Historically the
@@ -37,14 +37,14 @@ import map. Two entrypoints do this, and they agree:
   writes both the framework pin and the assert subpath:
 
   ```jsonc
-  "@mrg-keystone/rune": "jsr:@mrg-keystone/rune@^4",
-  "#assert":            "jsr:@mrg-keystone/rune@^4/assert",
+  "@techgoose-labs/rune": "jsr:@techgoose-labs/rune@^4",
+  "#assert":            "jsr:@techgoose-labs/rune@^4/assert",
   ```
 
 - **`rune init`** (sprig overlay) — `src/rune/entrypoints/init/mod.ts` merges the
   same map **additively** into the `deno.json` the sprig CLI wrote. It never
   clobbers sprig's own keys, so a sprig-scaffolded project keeps *its*
-  `@mrg-keystone/rune` main pin; rune only *adds* the keys sprig lacks (here,
+  `@techgoose-labs/rune` main pin; rune only *adds* the keys sprig lacks (here,
   `#assert`).
 
 ## The single-copy invariant
@@ -65,10 +65,10 @@ Two rules preserve the single copy. Both are load-bearing:
    (`deno task check:lockstep`).
 
 2. **The framework pin and the assert pin share a major.**
-   `@mrg-keystone/rune` and `#assert` both resolve to *one* keep copy only if
+   `@techgoose-labs/rune` and `#assert` both resolve to *one* keep copy only if
    they pin the same major (`@^4` / `@^4/assert`). **Retarget both on every keep
    major bump** — the 3.0.0 release did `@^2 → @^3`; this doc's `@^4` is the
-   4.x retarget. For a sprig-overlaid project, sprig's own `@mrg-keystone/rune`
+   4.x retarget. For a sprig-overlaid project, sprig's own `@techgoose-labs/rune`
    major must match this one too (rune preserves sprig's main pin but adds
    `#assert` at rune's major — a mismatch reintroduces two copies).
 

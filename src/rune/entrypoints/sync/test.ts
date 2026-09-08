@@ -84,7 +84,7 @@ Deno.test("renderMain — wires the registry into bootstrapServer", () => {
   const out = renderMain("shop");
   assertStringIncludes(
     out,
-    'import { bootstrapServer } from "@mrg-keystone/rune";',
+    'import { bootstrapServer } from "@techgoose-labs/rune";',
   );
   assertStringIncludes(
     out,

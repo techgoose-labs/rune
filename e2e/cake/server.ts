@@ -1,6 +1,6 @@
 import "reflect-metadata";
-import { bootstrapServer } from "@mrg-keystone/rune";
-import { Bedrock } from "@mrg-keystone/bedrock";
+import { bootstrapServer } from "@techgoose-labs/rune";
+import { Bedrock } from "@techgoose-labs/bedrock";
 import { httpModule } from "./src/cake/entrypoints/http/mod.ts";
 
 // `api` is the backend UNIT; the composition root composes it.

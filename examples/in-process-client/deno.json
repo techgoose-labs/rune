@@ -1,5 +1,5 @@
 {
-  "//": "Minimal in-process-client example. @mrg-keystone/rune resolves to the in-tree keep workspace member; @danet/core + reflect-metadata are pulled directly. Run from the repo root via `deno task example`.",
+  "//": "Minimal in-process-client example. @techgoose-labs/rune resolves to the in-tree keep workspace member; @danet/core + reflect-metadata are pulled directly. Run from the repo root via `deno task example`.",
   "imports": {
     "@danet/core": "jsr:@danet/core@2",
     "reflect-metadata": "npm:reflect-metadata@0.1.13"

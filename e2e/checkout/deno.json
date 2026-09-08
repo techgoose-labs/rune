@@ -1,5 +1,5 @@
 {
-  "//": "Self-contained config for the committed checkout acceptance. The checkout module is rune-generated (it imports @/src/checkout/... and @mrg-keystone/rune); this map resolves @/ to this dir and keep to the local checkout (../../keep/src), mirroring keep's own aliases so keep's internals resolve too. reflect-metadata is pinned to keep's 0.1.13 so a single polyfill backs the whole program. Run via `deno task test:e2e` from the repo root.",
+  "//": "Self-contained config for the committed checkout acceptance. The checkout module is rune-generated (it imports @/src/checkout/... and @techgoose-labs/rune); this map resolves @/ to this dir and keep to the local checkout (../../keep/src), mirroring keep's own aliases so keep's internals resolve too. reflect-metadata is pinned to keep's 0.1.13 so a single polyfill backs the whole program. Run via `deno task test:e2e` from the repo root.",
   "compilerOptions": {
     "strict": true,
     "experimentalDecorators": true,
@@ -7,7 +7,7 @@
   },
   "imports": {
     "@/": "./",
-    "@mrg-keystone/rune": "../../keep/src/bootstrap/mod.ts",
+    "@techgoose-labs/rune": "../../keep/src/bootstrap/mod.ts",
     "@foundation/": "../../keep/src/foundation/",
     "@types": "../../keep/src/foundation/dto/types.ts",
     "#reflect-metadata": "npm:reflect-metadata@0.1.13",

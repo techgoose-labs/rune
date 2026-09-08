@@ -15,7 +15,7 @@ import {
   sha256Hex,
   specRoot,
   vendoredVector,
-} from "@mrg-keystone/bedrock/artifact";
+} from "@techgoose-labs/bedrock/artifact";
 
 interface SingleFileVector {
   name: string;

@@ -1,7 +1,7 @@
 import "#reflect-metadata";
 import { assertEquals, assertExists, assertStringIncludes } from "#assert";
 import { bootstrapServer } from "./mod.ts";
-import { Bedrock } from "@mrg-keystone/bedrock";
+import { Bedrock } from "@techgoose-labs/bedrock";
 import { Controller, Get, Module } from "#danet/core";
 import { endpointModule } from "@foundation/domain/business/endpoint-decorator/mod.ts";
 

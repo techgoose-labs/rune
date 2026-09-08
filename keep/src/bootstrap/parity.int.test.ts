@@ -16,8 +16,8 @@ import { assert, assertEquals } from "#assert";
 import { Controller, Get, Post, Req } from "#danet/core";
 import { bootstrapServer } from "./mod.ts";
 import { endpointModule } from "@foundation/domain/business/endpoint-decorator/mod.ts";
-import { Bedrock } from "@mrg-keystone/bedrock";
-import type { App, Unit } from "@mrg-keystone/bedrock";
+import { Bedrock } from "@techgoose-labs/bedrock";
+import type { App, Unit } from "@techgoose-labs/bedrock";
 
 interface Observed {
   status: number;

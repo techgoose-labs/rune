@@ -9,7 +9,7 @@
 // KEEP_BROWSER=1 to add the interactive-emulator browser stage.
 import "reflect-metadata";
 import { assert, assertEquals, assertExists } from "#assert";
-import { bootstrapServer, exerciseEndpoints } from "@mrg-keystone/rune";
+import { bootstrapServer, exerciseEndpoints } from "@techgoose-labs/rune";
 import { httpModule } from "@/src/checkout/entrypoints/http/mod.ts";
 import { membersModule } from "@/src/members/entrypoints/http/mod.ts";
 

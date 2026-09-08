@@ -6,8 +6,8 @@ import type { Context } from "#hono";
 // The runtime substrate is bedrock's: it mints the request id, opens the
 // capture, runs the guard, and owns the lifecycle. keep boots a DI tree,
 // builds docs, and hands the result back as a `Unit`.
-import { Bedrock, composedIn, tracer } from "@mrg-keystone/bedrock";
-import type { App, Bag, Policy, Unit } from "@mrg-keystone/bedrock";
+import { Bedrock, composedIn, tracer } from "@techgoose-labs/bedrock";
+import type { App, Bag, Policy, Unit } from "@techgoose-labs/bedrock";
 import {
   exerciseEndpoints,
   type ExerciseOptions,
@@ -757,7 +757,7 @@ export class BootstrapServer {
     await adapter.init(rootModule);
 
     // Rune assert failures (thrown at validated seams by code importing
-    // @mrg-keystone/rune/assert) map to HTTP 422. Detection is duck-typed on
+    // @techgoose-labs/rune/assert) map to HTTP 422. Detection is duck-typed on
     // name + failures — NOT instanceof — so it works even when the consumer
     // loaded its own copy of the assert module. Returning undefined falls
     // through to danet's defaults: auth HttpExceptions keep their status and

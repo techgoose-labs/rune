@@ -1,6 +1,6 @@
 import "reflect-metadata";
-import { bootstrapServer } from "@mrg-keystone/rune";
-import { Bedrock } from "@mrg-keystone/bedrock";
+import { bootstrapServer } from "@techgoose-labs/rune";
+import { Bedrock } from "@techgoose-labs/bedrock";
 import { httpModule } from "./src/checkout/entrypoints/http/mod.ts";
 import { membersModule } from "./src/members/entrypoints/http/mod.ts";
 

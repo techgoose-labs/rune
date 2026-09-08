@@ -7,7 +7,7 @@ shared module and import it everywhere:
 
 ```ts
 // server/bootstrap/mod.ts
-import { bootstrapServer } from "@mrg-keystone/rune";
+import { bootstrapServer } from "@techgoose-labs/rune";
 import { modules } from "./modules.ts";
 export const api = await bootstrapServer("my-api", modules);
 ```
@@ -20,7 +20,7 @@ Since keep 7.0 it resolves to a **bedrock `Unit`** — the backend half of an ap
 — plus keep's own surface (`listen`, `stop`, `backend`, `docs`, `mount`,
 `policy`). keep is no longer a composition root: it does not own a socket, a
 logger, an env table, a request id, or a guard. Those belong to
-`@mrg-keystone/bedrock`, once, for the whole app.
+`@techgoose-labs/bedrock`, once, for the whole app.
 
 ### The composition root
 
@@ -29,9 +29,9 @@ generate identically (D-18 — same bytes whichever `init` ran first):
 
 ```ts
 // serve.ts  (git root — GENERATED, carries BEDROCK_SERVE_MARKER)
-import { Bedrock } from "@mrg-keystone/bedrock";
-import { Frontend } from "@mrg-keystone/sprig/bedrock";
-import { Infra } from "@mrg-keystone/infra";
+import { Bedrock } from "@techgoose-labs/bedrock";
+import { Frontend } from "@techgoose-labs/sprig/bedrock";
+import { Infra } from "@techgoose-labs/infra";
 import { api } from "./server/bootstrap/mod.ts";
 export default Bedrock({ ui: Frontend(), backend: api, auth: Infra() });
 ```
@@ -104,8 +104,8 @@ both dev and production builds.
 
 `rune init` scaffolds the whole app: the git-root `serve.ts` composition root, a
 `ui/` sprig UI package, the `server/` keep backend, and a git-root workspace
-`deno.json` (`["./ui","./server"]`) wired with `@mrg-keystone/sprig`,
-`@mrg-keystone/rune` and `@mrg-keystone/bedrock` — the last hoisted to the root
+`deno.json` (`["./ui","./server"]`) wired with `@techgoose-labs/sprig`,
+`@techgoose-labs/rune` and `@techgoose-labs/bedrock` — the last hoisted to the root
 only, so the app can never resolve two bedrock copies and end up with two roots.
 
 ### Mounting under any host
@@ -163,7 +163,7 @@ Deprecated for one release, removed in keep 8: `api.compose({ frontend })` and
 `Bedrock({ ui, backend })` and log a one-time notice. The lifted runtime
 (`withBasePath`, `RequestJar`, `collectSetCookies`, `log`, `tracer`, the
 contract stamp) is re-exported from keep for the same one release; import it
-from `@mrg-keystone/bedrock` in new code.
+from `@techgoose-labs/bedrock` in new code.
 
 ## Testing and releasing the keep repo itself
 

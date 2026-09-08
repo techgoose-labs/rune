@@ -3,7 +3,7 @@
 rune builds a backend by *shaping* it instead of writing it. You describe a module
 as a tiny `.rune` spec — its endpoints, data contracts, and seams — and rune
 generates a typed, validated, lint-clean TypeScript tree from it. That generated
-code runs on **rune's runtime** (`@mrg-keystone/rune` on JSR): a Deno backend that
+code runs on **rune's runtime** (`@techgoose-labs/rune` on JSR): a Deno backend that
 turns your modules into a routed, documented, self-verifying app. **The spec is how
 you shape the thing; the runtime is the thing your shape runs on.** You regenerate
 from the spec — you don't hand-edit the structure — and the same spec carries you
@@ -18,12 +18,12 @@ from "write it" to "watch it run green."
   `lang/` (the grammar and `lang/keywords.json`, the language's single source of
   truth), and **Rune Studio** (`rune-studio/`, the visual editor for it).
 - **The runtime layer** — *rune's runtime*, published to JSR as
-  [`@mrg-keystone/rune`](https://jsr.io/@mrg-keystone/rune): the Deno backend the
+  [`@techgoose-labs/rune`](https://jsr.io/@techgoose-labs/rune): the Deno backend the
   generated code targets — DI bootstrap, auto Swagger, the interactive **cake**, the
   live system map, deny-by-default auth, a headless runner; built on `@danet/core`.
   It lives in `keep/`, which holds **only** the publishable package (`src/`, manifest,
   README, assets) — see [`keep/README.md`](keep/README.md). The package name
-  `@mrg-keystone/rune` is a stable identifier, not a separate product.
+  `@techgoose-labs/rune` is a stable identifier, not a separate product.
 
 Everything else is shared across both layers and lives in exactly one place:
 `claude/` (Claude Code assets — the eight rune skills under `claude/skills/` — `rune:scope`/`spec`/`data`/`build`/`cake`/`framework`/`docs`/`diamond` — plus `claude/agents/`), `examples/` (spec→code
@@ -35,7 +35,7 @@ the self-contained sub-projects — `keep` (the runtime library), the two integr
 acceptances (`e2e/cake`, `e2e/checkout`), and the `examples/in-process-client` demo
 — so they resolve the runtime from the **in-tree source** (`keep/`) and you can test
 rune against an unreleased runtime. Generated *user* projects still pin
-`jsr:@mrg-keystone/rune@^3` (they live outside this repo) — that is intentional and
+`jsr:@techgoose-labs/rune@^3` (they live outside this repo) — that is intentional and
 unchanged. (`rune-studio/` is a standalone Vite app with its own lockfile, run via
 its own `deno task dev`.)
 
@@ -166,13 +166,13 @@ deno task studio
 
 ## The runtime your generated code runs on
 
-*rune's runtime* (`@mrg-keystone/rune` on JSR) is the Deno backend rune-generated
+*rune's runtime* (`@techgoose-labs/rune` on JSR) is the Deno backend rune-generated
 projects target — DI bootstrap, token/Firebase auth, auto Swagger docs, in-process
 API client, Fresh embedding; built on `@danet/core`. It lives in [`keep/`](keep/),
 which holds only the publishable package; the package name is its stable id, not a
 separate product. Its assert runtime is what rune's generated seams import via
 `#assert` (resolved in-tree to `keep/src/assert/mod.ts` here, and to
-`jsr:@mrg-keystone/rune@^3/assert` in generated user projects). The lockstep guard
+`jsr:@techgoose-labs/rune@^3/assert` in generated user projects). The lockstep guard
 (`deno task check:lockstep`) machine-checks that the class-validator /
 class-transformer / reflect-metadata ranges rune emits match the ranges the runtime
 declares in `keep/deno.json` — a single decorator stack across both.
@@ -202,5 +202,5 @@ CI is path-filtered by layer:
   `skill/` and `agent/` dirs inside each tarball) — on any push **except** ones
   touching only runtime-owned or non-binary facets (`keep/`, `e2e/`, `examples/`,
   `docs/`, `todos/`).
-- `publish-keep` publishes the runtime, `@mrg-keystone/rune`, to JSR on pushes to
+- `publish-keep` publishes the runtime, `@techgoose-labs/rune`, to JSR on pushes to
   `keep/**`. The skill now ships once (with rune), so this is a pure JSR publish.

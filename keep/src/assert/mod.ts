@@ -1,6 +1,6 @@
 // Rune assert runtime — runtime validation for the seams between generated
 // classes: request inputs, data-adapter reads/writes, core outputs. Published
-// as the `@mrg-keystone/rune/assert` subpath; rune-generated projects reach
+// as the `@techgoose-labs/rune/assert` subpath; rune-generated projects reach
 // it through their `#assert` import-map alias, and keep's bootstrapServer
 // maps a thrown RuneAssertError to HTTP 422.
 //

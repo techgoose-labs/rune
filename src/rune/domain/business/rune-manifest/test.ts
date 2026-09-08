@@ -209,7 +209,7 @@ Deno.test("planManifest — [ENT]s on one surface become one keep controller", (
   // Delegates to the (input,output)-matched coordinators.
   assertStringIncludes(mod.content, "return orderCreate(body)");
   assertStringIncludes(mod.content, "return paymentPay(body)");
-  assertStringIncludes(mod.content, 'from "@mrg-keystone/rune"');
+  assertStringIncludes(mod.content, 'from "@techgoose-labs/rune"');
   assertStringIncludes(
     mod.content,
     'endpointModule("Checkout", [HttpController])',

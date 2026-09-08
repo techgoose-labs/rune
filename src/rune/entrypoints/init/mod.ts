@@ -11,7 +11,7 @@ import {
   registerManifestEntries,
   RUNE_MANIFEST_ENTRIES,
 } from "./artifact.ts";
-import { ensureWorkspace, renderServe } from "@mrg-keystone/bedrock/artifact";
+import { ensureWorkspace, renderServe } from "@techgoose-labs/bedrock/artifact";
 
 const RED = "\x1b[31m";
 const GREEN = "\x1b[32m";
@@ -27,7 +27,7 @@ const CORE_TEMPLATE = `[MOD] core
 // build never relocates it (D-durable-home) —
 // routed endpoints, auto Swagger, an interactive "cake" at /docs. The sibling
 // spec/misc/ holds data design + cake artifacts; spec/ui/ holds the UI prototype.
-// The generated code runs on rune's runtime, @mrg-keystone/rune (on JSR).
+// The generated code runs on rune's runtime, @techgoose-labs/rune (on JSR).
 //
 // Working with an AI assistant (Claude Code)? Have it use the "rune" skill —
 // it knows the spec syntax, the lifecycle, and the runtime's rules. The rune
@@ -101,7 +101,7 @@ why) so the shape stays a decision, not an accident.
 // export the sprig-written serve.ts already imports, and whose `import.meta.main`
 // listen keeps `rune dev` a backend-only loop), adds the module registry + config,
 // lays the shared spec/ layout at the git root, and merges rune's engine import map
-// into server/deno.json (additive — sprig already pins @mrg-keystone/rune).
+// into server/deno.json (additive — sprig already pins @techgoose-labs/rune).
 
 /** Locations to look for the installed sprig CLI: PATH first, then the default
  *  `deno install` bin. sprig's compiler/scaffold need the on-disk runtime (~/.sprig),
@@ -176,7 +176,7 @@ export async function overlayRuneBackend(
 
   // The keep backend is a `server/` package beside the sprig `ui/` package. Merge
   // rune's engine import map into any server/deno.json already there (additive —
-  // a sprig scaffold already pins @mrg-keystone/rune, so this only ADDS @/,
+  // a sprig scaffold already pins @techgoose-labs/rune, so this only ADDS @/,
   // class-validator/-transformer, #std, #assert, #api-doc, etc.). `@/` → `./`
   // there scopes the generated `server/src/**` imports (`@/src/…`) to the server
   // package.
@@ -256,8 +256,8 @@ async function ensureNeutralWorkspace(dir: string): Promise<void> {
     },
     // ONE bedrock copy for the whole app: a member that pins its own would give
     // the composed app two roots — two envelopes, two guards, two clients.
-    imports: { "@mrg-keystone/bedrock": "jsr:@mrg-keystone/bedrock@^1" },
-    hoistOnly: ["@mrg-keystone/bedrock"],
+    imports: { "@techgoose-labs/bedrock": "jsr:@techgoose-labs/bedrock@^1" },
+    hoistOnly: ["@techgoose-labs/bedrock"],
   });
 }
 

@@ -2,7 +2,7 @@
 // tune the app name, port, or keep options freely. The module registry
 // (bootstrap/modules.ts) is regenerated as runes are added and removed.
 
-import { bootstrapServer } from "@mrg-keystone/rune";
+import { bootstrapServer } from "@techgoose-labs/rune";
 import { config } from "@/bootstrap/config.ts";
 import { modules } from "@/bootstrap/modules.ts";
 

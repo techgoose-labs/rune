@@ -2,7 +2,7 @@
 // Edit the body. Re-running manifest will not overwrite this file.
 
 import { httpModule } from "./mod.ts";
-import { bootstrapServer, exerciseEndpoints } from "@mrg-keystone/rune";
+import { bootstrapServer, exerciseEndpoints } from "@techgoose-labs/rune";
 import { assertEquals } from "#std/assert";
 
 // Fill the coordinator bodies, then run with RUNE_E2E=1 to drive every endpoint

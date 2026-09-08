@@ -7,8 +7,8 @@
 // request envelope. A controller reads it; it cannot forge it (an inbound
 // `x-bedrock-*` header is stripped at the root before the guard ever runs).
 
-import { of } from "@mrg-keystone/bedrock";
-import type { Channel, Identity } from "@mrg-keystone/bedrock";
+import { of } from "@techgoose-labs/bedrock";
+import type { Channel, Identity } from "@techgoose-labs/bedrock";
 import type { HttpContext } from "#danet/core";
 
 /**

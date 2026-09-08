@@ -1,8 +1,8 @@
 // keep's export root. Everything the runtime substrate owns — the mount
 // primitive, the in-process client, the jar, the contract stamp, the logger,
-// the tracer — now lives in @mrg-keystone/bedrock and is RE-EXPORTED here for
+// the tracer — now lives in @techgoose-labs/bedrock and is RE-EXPORTED here for
 // exactly one release (D-6), so a 6.x app upgrades without a codemod. Import
-// them from `@mrg-keystone/bedrock` in new code; they leave keep in 8.0.
+// them from `@techgoose-labs/bedrock` in new code; they leave keep in 8.0.
 export { Server } from "@foundation/domain/business/server/mod.ts";
 export {
   checkBody,
@@ -16,7 +16,7 @@ export {
   mergedOpenApiDoc,
   sha256Hex,
   stampSpecHash,
-} from "@mrg-keystone/bedrock/artifact";
+} from "@techgoose-labs/bedrock/artifact";
 export {
   DanetHttpAdapter,
   HttpAdapter,
@@ -56,8 +56,8 @@ export {
   traceShipper,
   traceUser,
   withBasePath,
-} from "@mrg-keystone/bedrock";
-export type { LogLevel, Span, Trace, TraceSink } from "@mrg-keystone/bedrock";
+} from "@techgoose-labs/bedrock";
+export type { LogLevel, Span, Trace, TraceSink } from "@techgoose-labs/bedrock";
 export { traceShellHtml } from "@foundation/domain/business/trace-ui/mod.ts";
 export {
   Backend,
@@ -68,7 +68,7 @@ export type { BackendOptions } from "@foundation/domain/coordinators/bootstrap-s
 export type { KeepUnit } from "@foundation/domain/coordinators/bootstrap-server/mod.ts";
 // The composition algebra itself: `Bedrock` composes, `of` reads the envelope
 // a controller was reached with, and `Unit`/`Bag`/`Identity` are its types.
-export { Bedrock, of } from "@mrg-keystone/bedrock";
+export { Bedrock, of } from "@techgoose-labs/bedrock";
 export {
   channel,
   identity,
@@ -82,7 +82,7 @@ export type {
   Identity,
   Policy,
   Unit,
-} from "@mrg-keystone/bedrock";
+} from "@techgoose-labs/bedrock";
 export type { FetchHandler } from "@types";
 export {
   createDocsJsonHandler,

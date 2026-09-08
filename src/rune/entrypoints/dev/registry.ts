@@ -1,5 +1,5 @@
 import { basename, join } from "#std/path";
-import { specRootOf } from "@mrg-keystone/bedrock/artifact";
+import { specRootOf } from "@techgoose-labs/bedrock/artifact";
 
 // ── shared dev-process registry (~/.rune/dev.json) ───────────────────────────
 // ONE `rune dev` per git repo. The first run is the OWNER: it runs the watch loop + the app child

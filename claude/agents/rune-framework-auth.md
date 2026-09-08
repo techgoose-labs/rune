@@ -55,12 +55,12 @@ The orchestrator passes: the symptom or question (e.g. the failing request, the 
      endpoint, and generated code carries no hand-applied decorator.
    - **The auth unit's `verify` returned null** for this credential. Reproduce
      with and without it on both channels.
-   - **Version skew** — the app is still pinned `@mrg-keystone/rune@^4` (or
+   - **Version skew** — the app is still pinned `@techgoose-labs/rune@^4` (or
      older): the 4.x deny-by-default guard 401s bare network callers and 403s
      missing grants. Check the pin FIRST (`server/deno.json` / root `deno.json`).
    - **Something in front** — a proxy or platform edge.
 5. **Reading the caller.** A controller uses `identity(ctx)` (also
-   `channel(ctx)`, `requestId(ctx)`) from `@mrg-keystone/rune`. It cannot be
+   `channel(ctx)`, `requestId(ctx)`) from `@techgoose-labs/rune`. It cannot be
    forged: the three `x-bedrock-*` envelope headers are stripped from every
    inbound request at the root, on every channel, before the guard runs — and
    the identity header is written only on an allow.
@@ -119,7 +119,7 @@ have historically crawled the disk for is already at hand:
   `assert.number` / `assert.boolean` / `assert.uint8Array` for primitive seams.
   That is the entire public API — never read the package source to "learn" it.
 - **To find a cached/vendored dependency's real `.ts`:** run
-  `deno info <specifier>` (e.g. `deno info jsr:@mrg-keystone/rune`) — it prints
+  `deno info <specifier>` (e.g. `deno info jsr:@techgoose-labs/rune`) — it prints
   the exact cached path in milliseconds. If you must grep vendored source, scope
   the search to that path or to `~/Library/Caches/deno`, never `/`. Searching
   the filesystem for a package BY NAME can never work: Deno 2 stores JSR modules

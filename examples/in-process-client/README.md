@@ -1,6 +1,6 @@
 # Examples
 
-Runnable example of rune's runtime (`@mrg-keystone/rune`).
+Runnable example of rune's runtime (`@techgoose-labs/rune`).
 
 ## In-process client (`in-process-client/`)
 
@@ -55,10 +55,10 @@ background jobs, scripts, tests) without going out to the network or managing
 tokens.
 
 > **Note on imports.** The example code imports the published package names
-> (`@mrg-keystone/rune`, `@danet/core`, `reflect-metadata`) so it reads exactly
+> (`@techgoose-labs/rune`, `@danet/core`, `reflect-metadata`) so it reads exactly
 > like a real consumer's code. Inside this repo those names are aliased to the
 > local source via the import map in `deno.json`. In your own project, add
-> `@mrg-keystone/rune` from JSR and import the same way.
+> `@techgoose-labs/rune` from JSR and import the same way.
 
 > **Security.** `backend.fetch` is a _trusted_ channel — anything dispatched
 > through it skips auth. Never pipe inbound network requests through it. To

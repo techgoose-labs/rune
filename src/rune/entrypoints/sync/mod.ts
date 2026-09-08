@@ -502,15 +502,15 @@ const REQUIRED_IMPORTS: Record<string, string> = {
   // major below: they resolve to ONE keep copy, so ONE class-validator /
   // class-transformer copy — the single-copy invariant assert relies on. A
   // sprig-overlaid project (rune init) inherits its main pin from sprig, so
-  // sprig's @mrg-keystone/rune major must match this one too.
-  "@mrg-keystone/rune": "jsr:@mrg-keystone/rune@^7",
+  // sprig's @techgoose-labs/rune major must match this one too.
+  "@techgoose-labs/rune": "jsr:@techgoose-labs/rune@^7",
   // The foundation: the composition root, the runtime, the one in-process
   // client, the observability boundary. `bootstrap/mod.ts` composes with it,
   // and the generated e2e tests serve through it.
-  "@mrg-keystone/bedrock": "jsr:@mrg-keystone/bedrock@^1",
+  "@techgoose-labs/bedrock": "jsr:@techgoose-labs/bedrock@^1",
   // Generated coordinators validate their seams via keep's assert runtime,
-  // published as the @mrg-keystone/rune/assert subpath (same major as above).
-  "#assert": "jsr:@mrg-keystone/rune@^7/assert",
+  // published as the @techgoose-labs/rune/assert subpath (same major as above).
+  "#assert": "jsr:@techgoose-labs/rune@^7/assert",
   // DTO [TYP:example=…] fields emit @ApiProperty({ example }) — the swagger
   // decorator keep's runner/cake read example values from. Same range keep
   // itself maps #danet/swagger to.
@@ -755,8 +755,8 @@ export function renderMain(appName: string): string {
     "// — which is where a UI or an auth unit joins it. The block below is the",
     "// standalone shape, for running the backend on its own.",
     "",
-    'import { bootstrapServer } from "@mrg-keystone/rune";',
-    'import { Bedrock } from "@mrg-keystone/bedrock";',
+    'import { bootstrapServer } from "@techgoose-labs/rune";',
+    'import { Bedrock } from "@techgoose-labs/bedrock";',
     'import { config } from "@/bootstrap/config.ts";',
     'import { modules } from "@/bootstrap/modules.ts";',
     "",
@@ -1181,7 +1181,7 @@ async function runAllGate(
   const body = [
     "// Written by rune sync for the run-all gate; deleted right after the run.",
     'import { api } from "@/bootstrap/mod.ts";',
-    'import { exerciseEndpoints } from "@mrg-keystone/rune";',
+    'import { exerciseEndpoints } from "@techgoose-labs/rune";',
     "const report = await exerciseEndpoints({ api });",
     ...(specDir
       ? [
@@ -1189,7 +1189,7 @@ async function runAllGate(
         "// frontend toolchain to READ (it never invokes this side). Feature-checked",
         "// so an app pinned to an older keep just skips it.",
         "try {",
-        '  const keepMod = await import("@mrg-keystone/rune");',
+        '  const keepMod = await import("@techgoose-labs/rune");',
         '  if (typeof keepMod.emitContractOpenApi === "function") {',
         `    const c = await keepMod.emitContractOpenApi(${
           JSON.stringify(specDir)

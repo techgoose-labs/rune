@@ -1,6 +1,6 @@
 name: publish-keep
 
-# keep (keep/) -> JSR (@mrg-keystone/rune). The runtime library publish.
+# keep (keep/) -> JSR (@techgoose-labs/rune). The runtime library publish.
 #
 # The Claude skill is folded into the rune skills (claude/skills/rune:*, shipped with
 # the rune release), so this workflow no longer ships a skill or a `keep-latest`

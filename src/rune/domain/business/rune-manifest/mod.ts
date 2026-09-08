@@ -2286,7 +2286,7 @@ function renderEntrypointController(
   L.push("// Edit the body. Re-running manifest will not overwrite this file.");
   L.push("");
   L.push(
-    `import { Endpoint, EndpointController, endpointModule } from "@mrg-keystone/rune";`,
+    `import { Endpoint, EndpointController, endpointModule } from "@techgoose-labs/rune";`,
   );
   for (const d of dtos) {
     L.push(`import { ${d.type} } from "@/${d.dir}/${d.file}.ts";`);
@@ -2511,7 +2511,7 @@ function renderEntrypointE2e(
     "// Edit the body. Re-running manifest will not overwrite this file.",
     "",
     `import { ${moduleConst} } from "./mod.ts";`,
-    `import { bootstrapServer, exerciseEndpoints } from "@mrg-keystone/rune";`,
+    `import { bootstrapServer, exerciseEndpoints } from "@techgoose-labs/rune";`,
     `import { assertEquals } from "#std/assert";`,
     "",
     "// Fill the coordinator bodies, then run with RUNE_E2E=1 to drive every endpoint",
@@ -2629,7 +2629,7 @@ function renderWsController(
   L.push("// Edit the body. Re-running manifest will not overwrite this file.");
   L.push("");
   L.push(
-    `import { endpointModule, WsEndpoint, WsEndpointController } from "@mrg-keystone/rune";`,
+    `import { endpointModule, WsEndpoint, WsEndpointController } from "@techgoose-labs/rune";`,
   );
   for (const d of dtos) {
     L.push(`import { ${d.type} } from "@/${d.dir}/${d.file}.ts";`);

@@ -8,7 +8,7 @@ import {
   Endpoint,
   EndpointController,
   endpointModule,
-} from "@mrg-keystone/rune";
+} from "@techgoose-labs/rune";
 import { JoinDto } from "@/src/members/dto/join.ts";
 import { MemberDto } from "@/src/members/dto/member.ts";
 

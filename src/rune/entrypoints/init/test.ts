@@ -76,7 +76,7 @@ async function fakeSprigScaffold(proj: string): Promise<void> {
         },
         imports: {
           "@sprig/core": "jsr:@sprig/core@^0.20.2",
-          "@mrg-keystone/rune": "jsr:@mrg-keystone/rune@^7.0.0",
+          "@techgoose-labs/rune": "jsr:@techgoose-labs/rune@^7.0.0",
           "reflect-metadata": "npm:reflect-metadata@0.1.13",
         },
       },
@@ -87,12 +87,12 @@ async function fakeSprigScaffold(proj: string): Promise<void> {
   // git-root serve.ts — imports the keep backend from ./server/bootstrap/mod.ts
   await Deno.writeTextFile(
     join(proj, "serve.ts"),
-    `import { Bedrock } from "@mrg-keystone/bedrock";\nimport { Frontend } from "@mrg-keystone/sprig/bedrock";\nimport { api } from "./server/bootstrap/mod.ts";\nexport default Bedrock({ ui: Frontend(), backend: api });\n`,
+    `import { Bedrock } from "@techgoose-labs/bedrock";\nimport { Frontend } from "@techgoose-labs/sprig/bedrock";\nimport { api } from "./server/bootstrap/mod.ts";\nexport default Bedrock({ ui: Frontend(), backend: api });\n`,
   );
   // server/bootstrap/mod.ts — sprig's empty keep backend (overlay replaces it)
   await Deno.writeTextFile(
     join(proj, "server", "bootstrap", "mod.ts"),
-    `import { bootstrapServer } from "@mrg-keystone/rune";\nexport const api = await bootstrapServer("myapp", [], {});\n`,
+    `import { bootstrapServer } from "@techgoose-labs/rune";\nexport const api = await bootstrapServer("myapp", [], {});\n`,
   );
   await Deno.writeTextFile(
     join(proj, "ui", "src", "mod.ts"),
@@ -125,7 +125,7 @@ Deno.test("overlayRuneBackend — lays the rune keep backend + spec/ over a spri
     );
     assertStringIncludes(
       boot,
-      'import { bootstrapServer } from "@mrg-keystone/rune";',
+      'import { bootstrapServer } from "@techgoose-labs/rune";',
     );
     assertStringIncludes(
       boot,
@@ -158,18 +158,18 @@ Deno.test("overlayRuneBackend — lays the rune keep backend + spec/ over a spri
     );
 
     // server/deno.json now carries BOTH sprig's pins and rune's engine import map,
-    // merged additively — sprig's @mrg-keystone/rune pin is preserved (not clobbered).
+    // merged additively — sprig's @techgoose-labs/rune pin is preserved (not clobbered).
     const denoJson = await Deno.readTextFile(join(proj, "server", "deno.json"));
     assertStringIncludes(denoJson, "@sprig/core", "sprig's pins must survive");
     assertStringIncludes(
       denoJson,
-      "jsr:@mrg-keystone/rune@^7.0.0",
+      "jsr:@techgoose-labs/rune@^7.0.0",
       "sprig's rune pin is preserved, not clobbered",
     );
     assertStringIncludes(denoJson, '"@/": "./"', "rune's @/ alias is added");
     assertStringIncludes(
       denoJson,
-      "jsr:@mrg-keystone/rune@^7/assert",
+      "jsr:@techgoose-labs/rune@^7/assert",
       "rune's #assert is added",
     );
   });

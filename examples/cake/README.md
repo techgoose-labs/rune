@@ -29,14 +29,14 @@ rune sync src/cake/cake.rune
 #    unlocks pre-filled from the captured output. Standard Swagger UI is at
 #    /docs/cake/swagger, the raw spec at /docs/cake/json.
 
-# 4. or verify headlessly:  exerciseEndpoints({ api })   (from @mrg-keystone/rune)
+# 4. or verify headlessly:  exerciseEndpoints({ api })   (from @techgoose-labs/rune)
 ```
 
 The generated controller is one `@EndpointController("http")` with a `@Endpoint`-decorated method
 per `[ENT]`, each delegating to its `[REQ]` coordinator. `order`/`dependsOn`/`bind` come straight
 from the spec's DTO graph — no hand-wiring.
 
-> Resolving keep locally: a real project imports `@mrg-keystone/rune` from JSR (`rune sync` writes
+> Resolving keep locally: a real project imports `@techgoose-labs/rune` from JSR (`rune sync` writes
 > that mapping). To run this example against an unpublished local keep checkout, point
-> `@mrg-keystone/rune` (and keep's own `#`/`@foundation` aliases) at the checkout, or use a Deno
+> `@techgoose-labs/rune` (and keep's own `#`/`@foundation` aliases) at the checkout, or use a Deno
 > workspace whose root is **not** an ancestor of the rune repo.

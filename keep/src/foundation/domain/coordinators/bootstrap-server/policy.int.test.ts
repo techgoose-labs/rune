@@ -19,8 +19,8 @@ import {
   endpointModule,
 } from "../../business/endpoint-decorator/mod.ts";
 import { bootstrapServer, policyFromDocs } from "./mod.ts";
-import { Bedrock, grantsSatisfied } from "@mrg-keystone/bedrock";
-import type { Access, Unit } from "@mrg-keystone/bedrock";
+import { Bedrock, grantsSatisfied } from "@techgoose-labs/bedrock";
+import type { Access, Unit } from "@techgoose-labs/bedrock";
 
 class OutDto {
   @ApiProperty()

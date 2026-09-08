@@ -56,9 +56,9 @@ const pairs: Array<[string, string | null, string | undefined]> = [
   // copy, or the app composes with a different root than the one keep's unit was
   // built for — two envelopes, two guards, two clients.
   [
-    "@mrg-keystone/bedrock",
-    emitted("@mrg-keystone/bedrock"),
-    keepJson.imports["@mrg-keystone/bedrock"],
+    "@techgoose-labs/bedrock",
+    emitted("@techgoose-labs/bedrock"),
+    keepJson.imports["@techgoose-labs/bedrock"],
   ],
 ];
 

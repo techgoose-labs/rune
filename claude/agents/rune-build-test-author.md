@@ -226,7 +226,7 @@ have historically crawled the disk for is already at hand:
   `assert.number` / `assert.boolean` / `assert.uint8Array` for primitive seams.
   That is the entire public API — never read the package source to "learn" it.
 - **To find a cached/vendored dependency's real `.ts`:** run
-  `deno info <specifier>` (e.g. `deno info jsr:@mrg-keystone/rune`) — it prints
+  `deno info <specifier>` (e.g. `deno info jsr:@techgoose-labs/rune`) — it prints
   the exact cached path in milliseconds. If you must grep vendored source, scope
   the search to that path or to `~/Library/Caches/deno`, never `/`. Searching
   the filesystem for a package BY NAME can never work: Deno 2 stores JSR modules

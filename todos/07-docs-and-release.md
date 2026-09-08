@@ -51,7 +51,7 @@ repos fully green, and record the release sequencing. Nothing ships undocumented
 7. **Release order note** — append to `todos/README.md` under a "Release" heading: publish keep
    first (minor version; new `@Endpoint` `stub` option, `/docs/_dev`, `/docs/_map`,
    `emulatorShellHtml` opts are all additive), then rune (its generated code targets
-   `jsr:@mrg-keystone/rune@^1`, so no pin change). keep's release flow is documented in keep's
+   `jsr:@techgoose-labs/rune@^1`, so no pin change). keep's release flow is documented in keep's
    README (JSR publish via CI; never cancel a hung publish).
 8. **Demo pass with screenshots** (Playwright or browser MCP), one image each:
    - `rune dev`: edit a spec, the page updates;

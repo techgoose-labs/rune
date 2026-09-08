@@ -68,7 +68,7 @@ A spec's `[ENT:ws]` socket generates a WebSocket controller instead of an HTTP o
 `@WebSocketController`/`@OnWebSocketMessage`: danet upgrades a single GET at the path, then
 routes each inbound `{topic, data}` frame to the matching handler. The decorator validates
 `data` against `input` (rune `assert`) and serializes whatever the handler returns back **to
-the sender** (`void` ⇒ no reply). Exported from `@mrg-keystone/rune` alongside `Endpoint` /
+the sender** (`void` ⇒ no reply). Exported from `@techgoose-labs/rune` alongside `Endpoint` /
 `endpointModule`; group with `endpointModule("Chat", [ChatSocket])` like any controller.
 
 | Option | Meaning |
@@ -92,7 +92,7 @@ orders them (`order` + `dependsOn`, topological), runs them chaining outputs
 into inputs via `bind`, and loops until green (or `maxIterations`).
 
 ```ts
-import { exerciseEndpoints } from "@mrg-keystone/rune";
+import { exerciseEndpoints } from "@techgoose-labs/rune";
 const report = await exerciseEndpoints({ api });
 // { passed, failed, optionalFailed, iterations, order, cycles, unresolvedInputs }
 // each result row: { id (bare op-id), module, method, path, status, attempts, … }

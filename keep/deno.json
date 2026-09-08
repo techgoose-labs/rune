@@ -1,7 +1,7 @@
 {
-  "name": "@mrg-keystone/rune",
+  "name": "@techgoose-labs/rune",
   "version": "7.0.0",
-  "description": "Opinionated Deno backend framework: DI bootstrap, auto Swagger docs, an interactive process cake, and rune's assert runtime. Returns a bedrock Unit — compose it with Bedrock({ backend }); the runtime, observability, and auth composition are @mrg-keystone/bedrock's.",
+  "description": "Opinionated Deno backend framework: DI bootstrap, auto Swagger docs, an interactive process cake, and rune's assert runtime. Returns a bedrock Unit — compose it with Bedrock({ backend }); the runtime, observability, and auth composition are @techgoose-labs/bedrock's.",
   "license": "MIT",
   "exports": {
     ".": "./src/bootstrap/mod.ts",
@@ -28,7 +28,7 @@
     "reflect-metadata": "npm:reflect-metadata@0.1.13",
     "class-validator": "npm:class-validator@^0.14",
     "class-transformer": "npm:class-transformer@^0.5",
-    "@mrg-keystone/rune": "./src/bootstrap/mod.ts",
+    "@techgoose-labs/rune": "./src/bootstrap/mod.ts",
     "@danet/core": "jsr:@danet/core@2",
     "#openapi3-ts": "npm:openapi3-ts@4.5.0",
     "#danet/core": "jsr:@danet/core@2",
@@ -40,8 +40,8 @@
     "#zod": "npm:zod@3",
     "@types": "./src/foundation/dto/types.ts",
     "@foundation/": "./src/foundation/",
-    "@mrg-keystone/bedrock": "jsr:@mrg-keystone/bedrock@^1.0.1",
-    "@mrg-keystone/bedrock/artifact": "jsr:@mrg-keystone/bedrock@^1.0.1/artifact"
+    "@techgoose-labs/bedrock": "jsr:@techgoose-labs/bedrock@^1.0.2",
+    "@techgoose-labs/bedrock/artifact": "jsr:@techgoose-labs/bedrock@^1.0.2/artifact"
   },
   "compilerOptions": {
     "experimentalDecorators": true,

@@ -5,7 +5,7 @@ import {
   Endpoint,
   EndpointController,
   endpointModule,
-} from "@mrg-keystone/rune";
+} from "@techgoose-labs/rune";
 import { StartDto } from "@/src/checkout/dto/start.ts";
 import { TicketDto } from "@/src/checkout/dto/ticket.ts";
 import { PayDto } from "@/src/checkout/dto/pay.ts";

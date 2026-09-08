@@ -12,7 +12,7 @@
  * routes in bootstrap-server are the only network door to it.
  */
 
-import { specRootOf } from "@mrg-keystone/bedrock/artifact";
+import { specRootOf } from "@techgoose-labs/bedrock/artifact";
 
 /** One pre-run call: an endpoint id plus the request snapshot to send (body text + path/query params). */
 export interface SetupStep {

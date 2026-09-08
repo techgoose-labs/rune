@@ -81,7 +81,7 @@ spec now, and `rune sync` twice leaves no diff.
 ## Reading the caller
 
 ```ts
-import { channel, identity, requestId } from "@mrg-keystone/rune";
+import { channel, identity, requestId } from "@techgoose-labs/rune";
 
 @Get("me")
 me(@Req() req: Request) {
@@ -105,7 +105,7 @@ In order of likelihood:
 2. **The auth unit's `verify` returned `null`** for this credential. Reproduce
    with and without it, on both channels.
 3. **A scope-less dispatch with no `credential`** — see above; correct behavior.
-4. **Version skew** — the app still pinned `@mrg-keystone/rune@^4` or older,
+4. **Version skew** — the app still pinned `@techgoose-labs/rune@^4` or older,
    whose deny-by-default guard 401s bare network callers. Check the pin first.
 5. **Something in front** — a proxy or platform edge.
 

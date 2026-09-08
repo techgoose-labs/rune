@@ -1,4 +1,4 @@
-# @mrg-keystone/rune
+# @techgoose-labs/rune
 
 An opinionated Deno backend framework built on
 [`@danet/core`](https://jsr.io/@danet/core). It bundles server bootstrapping
@@ -17,7 +17,7 @@ hosting.
 
 ```typescript
 import "reflect-metadata";
-import { bootstrapServer, log, SwaggerDescription } from "@mrg-keystone/rune";
+import { bootstrapServer, log, SwaggerDescription } from "@techgoose-labs/rune";
 import { Controller, Get, Module } from "@danet/core";
 
 @Controller("health")
@@ -231,7 +231,7 @@ controller route. Mark a controller or a single handler `@Public()` to make a
 credential optional there:
 
 ```ts
-import { Public } from "@mrg-keystone/rune";
+import { Public } from "@techgoose-labs/rune";
 
 @Controller("inbound")
 class WebhookController {
@@ -261,7 +261,7 @@ Authorization runs in the same global guard, right after authentication, and is
 **fail-closed**. Two decorators, which stack with **AND**:
 
 ```ts
-import { Grant, LoggedIn } from "@mrg-keystone/rune";
+import { Grant, LoggedIn } from "@techgoose-labs/rune";
 
 @Controller("users")
 class UsersController {
@@ -441,7 +441,7 @@ import {
   createJwksVerifier,
   TokenError,
   verifyToken,
-} from "@mrg-keystone/rune";
+} from "@techgoose-labs/rune";
 
 const infra = createInfraClient({ baseUrl: Deno.env.get("INFRA_URL")! });
 const verifier = createJwksVerifier({ fetchJwks: () => infra.jwks() });
@@ -526,7 +526,7 @@ it is **automatically** tagged with `[<appName> <requestId>]` (matching the
 surrounding ingress/egress) and `data` becomes the structured attributes:
 
 ```typescript
-import { log } from "@mrg-keystone/rune";
+import { log } from "@techgoose-labs/rune";
 
 class UsersService {
   create(dto: CreateUser) {
@@ -648,7 +648,7 @@ import {
   Endpoint,
   EndpointController,
   endpointModule,
-} from "@mrg-keystone/rune";
+} from "@techgoose-labs/rune";
 
 class CreateOrderDto {
   @ApiProperty()
@@ -891,7 +891,7 @@ feeds two outputs — a zero-config local waterfall **and** your APM.
 #### Instrumenting
 
 ```typescript
-import { span, Traced, traceUser } from "@mrg-keystone/rune";
+import { span, Traced, traceUser } from "@techgoose-labs/rune";
 
 class Checkout {
   async run(cart: Cart) {
@@ -987,7 +987,7 @@ from the bootstrapped app's `docs`, orders them, runs them while chaining
 outputs into inputs via `bind`, rate-limits, and loops until green.
 
 ```ts
-import { exerciseEndpoints } from "@mrg-keystone/rune";
+import { exerciseEndpoints } from "@techgoose-labs/rune";
 
 const report = await exerciseEndpoints({ api }); // in-process (backend.fetch), no token
 // report: { passed, failed, optionalFailed, iterations, order, cycles }
@@ -1067,7 +1067,7 @@ Bootstrap once in a shared module (init only — it does **not** `listen()`):
 
 ```ts
 // backend.ts
-import { bootstrapServer } from "@mrg-keystone/rune";
+import { bootstrapServer } from "@techgoose-labs/rune";
 import { AppModule } from "./app.module.ts";
 
 export const api = await bootstrapServer("my-api", AppModule);
@@ -1137,7 +1137,7 @@ entry.
 
 `rune init` scaffolds this whole sprig+keep app: a `serve.ts` composition root,
 an `app/` sprig UI tree (`app/src/main.ts` + a starter page), the `bootstrap/`
-keep backend, and a `deno.json` wired with `@sprig/core` + `@mrg-keystone/rune`
+keep backend, and a `deno.json` wired with `@sprig/core` + `@techgoose-labs/rune`
 and a `deno serve serve.ts` start task.
 
 `bootstrapServer` is **bundler-safe**: it lazy-loads the Swagger builder (and

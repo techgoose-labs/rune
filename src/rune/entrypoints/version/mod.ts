@@ -44,7 +44,7 @@ export function latestCommitUrl(tag = "latest"): string {
 // read specs written for the library the app is pinned to, and — this is the
 // part worth saying out loud — `rune update` will NOT fix it, because there is
 // no release to update to yet.
-export const LIBRARY_META_URL = "https://jsr.io/@mrg-keystone/rune/meta.json";
+export const LIBRARY_META_URL = "https://jsr.io/@techgoose-labs/rune/meta.json";
 
 /** The major of a semver string, or undefined when it is not one. */
 export function majorOf(version: string | undefined): number | undefined {

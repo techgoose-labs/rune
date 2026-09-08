@@ -33,7 +33,7 @@ seeded/typed.
 
 Commit (hand-written, not generated):
 - `server.ts` — `bootstrapServer("cake", httpModule).listen()`.
-- `deno.json` — maps `@mrg-keystone/rune` → the **local keep checkout** (path import) so the example
+- `deno.json` — maps `@techgoose-labs/rune` → the **local keep checkout** (path import) so the example
   resolves without a published JSR release (overrides the build plan's `jsr:` default for local dev).
 
 ## Execution (the flow under test)
@@ -79,7 +79,7 @@ chromium` (or `PLAYWRIGHT_BROWSERS_PATH`). keep tasks `test:browser` (`KEEP_BROW
 - **reflect-metadata skew:** synced project pins `reflect-metadata@^0.2`, keep uses `0.1.13`, danet
   uses `@dx/reflect`. Mixed polyfill copies can blank out `@Endpoint`/DTO metadata. Confirm
   `x-keep-process` + DTO schemas actually appear in `/docs/cake/json`; align ranges if broken.
-- **`@mrg-keystone/rune` resolution:** local path for the example; `jsr:` for real projects — both
+- **`@techgoose-labs/rune` resolution:** local path for the example; `jsr:` for real projects — both
   must resolve.
 - **`layer-restrictions` lint:** the entrypoints→coordinators import edge must pass `rune lint`; add
   the edge to the rule's allowlist if it flags.

@@ -9,7 +9,7 @@ import {
   assertExists,
   assertStringIncludes,
 } from "#assert";
-import { bootstrapServer, exerciseEndpoints } from "@mrg-keystone/rune";
+import { bootstrapServer, exerciseEndpoints } from "@techgoose-labs/rune";
 import { httpModule } from "@/src/cake/entrypoints/http/mod.ts";
 
 let port = 8790;

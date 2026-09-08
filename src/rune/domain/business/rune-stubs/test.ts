@@ -148,7 +148,7 @@ Deno.test("renderStubsModule — header, stub flag, mint endpoint, types", () =>
   // Imports: keep + class-validator only.
   assertStringIncludes(
     out,
-    'import { Endpoint, EndpointController, endpointModule } from "@mrg-keystone/rune";',
+    'import { Endpoint, EndpointController, endpointModule } from "@techgoose-labs/rune";',
   );
   assertStringIncludes(
     out,

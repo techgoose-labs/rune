@@ -66,6 +66,16 @@ export interface BootstrapOptions {
   port?: number;
   swagger?: boolean | { filters: string[] };
   /**
+   * Extra policy rows, merged after the ones derived from the docs (D-3).
+   *
+   * The derived table covers every `@Endpoint`, because each one carries its
+   * own `x-bedrock-auth` marker. A route registered any OTHER way — a raw
+   * `@Post` a controller hand-writes, a webhook whose body is not a DTO — has
+   * no operation in the docs and so no row, and would fall to the slot default.
+   * Declare it here rather than leaving it to be discovered in production.
+   */
+  policy?: Policy;
+  /**
    * Called ONCE when the server goes live — the first-class home for a background loop (an
    * orchestrator heartbeat, a queue drainer) that `deno serve` cannot host itself because it never
    * runs `import.meta.main`. Fires from `listen()`, or lazily on the first request under the
@@ -796,7 +806,11 @@ export class BootstrapServer {
       rootModule,
       adapter,
       docs,
-      [...controlPlanePolicy(Boolean(devStatusPath)), ...policyFromDocs(docs)],
+      [
+        ...controlPlanePolicy(Boolean(devStatusPath)),
+        ...policyFromDocs(docs),
+        ...(options?.policy ?? []),
+      ],
       appName,
       { onStart, onStop },
       captureBag,

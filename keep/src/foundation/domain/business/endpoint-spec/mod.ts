@@ -166,7 +166,8 @@ function paramsFromOp(op: OpenApiOperation): SpecParam[] {
   return (op.parameters ?? [])
     .filter((p) => p.in === "path" || p.in === "query" || p.in === "header")
     .map((p) => {
-      const example = p.example ?? (p.schema as { example?: unknown } | undefined)?.example;
+      const example = p.example ??
+        (p.schema as { example?: unknown } | undefined)?.example;
       return {
         name: p.name,
         in: p.in,
@@ -188,7 +189,10 @@ export function endpointsFromDoc(doc: OpenApiDocument): SpecEndpoint[] {
       const resRef = (op.responses?.["200"] as
         | { content?: Record<string, { schema?: { $ref?: string } }> }
         | undefined)?.content?.["application/json"]?.schema?.$ref;
-      const inputSchema = fieldsFromSchema(doc, reqSchema as SchemaNode | undefined);
+      const inputSchema = fieldsFromSchema(
+        doc,
+        reqSchema as SchemaNode | undefined,
+      );
       endpoints.push({
         id: op.operationId,
         method: method.toUpperCase(),

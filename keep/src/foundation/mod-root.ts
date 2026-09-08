@@ -1,11 +1,22 @@
+// keep's export root. Everything the runtime substrate owns — the mount
+// primitive, the in-process client, the jar, the contract stamp, the logger,
+// the tracer — now lives in @mrg-keystone/bedrock and is RE-EXPORTED here for
+// exactly one release (D-6), so a 6.x app upgrades without a codemod. Import
+// them from `@mrg-keystone/bedrock` in new code; they leave keep in 8.0.
 export { Server } from "@foundation/domain/business/server/mod.ts";
+export {
+  checkBody,
+  jsonDepth,
+  MAX_BODY_BYTES,
+  MAX_JSON_DEPTH,
+} from "@foundation/domain/business/body-gateway/mod.ts";
 export {
   canonicalize,
   emitContractOpenApi,
   mergedOpenApiDoc,
   sha256Hex,
   stampSpecHash,
-} from "@foundation/domain/business/contract-stamp/mod.ts";
+} from "@mrg-keystone/bedrock/artifact";
 export {
   DanetHttpAdapter,
   HttpAdapter,
@@ -24,54 +35,57 @@ export {
   InjectFactory,
   InjectValue,
 } from "@foundation/domain/business/injectable-builders/mod.ts";
+// --- lifted to bedrock, re-exported for one release (D-6) -----------------
+// The in-process client is now bedrock's ONE client, provisioned per scope.
+// `createBackendClient` and `INTERNAL_REQUEST_HEADER` are GONE, not renamed:
+// there is no trust header any more (the channel is an envelope fact), and a
+// client built by hand would dispatch outside the instrumented root.
 export {
-  BackendClient,
-  createBackendClient,
-  INTERNAL_REQUEST_HEADER,
-} from "@foundation/domain/business/backend-client/mod.ts";
-export { log, Logger } from "@foundation/domain/business/logger/mod.ts";
-export type {
-  LogLevel,
-  RequestContext,
-} from "@foundation/domain/business/logger/mod.ts";
-export {
+  collectSetCookies,
+  createKvTraceSink,
+  KvTraceSink,
+  log,
+  Logger,
+  logger,
   MemoryTraceSink,
+  RequestJar,
   span,
   Traced,
   Tracer,
   tracer,
+  traceShipper,
   traceUser,
-} from "@foundation/domain/business/tracer/mod.ts";
-export type {
-  Span,
-  Trace,
-  TraceSink,
-} from "@foundation/domain/business/tracer/mod.ts";
-export {
-  createKvTraceSink,
-  KvTraceSink,
-} from "@foundation/domain/business/tracer/kv-store.ts";
-export { traceShipper } from "@foundation/domain/business/tracer/ship.ts";
+  withBasePath,
+} from "@mrg-keystone/bedrock";
+export type { LogLevel, Span, Trace, TraceSink } from "@mrg-keystone/bedrock";
 export { traceShellHtml } from "@foundation/domain/business/trace-ui/mod.ts";
-export { type ComposedHandler, withBasePath } from "@foundation/domain/business/mount/mod.ts";
-export {
-  BackendFrom,
-  type BootedApi,
-  type Frontend,
-} from "@foundation/domain/business/composition/mod.ts";
 export {
   Backend,
-  type BackendOptions,
-} from "@foundation/domain/business/composition/boot.ts";
+  KEEP_NAMESPACE,
+  policyFromDocs,
+} from "@foundation/domain/coordinators/bootstrap-server/mod.ts";
+export type { BackendOptions } from "@foundation/domain/coordinators/bootstrap-server/mod.ts";
+export type { KeepUnit } from "@foundation/domain/coordinators/bootstrap-server/mod.ts";
+// The composition algebra itself: `Bedrock` composes, `of` reads the envelope
+// a controller was reached with, and `Unit`/`Bag`/`Identity` are its types.
+export { Bedrock, of } from "@mrg-keystone/bedrock";
 export {
-  collectSetCookies,
-  RequestJar,
-  requestBoundClient,
-} from "@foundation/domain/business/request-jar/mod.ts";
+  channel,
+  identity,
+  requestId,
+} from "@foundation/domain/business/identity/mod.ts";
+export type {
+  Access,
+  App,
+  Bag,
+  Channel,
+  Identity,
+  Policy,
+  Unit,
+} from "@mrg-keystone/bedrock";
 export type { FetchHandler } from "@types";
 export {
   createDocsJsonHandler,
-  docsSeedScript,
   injectDocsScript,
   swaggerShellHtml,
 } from "@foundation/domain/business/docs-ui/mod.ts";

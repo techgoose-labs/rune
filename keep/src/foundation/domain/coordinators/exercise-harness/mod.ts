@@ -10,7 +10,6 @@
  * against the running server (Playwright is an optional peer, lazy-imported only on this path).
  */
 
-import type { BackendClient } from "@foundation/domain/business/backend-client/mod.ts";
 import type { SwaggerDocEntry } from "@types";
 import {
   endpointsFromDoc,
@@ -24,11 +23,18 @@ import {
 
 /** The relevant slice of a `bootstrapServer(...)` return. */
 export interface ExerciseTarget {
-  backend: Pick<BackendClient, "fetch">;
+  /** The in-process client from bedrock's bag — dispatches at WIRE paths. */
+  backend: { fetch: typeof fetch };
   docs: SwaggerDocEntry[];
+  /** Where the backend is mounted in the composed app. The docs carry
+   *  ROUTE-space paths (`/users`); the client takes WIRE paths (`/api/users`),
+   *  so the runner joins the two here (D-7). Defaults to `/api`. */
+  namespace?: string;
 }
 
 export type ExerciseAuth =
+  /** No credential. Under an auth unit this is a SCOPE-LESS dispatch and is
+   *  denied (D-10, D-19) — pass a `credential` the auth unit recognizes. */
   | { kind: "in-process" }
   /** A ready credential — an infra session bearer — sent as `Authorization`. */
   | { kind: "token"; token: string }
@@ -288,7 +294,11 @@ function resolvePath(path: string, values: Record<string, unknown>): string {
 function buildRequest(
   ep: RunEndpoint,
   values: Record<string, unknown>,
-): { path: string; body: Record<string, unknown>; headers: Record<string, string> } {
+): {
+  path: string;
+  body: Record<string, unknown>;
+  headers: Record<string, string>;
+} {
   let path = resolvePath(ep.path, values);
   const query: string[] = [];
   const headers: Record<string, string> = {};
@@ -329,7 +339,9 @@ async function buildTransport(
     // internal requires most bundlers can't resolve). It only executes for baseUrl runs, which
     // never happen inside a bundled app; the cast keeps full typing and erases at emit.
     const playwrightSpecifier = "#playwright";
-    const { request } = await import(playwrightSpecifier) as typeof import("#playwright");
+    const { request } = await import(
+      playwrightSpecifier
+    ) as typeof import("#playwright");
     const ctx = await request.newContext({
       baseURL: opts.baseUrl,
       extraHTTPHeaders: headers,
@@ -363,16 +375,22 @@ async function buildTransport(
     return { transport, dispose: () => ctx.dispose() };
   }
 
+  // Wire paths (D-7): the runner drives the app through the composed root, at
+  // the same URLs a browser would use.
+  const base = (opts.api.namespace ?? "/api").replace(/\/+$/, "");
   const transport: Transport = async (method, path, body, extra) => {
     try {
       // header-sourced fields first; auth headers stay authoritative.
-      const init: RequestInit = { method, headers: { ...(extra ?? {}), ...headers } };
+      const init: RequestInit = {
+        method,
+        headers: { ...(extra ?? {}), ...headers },
+      };
       if (method !== "GET") {
         (init.headers as Record<string, string>)["content-type"] =
           "application/json";
         init.body = JSON.stringify(body ?? {});
       }
-      const res = await opts.api.backend.fetch(path, init);
+      const res = await opts.api.backend.fetch(`${base}${path}`, init);
       const text = await res.text();
       let parsed: unknown;
       try {

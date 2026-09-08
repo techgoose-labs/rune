@@ -1,11 +1,13 @@
 /**
- * Swagger docs UI. The doc pages (index + per-module shells) and the OpenAPI spec at
- * `/docs/<module>/json` are all served openly — keep ships zero built-in auth; a deployment
- * that must restrict its docs composes a guard into its own handler pipeline. The legacy
- * `?token=` seeding script survives as inert plumbing so old bookmarked URLs keep working.
+ * Swagger docs UI. Access is a POLICY question now, answered once by the app's
+ * composition (D-11): keep's unit declares `/docs/*` open in dev and
+ * `authenticated` otherwise, bedrock resolves it, and the page below is never
+ * reached by a caller the app rejected. So there is no token to seed, stash in
+ * localStorage, or attach here — a browser that can load the page already
+ * carries whatever credential the auth unit wanted, and sends it on the
+ * same-origin spec fetch by itself.
  */
 
-const STORAGE_KEY = "danet_docs_token";
 const SWAGGER_UI_VERSION = "5";
 
 export interface DocsJsonHandlerOptions {
@@ -24,31 +26,9 @@ export function createDocsJsonHandler(
   return () => Promise.resolve(json());
 }
 
-/**
- * Client JS (no `<script>` wrapper) shared by every doc page: seed the token from `?token`,
- * strip it from the visible URL, and expose `window.__danetDocs.{token,wipe}`.
- */
-export function docsSeedScript(): string {
-  return `(function(){
-  var KEY=${JSON.stringify(STORAGE_KEY)};
-  function read(){try{return localStorage.getItem(KEY);}catch(e){return null;}}
-  function write(t){try{localStorage.setItem(KEY,t);}catch(e){}}
-  function wipe(){try{localStorage.removeItem(KEY);}catch(e){}}
-  try{
-    var u=new URL(window.location.href);
-    var q=u.searchParams.get("token");
-    if(q){write(q);u.searchParams.delete("token");history.replaceState(null,"",u.pathname+(u.search||"")+u.hash);}
-  }catch(e){}
-  window.__danetDocs={token:read,wipe:wipe,KEY:KEY};
-})();`;
-}
-
-/** Injects the seed script into an existing HTML page (the docs index) before `</body>`. */
+/** Kept as the no-op it now is so the doc pages compose the same way. */
 export function injectDocsScript(html: string): string {
-  const tag = `<script>${docsSeedScript()}</script>`;
-  return html.includes("</body>")
-    ? html.replace("</body>", `${tag}</body>`)
-    : html + tag;
+  return html;
 }
 
 /**
@@ -72,7 +52,6 @@ export function swaggerShellHtml(title: string): string {
 <body>
 <div id="swagger-ui"></div>
 <div id="danet-docs-message" hidden></div>
-<script>${docsSeedScript()}</script>
 <script src="${bundleSrc}" crossorigin></script>
 <script>
 window.addEventListener("load", function(){
@@ -84,18 +63,13 @@ window.addEventListener("load", function(){
     url: jsonUrl,
     dom_id: "#swagger-ui",
     deepLinking: true,
-    requestInterceptor: function(req){
-      var t = window.__danetDocs.token();
-      if (t) req.headers["Authorization"] = "Bearer " + t;
-      return req;
-    },
+    // Same-origin: the browser sends whatever credential the auth unit issued.
     responseInterceptor: function(res){
-      if (res.status === 401){
-        window.__danetDocs.wipe();
+      if (res.status === 401 || res.status === 403){
         var m = document.getElementById("danet-docs-message");
         document.getElementById("swagger-ui").innerHTML = "";
         m.hidden = false;
-        m.textContent = "Access denied — your docs token is missing, invalid, or expired. Reopen this page using a fresh ?token=… link.";
+        m.textContent = "Access denied — sign in and reload this page.";
       }
       return res;
     }

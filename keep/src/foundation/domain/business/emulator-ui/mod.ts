@@ -20,7 +20,6 @@ import {
   type SpecEndpoint,
 } from "@foundation/domain/business/endpoint-spec/mod.ts";
 import { processOrder } from "@foundation/domain/business/process-graph/mod.ts";
-import { docsSeedScript } from "@foundation/domain/business/docs-ui/mod.ts";
 import { devReloadJs, emulatorClientJs, emulatorCss } from "./client.ts";
 
 /** Endpoints in process order, ready to embed in the emulator page. */
@@ -184,7 +183,6 @@ export function emulatorShellHtml(
     </div>
   </aside>
 </main>
-<script>${docsSeedScript()}</script>
 <script>window.__KEEP_EMULATOR__ = ${payload};</script>
 <script>${emulatorClientJs}</script>${
     opts.dev ? `\n<script>${devReloadJs}</script>` : ""

@@ -1,25 +1,11 @@
 import type { Cotr, FetchHandler, HttpMethod, Type } from "@types";
 import { SwaggerModule } from "#danet/swagger";
 import { DanetApplication } from "#danet/core";
-import { INTERNAL_REQUEST_HEADER } from "@foundation/domain/business/backend-client/mod.ts";
+import { Hono } from "#hono";
 
-/**
- * Removes the in-process trust header from an inbound request. The header marks requests minted
- * by the in-process client as trusted (auth-exempt); stripping it on the network boundary means
- * a request arriving over the network — however it was mounted or whatever it sends — can NEVER
- * impersonate an in-process call. The in-process client dispatches via `inProcessHandler`, which
- * does not strip, so its own trust marker survives.
- */
-function stripInternalHeader(req: Request): Request {
-  if (!req.headers.has(INTERNAL_REQUEST_HEADER)) return req;
-  const headers = new Headers(req.headers);
-  headers.delete(INTERNAL_REQUEST_HEADER);
-  return new Request(req, { headers });
-}
-
-// How many consecutive ports to try before giving up. The bind walks
-// startPort, startPort+1, … so a busy default never hard-errors the boot.
-const MAX_PORT_PROBES = 20;
+// There is no in-process trust header any more, and so nothing to strip: the
+// channel a request arrived on is a fact of bedrock's envelope, stamped below
+// the root and unforgeable from outside it. One handler serves both channels.
 
 export abstract class HttpAdapter {
   constructor(public defaultPort?: number) {}
@@ -44,62 +30,44 @@ export class DanetHttpAdapter extends HttpAdapter {
   }
 
   /**
-   * The standalone **network** dispatcher — what `Deno.serve` runs and what you mount in a
-   * composed app. It strips the in-process trust header so no inbound request can impersonate an
-   * in-process call, then forwards Deno's connection `info` (as the request env) so
-   * `remoteAddr`/loopback detection survives when mounted behind another listener.
+   * The dispatcher in keep's OWN route space (`/users`, `/docs/_map`), for both
+   * channels. Deno's connection `info` is forwarded as the request env so
+   * `remoteAddr` survives when the app is mounted behind another listener.
    */
   get handler(): FetchHandler {
-    const hono = this.app.router;
-    return (req: Request, info?: Deno.ServeHandlerInfo) =>
-      hono.fetch(stripInternalHeader(req), info);
-  }
-
-  /**
-   * The **in-process** dispatcher used by the `BackendClient`. It does NOT strip the trust
-   * header, so the client's in-process marker is honored. Never expose this to network traffic —
-   * routing inbound requests through it (or through `backend.fetch`) bypasses auth by design.
-   */
-  get inProcessHandler(): FetchHandler {
     const hono = this.app.router;
     return (req: Request, info?: Deno.ServeHandlerInfo) =>
       hono.fetch(req, info);
   }
 
   /**
-   * Bind and start serving. If the requested port is already in use, walk to
-   * the next one (up to MAX_PORT_PROBES) instead of erroring — so a stray
-   * process on the default port can never stop the app from coming up. The
-   * actually-bound port is recorded on `boundPort` and returned.
+   * The same routes, matched under `namespace` — what bedrock calls when keep
+   * declares `mountsSelf` (D-20). Hono's `route()` does the prefix matching on
+   * its own path index and passes the request through UNCHANGED, which is the
+   * point: `Deno.upgradeWebSocket(req)` only succeeds on the very Request the
+   * connection arrived as, so a mount that rewrites the URL breaks every
+   * socket reached through `/api`.
    */
-  async listen(rootModule: Type): Promise<{ port: number }> {
-    const startPort = this.defaultPort ?? 3000;
-    await this.init(rootModule);
-    let lastErr: unknown;
-    for (
-      let port = startPort;
-      port < startPort + MAX_PORT_PROBES;
-      port++
-    ) {
-      try {
-        const { port: bound } = await this.app.listen(port);
-        this.boundPort = bound;
-        if (bound !== startPort) {
-          console.warn(
-            `[keep] port ${startPort} in use — bound ${bound} instead`,
-          );
-        }
-        return { port: bound };
-      } catch (e) {
-        if (e instanceof Deno.errors.AddrInUse) {
-          lastErr = e;
-          continue; // try the next port
-        }
-        throw e; // any other failure is real — surface it
-      }
-    }
-    throw lastErr ?? new Deno.errors.AddrInUse(
-      `no free port in ${startPort}..${startPort + MAX_PORT_PROBES - 1}`,
+  mountedHandler(namespace: string): FetchHandler {
+    const base = namespace.replace(/\/+$/, "");
+    if (base === "") return this.handler;
+    const mounted = new Hono().route(base, this.app.router);
+    return (req: Request, info?: Deno.ServeHandlerInfo) =>
+      mounted.fetch(req, info);
+  }
+
+  /**
+   * No port walk, and no socket of keep's own: bedrock's lifecycle binds the
+   * one listener for the whole composed app, and `PORT` is fail-loud in its env
+   * registry rather than silently walking to the next free port. `rune dev`
+   * keeps its own probing, in the CLI, where a dev-loop retry belongs.
+   */
+  listen(_rootModule: Type): Promise<{ port: number }> {
+    return Promise.reject(
+      new Error(
+        "keep: the adapter no longer binds a socket — serve with " +
+          "`Bedrock({ backend: api }).listen()` (or `api.listen()`, which is that).",
+      ),
     );
   }
 

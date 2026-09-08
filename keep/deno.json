@@ -1,7 +1,7 @@
 {
   "name": "@mrg-keystone/rune",
-  "version": "6.0.0",
-  "description": "Opinionated Deno backend framework: DI bootstrap, auto Swagger docs, an interactive process cake, observability (Datadog/Postmark/tracing), and an in-process API client for native sprig UI hosting. Ships zero built-in auth \u2014 compose your own guard. Built on @danet/core.",
+  "version": "7.0.0",
+  "description": "Opinionated Deno backend framework: DI bootstrap, auto Swagger docs, an interactive process cake, and rune's assert runtime. Returns a bedrock Unit — compose it with Bedrock({ backend }); the runtime, observability, and auth composition are @mrg-keystone/bedrock's.",
   "license": "MIT",
   "exports": {
     ".": "./src/bootstrap/mod.ts",
@@ -19,9 +19,9 @@
   },
   "tasks": {
     "check:jsr": "deno run --allow-net --allow-read scripts/check-jsr-deps.ts && deno publish --dry-run --allow-dirty --no-provenance --allow-slow-types",
-    "test": "INFRA_URL= KEEP_SESSION_KV=false deno test -A --unstable-raw-imports",
-    "test:browser": "INFRA_URL= KEEP_SESSION_KV=false KEEP_BROWSER=1 deno test -A --unstable-raw-imports src/foundation/domain/business/emulator-ui/browser.test.ts src/foundation/domain/business/map-ui/browser.test.ts",
-    "test:smoke": "INFRA_URL= KEEP_SESSION_KV=false KEEP_PLAYWRIGHT_SMOKE=1 deno test -A --unstable-raw-imports src/foundation/domain/coordinators/exercise-harness/smk.test.ts"
+    "test": "deno test -A --unstable-raw-imports",
+    "test:browser": "KEEP_BROWSER=1 deno test -A --unstable-raw-imports src/foundation/domain/business/emulator-ui/browser.test.ts src/foundation/domain/business/map-ui/browser.test.ts",
+    "test:smoke": "KEEP_PLAYWRIGHT_SMOKE=1 deno test -A --unstable-raw-imports src/foundation/domain/coordinators/exercise-harness/smk.test.ts"
   },
   "imports": {
     "#reflect-metadata": "npm:reflect-metadata@0.1.13",
@@ -38,9 +38,10 @@
     "#hono": "jsr:@hono/hono@4.6.3",
     "#assert": "jsr:@std/assert",
     "#zod": "npm:zod@3",
-    "#jose": "npm:jose@5",
     "@types": "./src/foundation/dto/types.ts",
-    "@foundation/": "./src/foundation/"
+    "@foundation/": "./src/foundation/",
+    "@mrg-keystone/bedrock": "../../../bedrock/mod.ts",
+    "@mrg-keystone/bedrock/artifact": "../../../bedrock/src/artifact/mod.ts"
   },
   "compilerOptions": {
     "experimentalDecorators": true,

@@ -54,7 +54,7 @@ Deno.test("Endpoint - route is served and runs the handler (in-process)", async 
     swagger: false,
   });
   try {
-    const res = await server.backend.fetch("/users", {
+    const res = await server.backend.fetch("/api/users", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name: "Ada" }),
@@ -71,7 +71,7 @@ Deno.test("Endpoint - chained route receives a body and returns it", async () =>
     swagger: false,
   });
   try {
-    const res = await server.backend.fetch("/users/fetch", {
+    const res = await server.backend.fetch("/api/users/fetch", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: "u_1" }),

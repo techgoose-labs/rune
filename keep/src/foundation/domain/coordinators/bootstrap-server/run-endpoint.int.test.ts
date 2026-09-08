@@ -1,5 +1,6 @@
 import "#reflect-metadata";
-import { assert, assertEquals } from "#assert";
+import { assert, assertEquals, assertStringIncludes } from "#assert";
+import { Bedrock } from "@mrg-keystone/bedrock";
 import { ApiProperty } from "#danet/swagger/decorators";
 import {
   Endpoint,
@@ -19,12 +20,16 @@ const offhost = {
 // deno-lint-ignore no-explicit-any
 const conn = (info: unknown) => info as any;
 
+const RUN_PATH = "/api/docs/_run";
+const runInit = (body?: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+// The in-process client takes a PATH at the app's own origin (D-7); a Request
+// built against a foreign origin falls through to the network, by design.
 const runReq = (body?: unknown) =>
-  new Request("http://app/docs/_run", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  new Request(`http://app${RUN_PATH}`, runInit(body));
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 // A producer module and a consumer module wired only by a `$token` contract input.
@@ -96,7 +101,7 @@ Deno.test("POST /docs/_run - in-process walks the composed process, ok:true", as
     ConsumerModule,
   ]);
   try {
-    const res = await server.backend.fetch(runReq({}));
+    const res = await server.backend.fetch(RUN_PATH, runInit({}));
     assertEquals(res.status, 200);
     const report = await res.json();
     assertEquals(report.ok, true);
@@ -115,20 +120,37 @@ Deno.test("POST /docs/_run - in-process walks the composed process, ok:true", as
   }
 });
 
-Deno.test("POST /docs/_run - open to network callers (zero built-in auth)", async () => {
+Deno.test("POST /docs/_run - answers a network caller through the composed root", async () => {
   const server = await bootstrapServer("run-app", [
     ProducerModule,
     ConsumerModule,
   ]);
+  const app = Bedrock({ backend: server });
   try {
-    // keep ships no built-in gate: the door answers off-host and conn-less
-    // callers alike. A deployment that must restrict it composes its own guard.
-    const offRes = await server.handler(runReq({}), conn(offhost));
+    // With no auth unit composed there is nothing to authenticate against, so
+    // the door answers off-host and conn-less callers alike. Under an auth unit
+    // the same row resolves `authenticated` outside dev (D-11).
+    const offRes = await app(runReq({}), conn(offhost));
     assertEquals(offRes.status, 200);
     assertEquals((await offRes.json()).ok, true);
-    const noConn = await server.handler(runReq({}));
+    const noConn = await app(runReq({}));
     assertEquals(noConn.status, 200);
     await noConn.body?.cancel();
+  } finally {
+    await app.stop();
+  }
+});
+
+Deno.test("POST /docs/_run - dispatched OUTSIDE the root, the runner has no client", async () => {
+  // The unit's handler called directly was never provisioned with a bag, so
+  // there is no client to drive the app with — and the runner says so instead
+  // of inventing one (D-13: a unit reaches the app through the bag it was
+  // handed, never a self-addressed fetch).
+  const server = await bootstrapServer("run-app", ConsumerModule);
+  try {
+    const res = await server.handler(runReq({}));
+    assertEquals(res.status, 503);
+    assertStringIncludes((await res.json()).error, "Bedrock");
   } finally {
     await server.stop();
   }
@@ -138,7 +160,8 @@ Deno.test("POST /docs/_run - seeds in the body satisfy an input with no producer
   const server = await bootstrapServer("run-app", ConsumerModule);
   try {
     const res = await server.backend.fetch(
-      runReq({ seeds: { token: "seed-9" } }),
+      RUN_PATH,
+      runInit({ seeds: { token: "seed-9" } }),
     );
     assertEquals(res.status, 200);
     const report = await res.json();
@@ -152,7 +175,7 @@ Deno.test("POST /docs/_run - seeds in the body satisfy an input with no producer
 Deno.test("POST /docs/_run - a forced cycle returns ok:false with the cycle named", async () => {
   const server = await bootstrapServer("run-app", CycleModule);
   try {
-    const res = await server.backend.fetch(runReq({}));
+    const res = await server.backend.fetch(RUN_PATH, runInit({}));
     assertEquals(res.status, 200);
     const report = await res.json();
     assertEquals(report.ok, false);
@@ -166,7 +189,7 @@ Deno.test("POST /docs/_run - a forced cycle returns ok:false with the cycle name
 Deno.test("POST /docs/_run - dryRun reports unresolved inputs without executing", async () => {
   const server = await bootstrapServer("run-app", ConsumerModule);
   try {
-    const res = await server.backend.fetch(runReq({ dryRun: true }));
+    const res = await server.backend.fetch(RUN_PATH, runInit({ dryRun: true }));
     assertEquals(res.status, 200);
     const report = await res.json();
     // $token has no producer and no seed here ⇒ flagged; nothing ran.
@@ -183,16 +206,17 @@ Deno.test("POST /docs/_heal - open door, 503 when no healer is configured", asyn
   Deno.env.delete("PRIVATE_CLAUDE_URL");
   const server = await bootstrapServer("run-app", ConsumerModule);
   try {
-    const req = () =>
-      new Request("http://app/docs/_heal", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ endpoint: { id: "use" } }),
-      });
+    const HEAL_PATH = "/api/docs/_heal";
+    const healInit = (): RequestInit => ({
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ endpoint: { id: "use" } }),
+    });
+    const req = () => new Request(`http://app${HEAL_PATH}`, healInit());
     // The door is open (zero built-in auth); unconfigured → explicit 503 naming
     // the env var, for network and in-process callers alike.
     assertEquals((await server.handler(req(), conn(offhost))).status, 503);
-    const res = await server.backend.fetch(req());
+    const res = await server.backend.fetch(HEAL_PATH, healInit());
     assertEquals(res.status, 503);
     const body = await res.json();
     assertEquals(body.error.includes("PRIVATE_CLAUDE_URL"), true);

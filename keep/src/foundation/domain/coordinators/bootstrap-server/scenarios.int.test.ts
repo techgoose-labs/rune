@@ -18,14 +18,17 @@ const offhost = {
 // deno-lint-ignore no-explicit-any
 const conn = (info: unknown) => info as any;
 
+const jsonInit = (body?: unknown): RequestInit => ({
+  method: body === undefined ? "GET" : "POST",
+  headers: body === undefined
+    ? undefined
+    : { "content-type": "application/json" },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+/** The in-process client takes a WIRE PATH at the app's own origin (D-7). */
+const wire = (path: string) => `/api${path}`;
 const jsonReq = (path: string, body?: unknown) =>
-  new Request(`http://app${path}`, {
-    method: body === undefined ? "GET" : "POST",
-    headers: body === undefined
-      ? undefined
-      : { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  new Request(`http://app${wire(path)}`, jsonInit(body));
 
 class CreateDto {
   @ApiProperty()
@@ -53,12 +56,13 @@ Deno.test("/docs/_scenarios - POST saves a file, GET lists it back; bad payloads
   const server = await bootstrapServer("scen-app", ThingsModule);
   try {
     assertEquals(
-      (await (await server.backend.fetch(jsonReq("/docs/_scenarios")))
+      (await (await server.backend.fetch(wire("/docs/_scenarios")))
         .json()).scenarios,
       [],
     );
     const saved = await server.backend.fetch(
-      jsonReq("/docs/_scenarios", {
+      wire("/docs/_scenarios"),
+      jsonInit({
         name: "Happy Path",
         module: "things",
         flow: "card",
@@ -72,16 +76,16 @@ Deno.test("/docs/_scenarios - POST saves a file, GET lists it back; bad payloads
     );
     assertEquals(onDisk.module, "things");
 
-    const list =
-      (await (await server.backend.fetch(jsonReq("/docs/_scenarios")))
-        .json()).scenarios;
+    const list = (await (await server.backend.fetch(wire("/docs/_scenarios")))
+      .json()).scenarios;
     assertEquals(list.length, 1);
     assertEquals(list[0].name, "Happy Path");
 
     // A scenario without identity fields is rejected.
     assertEquals(
       (await server.backend.fetch(
-        jsonReq("/docs/_scenarios", { steps: [] }),
+        wire("/docs/_scenarios"),
+        jsonInit({ steps: [] }),
       ))
         .status,
       400,
@@ -99,7 +103,8 @@ Deno.test("/docs/_run - scenario param replays a saved scenario's literal bodies
   const server = await bootstrapServer("scen-app", ThingsModule);
   try {
     await server.backend.fetch(
-      jsonReq("/docs/_scenarios", {
+      wire("/docs/_scenarios"),
+      jsonInit({
         name: "named run",
         module: "things",
         steps: [{
@@ -111,7 +116,8 @@ Deno.test("/docs/_run - scenario param replays a saved scenario's literal bodies
       }),
     );
     const res = await server.backend.fetch(
-      jsonReq("/docs/_run", { scenario: "Named Run" }),
+      wire("/docs/_run"),
+      jsonInit({ scenario: "Named Run" }),
     );
     assertEquals(res.status, 200);
     const report = await res.json();
@@ -124,7 +130,8 @@ Deno.test("/docs/_run - scenario param replays a saved scenario's literal bodies
     // An unknown scenario is a clear 404.
     assertEquals(
       (await server.backend.fetch(
-        jsonReq("/docs/_run", { scenario: "nope" }),
+        wire("/docs/_run"),
+        jsonInit({ scenario: "nope" }),
       ))
         .status,
       404,
@@ -164,7 +171,7 @@ Deno.test("/docs/_heal-rules - serves the normalized project rules file", async 
   try {
     // No file yet → the empty rule set.
     assertEquals(
-      await (await server.backend.fetch(jsonReq("/docs/_heal-rules")))
+      await (await server.backend.fetch(wire("/docs/_heal-rules")))
         .json(),
       { v: 1, slugs: {} },
     );
@@ -185,9 +192,8 @@ Deno.test("/docs/_heal-rules - serves the normalized project rules file", async 
         },
       }),
     );
-    const rules = await (await server.backend.fetch(
-      jsonReq("/docs/_heal-rules"),
-    )).json();
+    const rules = await (await server.backend.fetch(wire("/docs/_heal-rules")))
+      .json();
     assertEquals(rules.slugs["not-enabled"][0].match, "/enable/i");
     assertEquals(rules.slugs["not-enabled"][0].todo, true);
   } finally {
@@ -201,7 +207,8 @@ Deno.test("/docs/_run - stream:true emits ndjson result lines then a done summar
   const server = await bootstrapServer("scen-app", ThingsModule);
   try {
     const res = await server.backend.fetch(
-      jsonReq("/docs/_run", { stream: true, orderBy: "module" }),
+      wire("/docs/_run"),
+      jsonInit({ stream: true, orderBy: "module" }),
     );
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "application/x-ndjson");
@@ -262,9 +269,7 @@ Deno.test("/docs/_run - a slug the heal rules mark retryable is re-attempted, no
   LeaseController.failures = 2;
   const server = await bootstrapServer("lease-app", LeaseModule);
   try {
-    const res = await server.backend.fetch(
-      jsonReq("/docs/_run", {}),
-    );
+    const res = await server.backend.fetch(wire("/docs/_run"), jsonInit({}));
     const report = await res.json();
     assertEquals(report.ok, true);
     const resolve = report.passed.find((r: { id: string }) =>

@@ -23,7 +23,11 @@ const src = emulatorClientJs;
 const sandboxSrc = [
   between(src, "var REF_RE = ", "function hasOwn("), // REF_RE / WHOLE_REF_RE / REF_TEST
   between(src, "function isRefShape(ref) {", "// Resolution is recursive"),
-  between(src, "function resolveString(s, missing, depth) {", "function resolveValue("),
+  between(
+    src,
+    "function resolveString(s, missing, depth) {",
+    "function resolveValue(",
+  ),
   between(src, "function markMissing(html, missing) {", "function agoText("),
   "return { isRefShape: isRefShape, resolveString: resolveString, markMissing: markMissing };",
 ].join("\n");
@@ -72,7 +76,7 @@ Deno.test("bare payload token stays literal and is never reported missing", () =
   const { resolveString } = harness();
   const missing: string[] = [];
   const out = resolveString(
-    'hi {{ReservationCustomerFirstName}} there',
+    "hi {{ReservationCustomerFirstName}} there",
     missing,
   );
   assertEquals(out, "hi {{ReservationCustomerFirstName}} there");
@@ -82,13 +86,24 @@ Deno.test("bare payload token stays literal and is never reported missing", () =
 Deno.test("whole-string bare token stays literal (no missing)", () => {
   const { resolveString } = harness();
   const missing: string[] = [];
-  assertEquals(resolveString("{{customer_name}}", missing), "{{customer_name}}");
+  assertEquals(
+    resolveString("{{customer_name}}", missing),
+    "{{customer_name}}",
+  );
   assertEquals(missing, []);
 });
 
 Deno.test("inherited Object.prototype head names stay literal (no prototype-pollution false ref)", () => {
   const { resolveString } = harness({ byId: { create: {} } });
-  for (const tok of ["constructor", "toString", "valueOf", "hasOwnProperty", "__proto__"]) {
+  for (
+    const tok of [
+      "constructor",
+      "toString",
+      "valueOf",
+      "hasOwnProperty",
+      "__proto__",
+    ]
+  ) {
     const missing: string[] = [];
     const src = `{{${tok}.x}}`;
     assertEquals(resolveString(src, missing), src, `${tok} must stay literal`);

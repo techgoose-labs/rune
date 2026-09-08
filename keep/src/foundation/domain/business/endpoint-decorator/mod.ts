@@ -165,13 +165,17 @@ export function Endpoint(opts: EndpointOptions = {}): MethodDecorator {
             query: (n: string) => context.req.query(n),
             header: (n: string) => context.req.header(n),
           };
-          const proto = (InputDto as unknown as { prototype: object }).prototype;
+          const proto =
+            (InputDto as unknown as { prototype: object }).prototype;
           const merged = assembleSourcedInput(
             body,
             sources,
             read,
             (field, raw) =>
-              coerceToType(raw, Reflect.getMetadata("design:type", proto, field)),
+              coerceToType(
+                raw,
+                Reflect.getMetadata("design:type", proto, field),
+              ),
           );
           return assert(InputDto as unknown as { new (): object }, merged);
         });

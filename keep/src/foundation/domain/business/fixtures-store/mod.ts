@@ -12,6 +12,8 @@
  * routes in bootstrap-server are the only network door to it.
  */
 
+import { specRootOf } from "@mrg-keystone/bedrock/artifact";
+
 /** One pre-run call: an endpoint id plus the request snapshot to send (body text + path/query params). */
 export interface SetupStep {
   /** Bare endpoint id (handler method name) within `module` (or the slice's owning module). */
@@ -195,33 +197,19 @@ export function fixturesDir(): string {
   return resolveFixturesDir(cwd);
 }
 
-/** Walk up from `start` (absolute) to the nearest ancestor that contains a `.git` entry — a
- * directory in a normal clone OR a file in a `git worktree` checkout — and return it, or
- * `undefined` if none exists before the filesystem root. In a monorepo this is the shared root
- * the frontend and backend agree on. Synchronous + subprocess-free (no `git` needed). */
-function nearestGitRoot(start: string): string | undefined {
-  let dir = start;
-  while (true) {
-    try {
-      Deno.lstatSync(`${dir}/.git`); // dir OR file — existence is enough
-      return dir;
-    } catch {
-      // not here — climb
-    }
-    const i = dir.lastIndexOf("/");
-    if (i <= 0) return undefined; // reached the filesystem root
-    dir = dir.slice(0, i);
-  }
-}
-
 /** Pure resolution of the fixtures dir from a working directory (no env / no `Deno.cwd()` read),
  * so the monorepo / standalone / legacy branches are unit-testable. Prefers the shared
  * `<gitRoot>/spec/misc`, else the cwd's own `spec/misc`, else the legacy `<cwd>/fixtures`. */
 export function resolveFixturesDir(cwd: string): string {
-  const gitRoot = nearestGitRoot(cwd);
-  if (gitRoot !== undefined) {
+  // The ONE spec-root walk (D-9), imported rather than re-derived: this file
+  // used to carry its own copy, and a copy that drifts splits a monorepo's
+  // halves onto two different `spec/` dirs.
+  const gitRoot = specRootOf(cwd);
+  if (gitRoot !== cwd) {
     try {
-      if (Deno.statSync(`${gitRoot}/spec`).isDirectory) return `${gitRoot}/spec/misc`;
+      if (Deno.statSync(`${gitRoot}/spec`).isDirectory) {
+        return `${gitRoot}/spec/misc`;
+      }
     } catch {
       // the git root has no spec/ — a non-rune monorepo, or specs kept per-package; fall through
     }

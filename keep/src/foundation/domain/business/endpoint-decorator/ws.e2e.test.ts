@@ -30,7 +30,8 @@ const ChatModule = endpointModule("Chat", [ChatSocket]);
 // Sanitizers off: the WebSocket client + Deno.serve teardown are async and would otherwise
 // trip false-positive resource/op leak detection. The server is still closed in `finally`.
 Deno.test({
-  name: "WS e2e — real socket upgrades, routes the topic, validates the payload, replies to the sender",
+  name:
+    "WS e2e — real socket upgrades, routes the topic, validates the payload, replies to the sender",
   sanitizeResources: false,
   sanitizeOps: false,
 }, async () => {
@@ -40,8 +41,12 @@ Deno.test({
   const ws = new WebSocket(`ws://localhost:${port}/rooms/general`);
   try {
     const reply = await new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("timed out waiting for WS reply")), 5000);
-      ws.onopen = () => ws.send(JSON.stringify({ topic: "send", data: { text: "hi" } }));
+      const timer = setTimeout(
+        () => reject(new Error("timed out waiting for WS reply")),
+        5000,
+      );
+      ws.onopen = () =>
+        ws.send(JSON.stringify({ topic: "send", data: { text: "hi" } }));
       ws.onmessage = (e) => {
         clearTimeout(timer);
         resolve(e.data as string);

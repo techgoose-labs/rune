@@ -36,9 +36,7 @@ Deno.test("served OpenAPI honors class-validator @IsOptional in required", async
   try {
     // the /json endpoint is self-gated: the in-process client (internal key) is trusted, so
     // dispatch it via backend.fetch (a plain network handler call fails closed now).
-    const res = await api.backend.fetch(
-      new Request("http://app/docs/probe/json"),
-    );
+    const res = await api.backend.fetch("/api/docs/probe/json");
     assertEquals(res.status, 200);
     const doc = await res.json();
     assertEquals(

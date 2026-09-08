@@ -64,7 +64,10 @@ export function honorOptionalProps(
  * reused elsewhere keeps its full shape. A no-op for ordinary (all-body) endpoints.
  */
 export function applyFieldSources(doc: OpenApiDocument): void {
-  const schemas = (doc.components?.schemas ?? {}) as Record<string, OpenApiSchema>;
+  const schemas = (doc.components?.schemas ?? {}) as Record<
+    string,
+    OpenApiSchema
+  >;
   const methods = ["get", "post", "put", "patch", "delete"] as const;
   for (const pathItem of Object.values(doc.paths ?? {})) {
     for (const method of methods) {
@@ -165,7 +168,9 @@ export class SwaggerBuilder {
     swaggerDocs.forEach((entry) => honorOptionalProps(entry.doc, optionals));
     // Field-source binding: move path/query/header-sourced fields out of the body into params so
     // the served doc matches how each field is sent (and the cake renders them at the right place).
-    swaggerDocs.forEach((entry) => applyFieldSources(entry.doc as unknown as OpenApiDocument));
+    swaggerDocs.forEach((entry) =>
+      applyFieldSources(entry.doc as unknown as OpenApiDocument)
+    );
     // Index from the CRAWLED modules, not server.moduleNames — the server only
     // registers the root module, so an imported module would get a /docs/<name>
     // page but no card on the index.

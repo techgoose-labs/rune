@@ -96,7 +96,12 @@ Deno.test("applyFieldSources - moves sourced fields from body to typed params", 
             bind: {},
             method: "post",
             path: "proxy/:target/:rest{.+}",
-            sources: { target: "path", rest: "path*", q: "query", auth: "header" },
+            sources: {
+              target: "path",
+              rest: "path*",
+              q: "query",
+              auth: "header",
+            },
           },
         },
       },
@@ -133,7 +138,11 @@ Deno.test("applyFieldSources - moves sourced fields from body to typed params", 
     required: ["payload"],
   });
   const comp = doc.components!.schemas!.ProxyReqDto as { properties: object };
-  assertEquals(Object.keys(comp.properties).length, 5, "shared component is left intact");
+  assertEquals(
+    Object.keys(comp.properties).length,
+    5,
+    "shared component is left intact",
+  );
 });
 
 Deno.test("SwaggerBuilder - source-bound endpoint: catch-all routes, params, stripped body (e2e)", async () => {

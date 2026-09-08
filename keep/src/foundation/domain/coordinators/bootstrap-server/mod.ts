@@ -1,21 +1,13 @@
 import type { FetchHandler, SwaggerDocEntry, Type } from "@types";
 import { Server } from "@foundation/domain/business/server/mod.ts";
 import { DanetHttpAdapter } from "@foundation/domain/data/http-adapter/mod.ts";
-import { createBackendClient } from "@foundation/domain/business/backend-client/mod.ts";
-import type { BackendClient } from "@foundation/domain/business/backend-client/mod.ts";
-import { log } from "@foundation/domain/business/logger/mod.ts";
-import { tracer } from "@foundation/domain/business/tracer/mod.ts";
-import { createKvTraceSink } from "@foundation/domain/business/tracer/kv-store.ts";
-import { traceShipper } from "@foundation/domain/business/tracer/ship.ts";
-import { DatadogTransport } from "@foundation/domain/data/datadog/mod.ts";
-import { PostmarkAlerter } from "@foundation/domain/data/postmark/mod.ts";
-import { createRequestLoggingMiddleware } from "@foundation/domain/business/request-logger/mod.ts";
 import type { HttpContext } from "#danet/core";
-import {
-  BackendFrom,
-  type Frontend,
-} from "@foundation/domain/business/composition/mod.ts";
 import type { Context } from "#hono";
+// The runtime substrate is bedrock's: it mints the request id, opens the
+// capture, runs the guard, and owns the lifecycle. keep boots a DI tree,
+// builds docs, and hands the result back as a `Unit`.
+import { Bedrock, tracer } from "@mrg-keystone/bedrock";
+import type { App, Bag, Policy, Unit } from "@mrg-keystone/bedrock";
 import {
   exerciseEndpoints,
   type ExerciseOptions,
@@ -25,6 +17,7 @@ import {
   healConfigured,
 } from "@foundation/domain/business/heal/mod.ts";
 import { appModule } from "@foundation/domain/business/endpoint-decorator/mod.ts";
+import { checkBody } from "@foundation/domain/business/body-gateway/mod.ts";
 import {
   createDocsJsonHandler,
   injectDocsScript,
@@ -52,13 +45,17 @@ import {
 } from "@foundation/domain/business/fixtures-store/mod.ts";
 
 /**
- * Handed to {@link BootstrapOptions.onStart}/{@link BootstrapOptions.onStop}. `backend` is the
- * in-process client — call your own endpoints from a tick loop with no token plumbing (it stamps
- * the trust marker). `port` is the actually-bound port under `listen()`, or `0` under the handler
- * path (`deno serve` / `Deno.serve(app.handler)`), where keep never binds a socket of its own.
+ * Handed to {@link BootstrapOptions.onStart}/{@link BootstrapOptions.onStop}. It is bedrock's
+ * bag plus the bound port: `backend` is the scope-less in-process client (kept under its 6.x
+ * name; it is `fetch` on bedrock's bag), `fetch` the same client, `app` the app's identity, and
+ * `policy` the merged table. `port` is the actually-bound port under `listen()`, or `0` under the
+ * handler path (`deno serve`), where nothing binds a socket.
+ *
+ * The client dispatches at WIRE paths (D-7): a keep route lives at `/api/<…>` in the composed
+ * app, so call `backend.fetch("/api/users")`, not `/users`.
  */
-export interface ServerLifecycle {
-  backend: BackendClient;
+export interface ServerLifecycle extends Bag {
+  backend: { fetch: typeof fetch };
   port: number;
 }
 
@@ -84,42 +81,10 @@ export interface BootstrapOptions {
   onStop?: (ctx: ServerLifecycle) => void | Promise<void>;
 }
 
-// keep ships ZERO built-in auth: no infra trust, no session store, no grants, no route
-// guard. Cookies are bytes the substrate transports faithfully on both channels; auth, if an
-// app wants it, is a guard the app composes into its own handler pipeline. The env vars the
-// old auth machinery read are REMOVED — a stale config announces itself with the one-time
-// boot warning below instead of silently steering nothing.
-const REMOVED_ENV_VARS = [
-  "INFRA_URL",
-  "INFRA_JWKS_URL",
-  "INFRA_JWKS_TTL_SECONDS",
-  "INFRA_POLL_INTERVAL_MS",
-  "KEEP_ROUTE_AUDIT",
-  "KEEP_SESSION_KV",
-  "KEEP_SESSION_TTL_DAYS",
-  "HONOR_SKELETON",
-] as const;
-
-/** One-time boot warning naming any set-but-removed env vars (the removed-auth ledger). */
-function warnRemovedEnvVars(appName: string) {
-  const set = REMOVED_ENV_VARS.filter((v) => Deno.env.get(v) !== undefined);
-  if (set.length) {
-    warnOnce(
-      `[${appName}] removed env var(s) set but no longer read (auth machinery was removed — safe to delete): ${
-        set.join(", ")
-      }.`,
-    );
-  }
-  if (Deno.env.get("POSTMARK_TO") !== undefined) {
-    warnOnce(
-      `[${appName}] POSTMARK_TO was RENAMED to ALERT_RECIPIENTS and is no longer read — move the value or alert emails stay on the from-address default.`,
-    );
-  }
-}
-
-// Datadog region is fixed; alert routing is read from the environment so internal email
-// addresses stay out of the (public) package source.
-const DATADOG_SITE = "us5.datadoghq.com";
+// The env registry is bedrock's (spec/environment-variables): DD_API_KEY,
+// DENO_DEPLOY, KEEP_DD_LOCAL, POSTMARK_*, ALERT_RECIPIENTS, KEEP_TRACE*, PORT
+// and the removed-variable ledger are all read there, once, at the boundary.
+// keep reads only what is keep's: KEEP_DEV, and the fixtures/heal paths.
 
 const warned = new Set<string>();
 function warnOnce(message: string) {
@@ -128,16 +93,67 @@ function warnOnce(message: string) {
   console.warn(message);
 }
 
-/** Reads an env flag as a boolean — "1"/"true"/"yes"/"on" (case-insensitive) are true. */
-function isTruthy(value: string | undefined): boolean {
-  if (!value) return false;
-  return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+/**
+ * The policy rows keep's unit declares for its own control plane (D-3, D-11).
+ * Bedrock merges and resolves them; keep never gates a route itself.
+ *
+ *   - `/docs/*` — the emulator, the map, the traces, the fixtures, the runner.
+ *     Open in dev (`KEEP_DEV`) and, with no auth unit composed, open anyway
+ *     because an app without an auth slot has nothing to authenticate against.
+ *     Under an auth unit in production they are `authenticated` — the gate the
+ *     old "localhost-only" comments claimed and no code enforced.
+ *   - `POST /docs/_run` — the headless runner's own door (D-19). In dev it is
+ *     open so the cake can drive the process; otherwise it follows the rest.
+ *
+ * Everything else comes from the OpenAPI docs: each operation's
+ * `x-bedrock-auth: { access }`, which rune's codegen emits from the `[REQ]`
+ * openness marker. No marker ⇒ the slot default (`authenticated`).
+ */
+function controlPlanePolicy(dev: boolean): Policy {
+  const access = dev ? "open" as const : "authenticated" as const;
+  return [
+    { path: "/docs/*", access },
+    { path: "/docs", access },
+  ];
 }
 
-// The `/docs/_*` control-plane routes (traces, run, heal, fixtures, scenarios, heal-rules)
-// carry NO built-in gate: keep ships zero auth, and these doors are ordinary backend routes.
-// A deployment that must restrict them composes a guard into its own handler pipeline — the
-// one placement that covers the network path and the in-process path alike.
+/**
+ * Derive the route policy from the docs keep already builds (D-3). Bedrock
+ * never parses OpenAPI: keep reads its own `x-bedrock-auth` extension and
+ * hands bedrock a plain table.
+ */
+export function policyFromDocs(docs: SwaggerDocEntry[]): Policy {
+  const rows: Policy = [];
+  for (const entry of docs) {
+    const paths =
+      (entry.doc as unknown as { paths?: Record<string, unknown> })?.paths ??
+        {};
+    for (const [path, operations] of Object.entries(paths)) {
+      for (
+        const [method, operation] of Object.entries(
+          operations as Record<string, unknown>,
+        )
+      ) {
+        const marker =
+          (operation as { "x-bedrock-auth"?: { access?: unknown } })?.[
+            "x-bedrock-auth"
+          ];
+        const access = marker?.access;
+        if (access === undefined) continue; // no marker ⇒ the slot default
+        rows.push({
+          method: method.toUpperCase(),
+          // Docs paths carry OpenAPI's `{param}` templates; a policy path
+          // matches by prefix, so a templated segment becomes a wildcard tail.
+          path: path.includes("{")
+            ? `${path.slice(0, path.indexOf("{"))}*`
+            : path,
+          access: access as Policy[number]["access"],
+        });
+      }
+    }
+  }
+  return rows;
+}
 
 // Dev-mode boot identity (`rune dev`): minted once per process so the emulator pages' reload
 // poller can tell "the same app answered" from "a NEW process is serving" after a restart.
@@ -148,117 +164,40 @@ const bootId = crypto.randomUUID();
 // register the stateless RuneAssertError→422 filter exactly once.
 let runeAssertFilterRegistered = false;
 
-/**
- * Builds the logging transports from the environment:
- * - `DD_API_KEY` → Datadog (site fixed to DATADOG_SITE). Missing ⇒ warn, console only.
- * - `POSTMARK_SERVER_TOKEN` + `POSTMARK_FROM` (+ optional `ALERT_RECIPIENTS`, defaults to `FROM`)
- *   → failure-alert emails. Missing ⇒ warn, console fallback.
- */
-function configureLoggingFromEnv(appName: string) {
-  // Whether to SHIP to Datadog is separate from whether we HAVE a key. The key can live in the
-  // env everywhere (so a deploy "just works"); shipping is gated on environment:
-  //   • On Deno Deploy (DENO_DEPLOY === "1") → ship automatically, tagged env:production.
-  //   • Locally → DON'T ship by default (console only), even with the key present, so dev traffic
-  //     never pollutes production logs. Opt in with KEEP_DD_LOCAL=1 to ship, tagged env:local
-  //     (and prefixed [LOCAL]) so it stays segmented from production.
-  const ddKey = Deno.env.get("DD_API_KEY");
-  const isDeployed = Deno.env.get("DENO_DEPLOY") === "1";
-  const shipLocal = isTruthy(Deno.env.get("KEEP_DD_LOCAL"));
-  const env = isDeployed ? "production" : "local";
-  const shouldShip = Boolean(ddKey) && (isDeployed || shipLocal);
-  const datadog = ddKey && shouldShip
-    ? new DatadogTransport({
-      apiKey: ddKey,
-      service: appName,
-      site: DATADOG_SITE,
-      env,
-    })
-    : undefined;
-  if (!ddKey) {
-    warnOnce(
-      `[${appName}] DD_API_KEY not set — Datadog disabled; logging to console only.`,
-    );
-  } else if (!shouldShip) {
-    warnOnce(
-      `[${appName}] DD_API_KEY present but not shipping from local — set KEEP_DD_LOCAL=1 to ship (tagged env:local). Logging to console only.`,
-    );
-  }
-
-  const pmToken = Deno.env.get("POSTMARK_SERVER_TOKEN");
-  const pmFrom = Deno.env.get("POSTMARK_FROM");
-  const alerter = pmToken && pmFrom
-    ? new PostmarkAlerter({
-      serverToken: pmToken,
-      from: pmFrom,
-      to: Deno.env.get("ALERT_RECIPIENTS") ?? undefined,
-    })
-    : undefined;
-  if (!alerter) {
-    warnOnce(
-      `[${appName}] POSTMARK_SERVER_TOKEN/POSTMARK_FROM not set — logger failure email alerts disabled (console fallback still applies).`,
-    );
-  }
-
-  log.configure({ appName, datadog, alerter });
-
-  // Request tracing feeds the `/docs/_trace` waterfall. On by default (cheap, bounded);
-  // KEEP_TRACE=off disables capture, KEEP_TRACE_BUFFER=<n> sizes the ring buffer.
-  const traceEnabled =
-    (Deno.env.get("KEEP_TRACE") ?? "on").toLowerCase() !== "off";
-  const traceCapacity = Number(Deno.env.get("KEEP_TRACE_BUFFER"));
-  tracer.configure({
-    appName,
-    enabled: traceEnabled,
-    capacity: Number.isFinite(traceCapacity) && traceCapacity > 0
-      ? traceCapacity
-      : undefined,
-  });
-}
-
 export class BootstrapServer {
   private adapter: DanetHttpAdapter;
   private module: Type;
-  readonly backend: BackendClient;
   /** The per-module OpenAPI docs (with `x-keep-process`) built at boot; empty when swagger is off. */
   readonly docs: SwaggerDocEntry[];
+  /** The route policy this unit declares — the control plane plus whatever the
+   *  docs' `x-bedrock-auth` markers say (D-3, D-11). */
+  readonly policy: Policy;
 
-  private readonly appName: string;
+  readonly appName: string;
 
-  /** Lifecycle callbacks (see {@link BootstrapOptions.onStart}/`onStop`) and their once-guard. */
-  private readonly onStart?: BootstrapOptions["onStart"];
-  private readonly onStop?: BootstrapOptions["onStop"];
-  private lifecycleStarted = false;
-  private lifecyclePort = 0;
-  private lifecycleDisposer?: ServerDisposer;
+  /** Forwarded onto the unit; bedrock's lifecycle owns the once-guards now. */
+  readonly onStart?: BootstrapOptions["onStart"];
+  readonly onStop?: BootstrapOptions["onStop"];
+  /** Records the bag the root provisions, so the runner can drive the app. */
+  readonly captureBag: (bag?: Bag, namespace?: string) => void;
 
   private constructor(
     module: Type,
     adapter: DanetHttpAdapter,
-    backend: BackendClient,
     docs: SwaggerDocEntry[],
+    policy: Policy,
     appName: string,
-    lifecycle?: Pick<BootstrapOptions, "onStart" | "onStop">,
+    lifecycle: Pick<BootstrapOptions, "onStart" | "onStop"> | undefined,
+    captureBag: (bag?: Bag, namespace?: string) => void,
   ) {
     this.module = module;
     this.adapter = adapter;
-    this.backend = backend;
     this.docs = docs;
+    this.policy = policy;
     this.appName = appName;
     this.onStart = lifecycle?.onStart;
     this.onStop = lifecycle?.onStop;
-  }
-
-  /**
-   * Fire the `onStart` hook exactly once, capturing any disposer it returns. The guard flips
-   * synchronously BEFORE the (possibly async) hook runs, so concurrent first requests under the
-   * handler path — or a `listen()` racing the first request — start only one background loop.
-   */
-  private async ensureLifecycleStarted(port: number): Promise<void> {
-    if (this.lifecycleStarted || !this.onStart) return;
-    this.lifecycleStarted = true;
-    this.lifecyclePort = port;
-    const disposer = await this.onStart({ backend: this.backend, port });
-    if (typeof disposer === "function") this.lifecycleDisposer = disposer;
+    this.captureBag = captureBag;
   }
 
   static async create(
@@ -271,72 +210,24 @@ export class BootstrapServer {
     const rootModule = Array.isArray(module)
       ? appModule(appName, module)
       : module;
-    const { port = 3000, swagger = true, onStart, onStop } = options ?? {};
+    const { port, swagger = true, onStart, onStop } = options ?? {};
 
-    // Configure the process-wide logger from env before anything can emit.
-    // ASSUMPTION: one BootstrapServer per process. The logger, tracer, trace
-    // shipper, RuneAssertError filter, and bootId are process-global singletons,
-    // so calling create() a second time in the same process with a different
-    // appName/config last-wins and overwrites the first — fine for tests that run
-    // servers sequentially, but do not run two apps concurrently in one process.
-    configureLoggingFromEnv(appName);
-
-    // Opt-in durable traces: KEEP_TRACE_KV ("1"/"true" → default KV location, or a path) stores
-    // traces in Deno KV (time-ordered + per-user indexed) so `/docs/_trace` survives restarts and
-    // looks past the in-memory window. KEEP_TRACE_TTL_DAYS bounds retention (default 7). If KV
-    // won't open (no --unstable-kv), it logs once and the in-memory ring stays in use.
-    const kvEnv = Deno.env.get("KEEP_TRACE_KV");
-    if (kvEnv && kvEnv.toLowerCase() !== "false" && tracer.enabled) {
-      const lower = kvEnv.toLowerCase();
-      const path = lower === "1" || lower === "true" ? undefined : kvEnv;
-      const ttlDays = Number(Deno.env.get("KEEP_TRACE_TTL_DAYS"));
-      const sink = await createKvTraceSink(
-        path,
-        Number.isFinite(ttlDays) && ttlDays > 0 ? ttlDays : undefined,
-      );
-      if (sink) tracer.useSink(sink, true);
-    }
-
-    // Ship finished traces to an OTLP HTTP endpoint (a Datadog Agent / OTel Collector) so they
-    // render as APM flame graphs. Pure fire-and-forget: at request end the finished in-memory
-    // trace is serialized to OTLP/JSON, POSTed, and the promise is awaited in the same settle()
-    // flush as the logs — no SDK, no context manager. Gated like the logs: ship from Deno Deploy
-    // automatically, from local only with KEEP_DD_LOCAL=1. KEEP_TRACE_OTLP_URL is the Agent's
-    // OTLP base (e.g. http://your-vps:4318); env tags it production vs local.
-    const otlpUrl = Deno.env.get("KEEP_TRACE_OTLP_URL");
-    const isDeployed = Deno.env.get("DENO_DEPLOY") === "1";
-    const shipLocal = isTruthy(Deno.env.get("KEEP_DD_LOCAL"));
-    // Optional shared secret for a reverse-proxy guard (sent as the X-Keep-Token header) so the
-    // OTLP endpoint can be exposed publicly without accepting anonymous spans.
-    const otlpToken = Deno.env.get("KEEP_TRACE_OTLP_TOKEN");
-    traceShipper.configure({
-      endpoint: otlpUrl,
-      service: appName,
-      env: isDeployed ? "production" : "local",
-      enabled: Boolean(otlpUrl) && tracer.enabled && (isDeployed || shipLocal),
-      headers: otlpToken ? { "X-Keep-Token": otlpToken } : undefined,
-    });
-
-    // keep ships zero built-in auth (no infra trust, no sessions, no grants, no guard). The
-    // one-time warning below names any set-but-removed auth env vars so a stale config
-    // announces itself.
-    warnRemovedEnvVars(appName);
-
-    // Process-private key that identifies in-process (BackendClient) requests — the DISPATCH
-    // identity (the client routes via the non-stripping handler), not a trust or auth marker.
-    const internalKey = crypto.randomUUID();
+    // Observability is bedrock's, configured once at its boundary from the one
+    // env registry — the logger, the tracer, the KV trace sink, the OTLP
+    // shipper and the removed-variable ledger all moved there. keep no longer
+    // reads DD_API_KEY, POSTMARK_*, KEEP_TRACE* or DENO_DEPLOY at all.
+    //
+    // ASSUMPTION (unchanged): one BootstrapServer per process. The danet
+    // exception filter and `bootId` are process-global singletons.
 
     const server = Server.create();
     server.registerModule(rootModule);
 
     const adapter = new DanetHttpAdapter(port);
-    // Register the logging middleware first so it wraps every route (controllers + swagger).
-    adapter.app.use(createRequestLoggingMiddleware(log));
-    // Credential auth is enforced as a Danet GLOBAL guard (registered after init below) rather
-    // than a Hono middleware, so it can honor the per-route `@Public()` decorator. Controllers
-    // are deny-by-default; the framework's own direct routes (`/docs`, docs `/json`, `/docs/_*`)
-    // aren't controllers, so they self-gate. Clients exchange opaque tokens for a session bearer
-    // at infra directly and present the bearer to keep — keep never mints or exchanges.
+    void adapter.defaultPort; // the adapter binds nothing; bedrock's lifecycle does
+    // No request-logging middleware and no auth guard: a dispatch is captured
+    // and guarded ONCE, at bedrock's boundary, on every channel. A middleware
+    // here would double-count the in-process calls the root already recorded.
     type RouteHandler = (...args: unknown[]) => unknown;
 
     // Dev mode (`rune dev` sets KEEP_DEV to a status-file path): serve `/docs/_dev` so the
@@ -347,8 +238,13 @@ export class BootstrapServer {
     let docs: SwaggerDocEntry[] = [];
     // Late-bound: the backend client exists only after init; /docs/_run answers
     // 503 in the boot window instead of capturing a dead reference.
-    let runTarget: { backend: BackendClient; docs: SwaggerDocEntry[] } | null =
-      null;
+    let runTarget:
+      | {
+        backend: { fetch: typeof fetch };
+        docs: SwaggerDocEntry[];
+        namespace?: string;
+      }
+      | null = null;
     if (swagger) {
       const filters = typeof swagger === "object" ? swagger.filters : [];
       const builder = new SwaggerBuilder(...filters);
@@ -548,7 +444,12 @@ export class BootstrapServer {
         "/docs/_run",
         (async (c: Context) => {
           if (!runTarget) {
-            return c.json({ error: "Server still booting — try again." }, 503);
+            return c.json({
+              error:
+                "No in-process client: this dispatch did not come through the composition root. " +
+                "Serve the app with Bedrock({ backend: api }) (or api.listen(), which is that) — " +
+                "the runner drives the composed app, not the unit in isolation.",
+            }, 503);
           }
           let body: Record<string, unknown> = {};
           try {
@@ -629,6 +530,22 @@ export class BootstrapServer {
               byEndpoint: (body.byEndpoint ?? scenarioByEndpoint) as
                 | Record<string, Record<string, unknown>>
                 | undefined,
+              // D-19: the runner's dispatches are SCOPE-LESS, so an auth unit
+              // denies them unless credentialed. `credential` is an
+              // Authorization value the auth unit recognizes, forwarded on
+              // every call — never a bedrock bypass. Falls back to the
+              // caller's own Authorization header, so `curl -H` works.
+              auth: (() => {
+                const credential = typeof body.credential === "string"
+                  ? body.credential
+                  : c.req.header("authorization");
+                return credential
+                  ? {
+                    kind: "bearer" as const,
+                    bearer: credential.replace(/^Bearer /i, ""),
+                  }
+                  : undefined;
+              })(),
             },
           };
           // stream: true → ndjson. One {kind:"result",…} line per attempt AS IT COMPLETES (the
@@ -864,96 +781,186 @@ export class BootstrapServer {
       });
     }
 
-    // The in-process client dispatches via the non-stripping handler so its trust marker is
-    // honored; the public `handler` (and what integrators mount) strips it.
-    const backend = createBackendClient(
-      adapter.inProcessHandler,
-      `http://localhost:${port}`,
-      internalKey,
-    );
-    runTarget = { backend, docs };
+    // There is no keep-minted in-process client any more (and no trust marker
+    // to mint it with): the ONE client is bedrock's, provisioned per scope and
+    // handed to the unit in the bag (C4, D-13). Captured on the first dispatch
+    // — which always precedes any route body — so `/docs/_run` drives the
+    // process through the same instrumented root everything else enters by.
+    const captureBag = (bag?: Bag, namespace?: string) => {
+      if (bag && !runTarget) {
+        runTarget = { backend: { fetch: bag.fetch }, docs, namespace };
+      }
+    };
 
     return new BootstrapServer(
       rootModule,
       adapter,
-      backend,
       docs,
+      [...controlPlanePolicy(Boolean(devStatusPath)), ...policyFromDocs(docs)],
       appName,
       { onStart, onStop },
+      captureBag,
     );
   }
 
   /**
-   * The standalone request dispatcher — the same `(Request) => Response` that `listen()` serves.
-   * Use it to run on Deno Deploy without binding a port (`Deno.serve(app.handler)` or
-   * `export default { fetch: app.handler }`), or to compose the backend into another app (e.g.
-   * mount it under `/api` alongside a sprig UI — `serveSprig`/`sprigUi` from `@sprig/keep` do this,
-   * or the framework-agnostic `withBasePath`).
+   * The unit's dispatcher, in ROUTE space (`/users`, `/docs/_map`). keep
+   * declares `mountsSelf`, so bedrock hands it the ORIGINAL request with the
+   * `/api` prefix intact and this Hono mount does the matching — which is what
+   * makes a WebSocket upgrade through `/api` work at all (D-20): rewriting the
+   * request would hand `Deno.upgradeWebSocket` a Request that is no longer the
+   * one the connection belongs to.
    */
   get handler(): FetchHandler {
-    const inner = this.adapter.handler;
-    if (!this.onStart) return inner;
-    // Under the handler path (`deno serve` / `Deno.serve(app.handler)`) `listen()` is never
-    // called, so fire the start hook on the first request. Idempotent + fire-and-forget: the
-    // once-guard flips synchronously, so the request is never delayed and the loop starts once.
-    return (req, info) => {
-      void this.ensureLifecycleStarted(0);
-      return inner(req, info);
-    };
+    return this.adapter.handler;
   }
 
-  /** Start serving. Resolves with the actually-bound port (which may differ
-   * from the requested one if it was busy — see DanetHttpAdapter.listen). */
-  async listen(): Promise<{ port: number }> {
-    const result = await this.adapter.listen(this.module);
-    await this.ensureLifecycleStarted(result.port);
-    return result;
+  /** The mounted dispatcher bedrock actually calls, at `namespace`. */
+  mountedHandler(namespace: string): FetchHandler {
+    return this.adapter.mountedHandler(namespace);
   }
 
-  async stop() {
-    // Symmetric teardown: run the onStart disposer, then onStop, before the socket closes. Reset
-    // the once-guard so a stopped server can be started again cleanly.
-    if (this.lifecycleStarted) {
-      const disposer = this.lifecycleDisposer;
-      this.lifecycleDisposer = undefined;
-      this.lifecycleStarted = false;
-      if (disposer) await disposer();
-      if (this.onStop) {
-        await this.onStop({ backend: this.backend, port: this.lifecyclePort });
-      }
-    }
+  /** Close the DI container. Run from the unit's `onStop`, after the app's. */
+  close(): Promise<void> {
     return this.adapter.stop();
   }
 }
 
+/** What `bootstrapServer()` resolves to: a bedrock `Unit`, plus keep's own
+ *  surface for the apps and tools that drive a backend directly. */
+export interface KeepUnit extends Unit {
+  /** The per-module OpenAPI docs built at boot. */
+  docs: SwaggerDocEntry[];
+  /** The scope-less in-process client — `app.client` of the private root. */
+  backend: { fetch: typeof fetch };
+  /** Bind a socket and start. Standalone shape; `Bedrock({ backend: api })`
+   *  when the app composes more than one unit. */
+  listen: (opts?: { port?: number }) => Promise<{ port: number }>;
+  stop: () => Promise<void>;
+  /** Mount the unit somewhere other than `/api`. */
+  mount: (namespace: string) => Unit;
+  /** @deprecated Compose with `Bedrock({ ui, backend })`. Removed in keep 8. */
+  compose: (options?: { frontend?: Unit | FetchHandler }) => FetchHandler;
+}
+
+/** keep's default namespace in a composed app — bedrock's `backend` slot. */
+export const KEEP_NAMESPACE = "/api";
+
+/**
+ * Boot a keep backend and return it as a bedrock `Unit`.
+ *
+ *   // serve.ts
+ *   export default Bedrock({ backend: api });
+ *
+ * The unit is everything bedrock needs to place keep in an app: a handler in
+ * its own route space, the namespace it mounts at, the policy table derived
+ * from its docs, and the lifecycle hooks the app declared. `listen`/`stop`/
+ * `backend` remain for the standalone shape and for the tools that drive a
+ * backend directly — each of them an adapter over a PRIVATE
+ * `Bedrock({ backend: unit })`, so even "just keep" runs through the same
+ * instrumented root, with the same guard and the same one client.
+ */
 export async function bootstrapServer(
   appName: string,
   module: Type | Type[],
   options?: BootstrapOptions,
-): Promise<{
-  listen: () => Promise<{ port: number }>;
-  stop: () => Promise<void>;
-  backend: BackendClient;
-  handler: FetchHandler;
-  docs: SwaggerDocEntry[];
-  compose: (options?: { frontend?: Frontend }) => FetchHandler;
-}> {
+): Promise<KeepUnit> {
   const server = await BootstrapServer.create(appName, module, options);
+
+  const unitAt = (namespace: string): Unit => ({
+    name: appName,
+    namespace,
+    // D-20: keep matches the prefix itself, so the request reaching a route is
+    // byte-for-byte the one that arrived — the precondition for an upgrade.
+    mountsSelf: true,
+    handler: (() => {
+      const dispatch = server.mountedHandler(namespace);
+      return async (req: Request, info?: Deno.ServeHandlerInfo, bag?: Bag) => {
+        server.captureBag(bag, namespace);
+        // A bodyless request — an upgrade among them — is passed through
+        // untouched, so `mountsSelf`'s guarantee holds where it matters.
+        const checked = await checkBody(req);
+        if (checked instanceof Response) return checked;
+        return dispatch(checked, info);
+      };
+    })(),
+    policy: server.policy,
+    onStart: server.onStart
+      ? (ctx) => server.onStart!({ ...ctx, backend: { fetch: ctx.fetch } })
+      : undefined,
+    // Always present: the app's own hook (if any) runs first, then the DI tree
+    // closes. Nothing else closes it — bedrock shuts the socket, not the
+    // container it knows nothing about.
+    onStop: async (ctx) => {
+      if (server.onStop) {
+        await server.onStop({ ...ctx, backend: { fetch: ctx.fetch } });
+      }
+      await server.close();
+    },
+  });
+
+  const unit = unitAt(KEEP_NAMESPACE);
+
+  // The private root. Built lazily so an app that composes the unit itself
+  // (`Bedrock({ ui, backend: api })` — the normal case) never stands up a
+  // second one; only `listen`/`stop`/`backend` reach for it.
+  let root: App | null = null;
+  const standalone = (): App => (root ??= Bedrock({ backend: unit }));
+
   return {
-    listen: () => server.listen(),
-    stop: () => server.stop(),
-    backend: server.backend,
-    handler: server.handler,
+    ...unit,
     docs: server.docs,
-    // The composed app's canonical serving shape, from THIS single booted
-    // root: the backend layer (intrinsic /api/ mount, docs at /api/docs/*)
-    // wrapping an optional Frontend with a request-bound in-process client
-    // provisioned per request. serve.ts:
-    //   export default { fetch: api.compose({ frontend: Frontend() }) };
-    compose: (opts = {}) =>
-      BackendFrom(
-        { handler: server.handler, backend: server.backend },
-        opts,
-      ) as FetchHandler,
+    // Scope-less by construction: a call from a cron tick or a test has no
+    // request to be bound to, and the auth unit sees `channel: "scope-less"`.
+    get backend(): { fetch: typeof fetch } {
+      return standalone().client;
+    },
+    // `bootstrapServer(..., { port })` still names the port; bedrock's env
+    // registry supplies `PORT` when neither says.
+    listen: (opts) =>
+      standalone().listen({ port: opts?.port ?? options?.port }),
+    stop: () => (root ? root.stop() : Promise.resolve()),
+    mount: unitAt,
+    compose: (opts = {}) => {
+      warnOnce(
+        `[${appName}] api.compose() is deprecated and is removed in keep 8 — ` +
+          `compose with Bedrock({ ui: Frontend(), backend: api }) in serve.ts instead.`,
+      );
+      const frontend = opts.frontend;
+      const ui = typeof frontend === "function"
+        ? { handler: frontend }
+        : frontend;
+      return Bedrock(ui ? { ui, backend: unit } : { backend: unit });
+    },
   };
+}
+
+/** @deprecated Options of the one-release `Backend()` adapter. */
+export interface BackendOptions {
+  swagger?: BootstrapOptions["swagger"];
+  onStart?: BootstrapOptions["onStart"];
+  onStop?: BootstrapOptions["onStop"];
+  frontend?: Unit | FetchHandler;
+}
+
+/**
+ * @deprecated The 6.x "layer" shape, kept for one release (D-6). It boots the
+ * unit lazily on the first request and composes it exactly as
+ * `Bedrock({ ui: frontend, backend: api })` does — which is what to write
+ * instead, in a `serve.ts` the toolchain generates. Removed in keep 8.
+ */
+export function Backend(
+  appName: string,
+  module: Type | Type[],
+  options: BackendOptions = {},
+): FetchHandler {
+  warnOnce(
+    `[${appName}] Backend() is deprecated and is removed in keep 8 — ` +
+      `compose with Bedrock({ ui: Frontend(), backend: api }) in serve.ts instead.`,
+  );
+  const { frontend, ...bootstrapOpts } = options;
+  let ready: Promise<FetchHandler> | null = null;
+  const boot = () => (ready ??= bootstrapServer(appName, module, bootstrapOpts)
+    .then((api) => api.compose({ frontend })));
+  return async (req, info) => (await boot())(req, info);
 }

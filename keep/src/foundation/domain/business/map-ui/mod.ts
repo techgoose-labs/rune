@@ -16,7 +16,6 @@
 import type { SwaggerDocEntry } from "@types";
 import { endpointsFromDoc } from "@foundation/domain/business/endpoint-spec/mod.ts";
 import { processOrder } from "@foundation/domain/business/process-graph/mod.ts";
-import { docsSeedScript } from "@foundation/domain/business/docs-ui/mod.ts";
 import { devReloadJs } from "@foundation/domain/business/emulator-ui/client.ts";
 import { mapClientJs, mapCss } from "./client.ts";
 
@@ -316,7 +315,6 @@ export function mapShellHtml(
 <main id="canvas">
   <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
 </main>
-<script>${docsSeedScript()}</script>
 <script>window.__KEEP_MAP__ = ${payload};</script>
 <script>${mapClientJs}</script>${
     opts.dev ? `\n<script>${devReloadJs}</script>` : ""

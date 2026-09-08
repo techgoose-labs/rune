@@ -11,7 +11,6 @@
  * buffer lives in the {@linkcode Tracer} and is read at poll time.
  */
 
-import { docsSeedScript } from "@foundation/domain/business/docs-ui/mod.ts";
 import { devReloadJs } from "@foundation/domain/business/emulator-ui/client.ts";
 import { traceClientJs, traceCss } from "./client.ts";
 
@@ -79,7 +78,6 @@ export function traceShellHtml(
   </span>
 </div>
 <div id="wrap"></div>
-<script>${docsSeedScript()}</script>
 <script>window.__KEEP_TRACE__ = ${payload};</script>
 <script>${traceClientJs}</script>${
     opts.dev ? `\n<script>${devReloadJs}</script>` : ""

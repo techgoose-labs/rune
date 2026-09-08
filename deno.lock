@@ -357,11 +357,18 @@
           "jsr:@std/assert@*",
           "npm:class-transformer@0.5",
           "npm:class-validator@0.14",
-          "npm:jose@5",
           "npm:openapi3-ts@4.5.0",
           "npm:playwright@^1.49.0",
           "npm:reflect-metadata@0.1.13",
           "npm:zod@3"
+        ]
+      }
+    },
+    "links": {
+      "jsr:@mrg-keystone/bedrock@0.1.0": {
+        "dependencies": [
+          "jsr:@std/assert@1",
+          "jsr:@std/path@1"
         ]
       }
     }

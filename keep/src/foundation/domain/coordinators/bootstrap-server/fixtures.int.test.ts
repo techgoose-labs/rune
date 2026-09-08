@@ -19,13 +19,13 @@ const offhost = {
 // deno-lint-ignore no-explicit-any
 const conn = (info: unknown) => info as any;
 
-const getReq = () => new Request("http://app/docs/_fixtures");
-const postReq = (body?: unknown) =>
-  new Request("http://app/docs/_fixtures", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+const FIXTURES_PATH = "/api/docs/_fixtures";
+const getReq = () => new Request(`http://app${FIXTURES_PATH}`);
+const postInit = (body?: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
 
 class CreateDto {
   @ApiProperty()
@@ -51,13 +51,14 @@ Deno.test("/docs/_fixtures - POST writes cake.json, GET reads it back (in-proces
   const server = await bootstrapServer("orders-app", OrdersModule);
   try {
     // Empty before anything is written.
-    const before = await (await server.backend.fetch(getReq()))
+    const before = await (await server.backend.fetch(FIXTURES_PATH))
       .json();
     assertEquals(before, { v: 1, variables: {}, modules: {} });
 
     // POST a page's slice — its setup plus the persisted variables.
     const postRes = await server.backend.fetch(
-      postReq({
+      FIXTURES_PATH,
+      postInit({
         module: "orders",
         setup: [{ id: "create", body: '{"name":"acme"}' }],
         variables: { tenantId: "t-7" },
@@ -74,18 +75,19 @@ Deno.test("/docs/_fixtures - POST writes cake.json, GET reads it back (in-proces
     // The file is really on disk, and GET returns the same artifact.
     const onDisk = JSON.parse(await Deno.readTextFile(`${dir}/cake.json`));
     assertEquals(onDisk.modules.orders.setup[0].id, "create");
-    const got = await (await server.backend.fetch(getReq())).json();
+    const got = await (await server.backend.fetch(FIXTURES_PATH)).json();
     assertEquals(got.variables, { tenantId: "t-7" });
 
     // A second module's POST merges in without clobbering orders' slice.
     await server.backend.fetch(
-      postReq({
+      FIXTURES_PATH,
+      postInit({
         module: "members",
         setup: [{ id: "enroll" }],
         variables: { tenantId: "t-7" },
       }),
     );
-    const both = await (await server.backend.fetch(getReq())).json();
+    const both = await (await server.backend.fetch(FIXTURES_PATH)).json();
     assertEquals(both.modules.orders.setup[0].id, "create");
     assertEquals(both.modules.members.setup[0].id, "enroll");
   } finally {

@@ -281,7 +281,11 @@ Deno.test("assert — [DTO:open] marker keeps undeclared fields, still validates
   }) as unknown as Record<string, unknown>;
   assertEquals(out.callId, "c1");
   assertEquals(out.extra, 1, "undeclared scalar must survive (open)");
-  assertEquals(out.nested, { a: true }, "undeclared object must survive (open)");
+  assertEquals(
+    out.nested,
+    { a: true },
+    "undeclared object must survive (open)",
+  );
 
   // The declared field is still validated — a bad value 422s even on an open DTO.
   assertThrows(
@@ -294,7 +298,10 @@ Deno.test("assert — [DTO:open] marker keeps undeclared fields, still validates
     @IsString()
     callId!: string;
   }
-  const strict = assert(StrictEventDto, { callId: "c1", extra: 1 }) as unknown as Record<
+  const strict = assert(StrictEventDto, {
+    callId: "c1",
+    extra: 1,
+  }) as unknown as Record<
     string,
     unknown
   >;
@@ -362,7 +369,11 @@ Deno.test("assert — [DTO:open] re-attaches its own extras but a declared neste
     inner: { name: "n", secret: "strip" }, // a declared strict nested DTO → its extra is stripped
   }) as unknown as Record<string, unknown>;
   assertEquals(out.id, "x");
-  assertEquals(out.extraTop, "ride", "the open DTO's own undeclared field rides through");
+  assertEquals(
+    out.extraTop,
+    "ride",
+    "the open DTO's own undeclared field rides through",
+  );
   // out.inner is an InnerDto instance; compare its own props structurally. `secret` must be gone.
   assertEquals(
     { ...(out.inner as object) },

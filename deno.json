@@ -38,6 +38,8 @@
     "class-transformer": "npm:class-transformer@^0.5",
     "reflect-metadata": "npm:reflect-metadata@0.1.13",
     "#assert": "./keep/src/assert/mod.ts",
+    "@mrg-keystone/bedrock": "../../bedrock/mod.ts",
+    "@mrg-keystone/bedrock/artifact": "../../bedrock/src/artifact/mod.ts",
     "#api-doc": "jsr:@danet/swagger@^2.1.1/decorators"
   },
   "compilerOptions": {

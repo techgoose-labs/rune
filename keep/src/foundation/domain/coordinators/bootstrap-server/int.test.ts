@@ -1,6 +1,7 @@
 import "#reflect-metadata";
 import { assertEquals, assertExists, assertStringIncludes } from "#assert";
 import { bootstrapServer } from "./mod.ts";
+import { Bedrock } from "@mrg-keystone/bedrock";
 import { Controller, Get, Module } from "#danet/core";
 import { endpointModule } from "@foundation/domain/business/endpoint-decorator/mod.ts";
 
@@ -60,7 +61,7 @@ Deno.test("bootstrapServer - server can listen and respond to HTTP requests", as
   const server = await bootstrapServer("test-app", AppModule, { port });
   await server.listen();
 
-  const response = await fetch(`http://localhost:${port}/health`);
+  const response = await fetch(`http://localhost:${port}/api/health`);
   const body = await response.json();
 
   assertEquals(response.status, 200);
@@ -73,7 +74,7 @@ Deno.test("bootstrapServer - enables swagger by default", async () => {
   const server = await bootstrapServer("test-app", AppModule, { port });
   await server.listen();
 
-  const response = await fetch(`http://localhost:${port}/docs`);
+  const response = await fetch(`http://localhost:${port}/api/docs`);
   const html = await response.text();
 
   assertEquals(response.status, 200);
@@ -92,7 +93,7 @@ Deno.test("zero built-in auth: controller routes are open to network callers and
   };
   const net = (path: string, init?: RequestInit) =>
     // deno-lint-ignore no-explicit-any
-    server.handler(new Request(`http://app${path}`, init), remote as any);
+    server.handler(new Request(`http://app/api${path}`, init), remote as any);
 
   // keep ships ZERO built-in auth: every controller route answers a bare
   // network caller. Auth, if an app wants it, is the app's own guard.
@@ -103,7 +104,7 @@ Deno.test("zero built-in auth: controller routes are open to network callers and
   assertEquals((await net("/granted")).status, 200);
 
   // The in-process client reaches the same routes identically (dispatch, not trust).
-  const inproc = await server.backend.fetch("/secret");
+  const inproc = await server.backend.fetch("/api/secret");
   assertEquals(inproc.status, 200);
   await inproc.body?.cancel();
   await server.stop();
@@ -113,7 +114,7 @@ Deno.test("docs: shell, swagger UI, and the /json spec are all served openly", a
   const port = portCounter++;
   const server = await bootstrapServer("test-app", AppModule, { port });
   const call = (path: string) =>
-    server.handler(new Request(`http://app${path}`));
+    server.handler(new Request(`http://app/api${path}`));
 
   const emulator = await call("/docs/app");
   assertEquals(emulator.status, 200);
@@ -138,7 +139,7 @@ Deno.test("bootstrapServer - allows disabling swagger", async () => {
   });
   await server.listen();
 
-  const response = await fetch(`http://localhost:${port}/docs`);
+  const response = await fetch(`http://localhost:${port}/api/docs`);
   await response.text();
 
   assertEquals(response.status, 404);
@@ -150,7 +151,7 @@ Deno.test("bootstrapServer - respects custom port", async () => {
   const server = await bootstrapServer("test-app", AppModule, { port });
   await server.listen();
 
-  const response = await fetch(`http://localhost:${port}/health`);
+  const response = await fetch(`http://localhost:${port}/api/health`);
   const body = await response.json();
   assertEquals(body.status, "ok");
 
@@ -162,14 +163,14 @@ Deno.test("bootstrapServer - stop() cleans up properly", async () => {
   const server = await bootstrapServer("test-app", AppModule, { port });
   await server.listen();
 
-  const response = await fetch(`http://localhost:${port}/health`);
+  const response = await fetch(`http://localhost:${port}/api/health`);
   await response.json();
   assertEquals(response.status, 200);
 
   await server.stop();
 
   try {
-    await fetch(`http://localhost:${port}/health`);
+    await fetch(`http://localhost:${port}/api/health`);
   } catch (error) {
     assertExists(error);
   }
@@ -181,7 +182,7 @@ Deno.test("dev channel: /docs/_dev serves bootId + status under KEEP_DEV, tolera
   try {
     const port = portCounter++;
     const server = await bootstrapServer("test-app", AppModule, { port });
-    const call = () => server.handler(new Request("http://app/docs/_dev"));
+    const call = () => server.handler(new Request("http://app/api/docs/_dev"));
 
     // Status file not written yet → bootId alone.
     const bare = await (await call()).json();
@@ -206,7 +207,7 @@ Deno.test("dev channel: /docs/_dev serves bootId + status under KEEP_DEV, tolera
     assertEquals(degraded, { bootId: bare.bootId });
 
     // The emulator page carries the reload poller in dev mode.
-    const page = await server.handler(new Request("http://app/docs/app"));
+    const page = await server.handler(new Request("http://app/api/docs/app"));
     assertStringIncludes(await page.text(), 'fetch("_dev")');
   } finally {
     Deno.env.delete("KEEP_DEV");
@@ -217,11 +218,11 @@ Deno.test("dev channel: /docs/_dev absent (404) without KEEP_DEV; pages carry no
   const port = portCounter++;
   const server = await bootstrapServer("test-app", AppModule, { port });
 
-  const res = await server.handler(new Request("http://app/docs/_dev"));
+  const res = await server.handler(new Request("http://app/api/docs/_dev"));
   assertEquals(res.status, 404);
   await res.body?.cancel();
 
-  const page = await server.handler(new Request("http://app/docs/app"));
+  const page = await server.handler(new Request("http://app/api/docs/app"));
   assertEquals((await page.text()).includes('fetch("_dev")'), false);
 });
 
@@ -257,7 +258,7 @@ Deno.test("RuneAssertError from a handler maps to 422 with the failure detail", 
   });
   await server.listen();
 
-  const res = await fetch(`http://localhost:${port}/rune/invalid`);
+  const res = await fetch(`http://localhost:${port}/api/rune/invalid`);
   const body = await res.json();
 
   assertEquals(res.status, 422);
@@ -278,7 +279,7 @@ Deno.test("422 filter control: a plain Error still maps to danet's 500", async (
   });
   await server.listen();
 
-  const res = await fetch(`http://localhost:${port}/rune/boom`);
+  const res = await fetch(`http://localhost:${port}/api/rune/boom`);
   await res.text();
 
   assertEquals(res.status, 500);
@@ -309,14 +310,14 @@ Deno.test("bootstrapServer - accepts an array of modules (composed root, per-mod
   ], { port });
   await server.listen();
 
-  const a = await (await fetch(`http://localhost:${port}/alpha`)).json();
-  const b = await (await fetch(`http://localhost:${port}/beta`)).json();
+  const a = await (await fetch(`http://localhost:${port}/api/alpha`)).json();
+  const b = await (await fetch(`http://localhost:${port}/api/beta`)).json();
   assertEquals(a.mod, "alpha");
   assertEquals(b.mod, "beta");
 
   // Each child module keeps its own docs card; the composition wrapper (no
   // controllers) is not documented.
-  const docs = await (await fetch(`http://localhost:${port}/docs`)).text();
+  const docs = await (await fetch(`http://localhost:${port}/api/docs`)).text();
   assertStringIncludes(docs, "Alpha");
   assertStringIncludes(docs, "Beta");
   assertEquals(docs.includes("AppModule"), false);
@@ -352,7 +353,11 @@ Deno.test("lifecycle: onStart fires once on listen() with backend + bound port; 
   const { port: bound } = await server.listen();
   assertEquals(starts, 1, "onStart fires exactly once on listen()");
   assertEquals(startedPort, bound, "onStart receives the actually-bound port");
-  assertEquals(hadBackend, true, "onStart receives the in-process backend client");
+  assertEquals(
+    hadBackend,
+    true,
+    "onStart receives the in-process backend client",
+  );
 
   await server.stop();
   assertEquals(disposed, 1, "the onStart disposer runs on stop()");
@@ -371,14 +376,20 @@ Deno.test("lifecycle: the handler path (deno serve) fires onStart once on the fi
     },
   });
 
-  // No listen() — drive the standalone handler as `deno serve` would.
-  await server.handler(new Request("http://app/health"));
-  await server.handler(new Request("http://app/health"));
-  // The start hook is fire-and-forget; let its microtask settle.
-  await new Promise((r) => setTimeout(r, 0));
+  // The handler path drives the composed APP, not the unit: the lifecycle
+  // belongs to the root, which is also what makes the hook fire exactly once
+  // whichever of the three triggers arrives first.
+  const app = Bedrock({ backend: server });
+  await app(new Request("http://app/api/health"));
+  await app(new Request("http://app/api/health"));
 
   assertEquals(starts, 1, "onStart fires once across repeated handler calls");
-  assertEquals(ports, [0], "port is 0 under the handler path (no socket bound by keep)");
+  assertEquals(
+    ports,
+    [0],
+    "port is 0 under the handler path (no socket bound)",
+  );
+  await app.stop();
 });
 
 Deno.test("lifecycle: a first request then listen() starts only one loop (once-guard)", async () => {
@@ -391,20 +402,25 @@ Deno.test("lifecycle: a first request then listen() starts only one loop (once-g
     },
   });
 
-  // A request lands on the handler first (deno serve path), THEN listen() runs — the guard must
-  // still fire onStart exactly once across both entry points.
-  await server.handler(new Request("http://app/health"));
-  await new Promise((r) => setTimeout(r, 0));
-  await server.listen();
-  assertEquals(starts, 1, "onStart fires once across handler + listen entry points");
+  // A request lands on the handler first, THEN listen() runs — the guard must
+  // still fire onStart exactly once across both entry points. Both go through
+  // the same private root, which is the whole reason the guard holds.
+  await server.backend.fetch("/api/health");
+  await server.listen({ port: 0 });
+  assertEquals(
+    starts,
+    1,
+    "onStart fires once across handler + listen entry points",
+  );
   await server.stop();
 });
 
-Deno.test("lifecycle: no callbacks means the handler is the un-wrapped adapter handler", async () => {
+Deno.test("lifecycle: the unit's handler is only ever the mounted dispatcher", async () => {
   const port = portCounter++;
   const server = await bootstrapServer("test-app", AppModule, { port });
-  // Without onStart, handler must behave exactly as before (no wrapping, still serves).
-  const res = await server.handler(new Request("http://app/health"));
+  // No lifecycle wrapper on the handler any more — the once-guard is the
+  // root's, so the unit's handler does one thing: route.
+  const res = await server.handler(new Request("http://app/api/health"));
   assertEquals(res.status, 200);
   await server.stop();
 });

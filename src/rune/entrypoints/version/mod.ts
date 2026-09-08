@@ -31,6 +31,52 @@ export function latestCommitUrl(tag = "latest"): string {
   return `https://github.com/${REPO}/releases/download/${tag}/commit.txt`;
 }
 
+// The rune LIBRARY on JSR, which versions independently of this binary.
+//
+// The CLI ships as a rolling GitHub release; the library ships to JSR from
+// `keep/deno.json`. Nothing binds the two, and they have already diverged once:
+// rune 7.0.0 was published to JSR while the `latest` release stayed on the 6.x
+// commit, so every installed CLI reported itself UP TO DATE while being unable
+// to parse a 7.x spec at all (`[REQ] does not take a modifier` on `[REQ:open]`).
+//
+// The commit check cannot see that — the binary genuinely IS the latest RELEASE.
+// So compare majors against JSR too: a newer major there means this CLI cannot
+// read specs written for the library the app is pinned to, and — this is the
+// part worth saying out loud — `rune update` will NOT fix it, because there is
+// no release to update to yet.
+export const LIBRARY_META_URL = "https://jsr.io/@mrg-keystone/rune/meta.json";
+
+/** The major of a semver string, or undefined when it is not one. */
+export function majorOf(version: string | undefined): number | undefined {
+  if (!version) return undefined;
+  const m = /^(\d+)\./.exec(version.trim());
+  return m ? Number(m[1]) : undefined;
+}
+
+// Pure: is the published LIBRARY a whole major ahead of this binary? Unknown
+// data on either side => false, same rule as `isNewer` — never cry wolf.
+export function isMajorBehind(
+  baked: string | undefined,
+  library: string | undefined,
+): boolean {
+  const a = majorOf(baked);
+  const b = majorOf(library);
+  if (a === undefined || b === undefined) return false;
+  return b > a;
+}
+
+/** The library's latest published version, or undefined on any failure. */
+export async function fetchLibraryVersion(): Promise<string | undefined> {
+  try {
+    const res = await fetch(LIBRARY_META_URL);
+    if (!res.ok) return undefined;
+    const doc = await res.json() as { latest?: string };
+    return doc.latest || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // Pure: given the baked commit and the latest release's commit, decide if a
 // newer build is available. Unknown/missing data => no nag (never cry wolf): a
 // dev build (RUNE_COMMIT "unknown"), an unreachable network, or a release that
@@ -86,7 +132,32 @@ export async function runVersion(_args: string[]): Promise<number> {
   const when = built ? ` ${DIM}· ${verb} ${built}${RESET}` : "";
   console.log(`rune ${RUNE_VERSION} ${DIM}(${short})${RESET}${when}`);
 
-  const latest = await fetchLatestCommit();
+  const [latest, library] = await Promise.all([
+    fetchLatestCommit(),
+    fetchLibraryVersion(),
+  ]);
+
+  // A whole major behind the library is the more serious of the two, and it is
+  // reported even when the binary is the newest RELEASE — because that is
+  // exactly the case that used to look healthy.
+  if (isMajorBehind(RUNE_VERSION, library)) {
+    console.log(
+      `${YELLOW}${BOLD}this CLI is a major behind the rune library${RESET}` +
+        `${YELLOW} — CLI ${RUNE_VERSION}, library ${library} on JSR.${RESET}`,
+    );
+    console.log(
+      `${YELLOW}  It cannot read specs written for ${library} ` +
+        `(a ${majorOf(library)}.x marker reads as a syntax error).${RESET}`,
+    );
+    if (!isNewer(RUNE_COMMIT, latest)) {
+      // The honest part: updating will not help, so do not send anyone in a circle.
+      console.log(
+        `${YELLOW}  \`rune update\` will NOT fix this: the ${majorOf(library)}.x CLI ` +
+          `has not been released yet.${RESET}`,
+      );
+    }
+  }
+
   if (isNewer(RUNE_COMMIT, latest)) {
     console.log(
       `${YELLOW}${BOLD}there is a new version of rune${RESET}${YELLOW} — run \`rune update\`${RESET}`,

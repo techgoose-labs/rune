@@ -54,3 +54,46 @@ Deno.test("formatEastern — missing/unparseable stamp yields null (line omitted
   assertEquals(formatEastern("unknown"), null);
   assertEquals(formatEastern(""), null);
 });
+
+// ---- CLI-vs-library major skew ------------------------------------------
+//
+// The case these pin actually happened: rune 7.0.0 was published to JSR while
+// the rolling `latest` release stayed on the 6.x commit. Every installed CLI
+// reported itself up to date — correctly, it WAS the newest release — and then
+// failed to parse `[REQ:open]` with "does not take a modifier". The commit
+// check is structurally blind to it, so the library version is checked too.
+
+import { isMajorBehind, majorOf } from "./mod.ts";
+
+Deno.test("majorOf reads the major, and refuses anything that is not a semver", () => {
+  assertEquals(majorOf("7.0.0"), 7);
+  assertEquals(majorOf("6.0.3"), 6);
+  assertEquals(majorOf("10.2.1"), 10);
+  assertEquals(majorOf(undefined), undefined);
+  assertEquals(majorOf("dev"), undefined);
+  assertEquals(majorOf("unknown"), undefined);
+  assertEquals(majorOf(""), undefined);
+});
+
+Deno.test("the exact skew that shipped: CLI 6.0.3, library 7.0.0", () => {
+  assertEquals(isMajorBehind("6.0.3", "7.0.0"), true);
+});
+
+Deno.test("same major is not a skew, however far the patch runs ahead", () => {
+  assertEquals(isMajorBehind("7.0.0", "7.9.9"), false);
+  assertEquals(isMajorBehind("6.0.0", "6.0.3"), false);
+});
+
+Deno.test("a CLI AHEAD of the library does not nag", () => {
+  // Normal for a dev build between publishing the CLI and the library.
+  assertEquals(isMajorBehind("8.0.0", "7.0.0"), false);
+});
+
+Deno.test("unknown data on either side never nags — same rule as isNewer", () => {
+  // Offline, a JSR 404, or a dev build must not produce a warning built on
+  // nothing. Crying wolf here trains people to ignore the one that matters.
+  assertEquals(isMajorBehind(undefined, "7.0.0"), false);
+  assertEquals(isMajorBehind("6.0.3", undefined), false);
+  assertEquals(isMajorBehind("dev", "7.0.0"), false);
+  assertEquals(isMajorBehind(undefined, undefined), false);
+});

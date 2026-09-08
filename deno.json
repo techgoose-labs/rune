@@ -43,8 +43,8 @@
     "class-transformer": "npm:class-transformer@^0.5",
     "reflect-metadata": "npm:reflect-metadata@0.1.13",
     "#assert": "./keep/src/assert/mod.ts",
-    "@mrg-keystone/bedrock": "jsr:@mrg-keystone/bedrock@^1",
-    "@mrg-keystone/bedrock/artifact": "jsr:@mrg-keystone/bedrock@^1/artifact",
+    "@mrg-keystone/bedrock": "jsr:@mrg-keystone/bedrock@^1.0.1",
+    "@mrg-keystone/bedrock/artifact": "jsr:@mrg-keystone/bedrock@^1.0.1/artifact",
     "#api-doc": "jsr:@danet/swagger@^2.1.1/decorators"
   },
   "compilerOptions": {

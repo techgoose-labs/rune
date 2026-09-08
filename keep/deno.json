@@ -40,8 +40,8 @@
     "#zod": "npm:zod@3",
     "@types": "./src/foundation/dto/types.ts",
     "@foundation/": "./src/foundation/",
-    "@mrg-keystone/bedrock": "jsr:@mrg-keystone/bedrock@^1",
-    "@mrg-keystone/bedrock/artifact": "jsr:@mrg-keystone/bedrock@^1/artifact"
+    "@mrg-keystone/bedrock": "jsr:@mrg-keystone/bedrock@^1.0.1",
+    "@mrg-keystone/bedrock/artifact": "jsr:@mrg-keystone/bedrock@^1.0.1/artifact"
   },
   "compilerOptions": {
     "experimentalDecorators": true,

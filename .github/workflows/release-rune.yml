@@ -13,7 +13,7 @@ name: release-rune
 # The binary's baked version (`rune -v`) is stamped with the SAME computed version
 # (RUNE_VERSION_OVERRIDE → gen-version.ts), so the release tag and `rune -v` agree.
 # Builds (cross-compile + codesign) are rune-specific and run at the repo root
-# (rune IS the root package); the release itself is mrg-keystone/actions/gh-release.
+# (rune IS the root package); the release itself is techgoose-labs/actions/gh-release.
 #
 # `paths-ignore` stops pushes that touch ONLY runtime-owned or non-binary facets
 # (the keep/ runtime source, the e2e/examples/docs/todos facets, incl. the
@@ -44,6 +44,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno task setup
+      - run: deno test -A src/rune/ keep/ e2e/
+
   # Resolve the version this run will stamp + (on main) release. One source of
   # truth consumed by both `build` (binary stamp) and `pin` (the snapshot tag):
   #   - on a `v*` tag push  -> that tag, verbatim
@@ -163,7 +173,7 @@ jobs:
 
   release:
     needs: [build, meta]
-    uses: mrg-keystone/actions/.github/workflows/gh-release.yml@main
+    uses: techgoose-labs/actions/.github/workflows/gh-release.yml@main
     permissions:
       contents: write
     with:
@@ -193,7 +203,7 @@ jobs:
   pin:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [version, build, meta]
-    uses: mrg-keystone/actions/.github/workflows/gh-release.yml@main
+    uses: techgoose-labs/actions/.github/workflows/gh-release.yml@main
     permissions:
       contents: write
     with:

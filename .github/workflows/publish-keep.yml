@@ -18,8 +18,19 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno task setup
+      - run: deno test -A src/rune/ keep/ e2e/
+
   publish:
-    uses: mrg-keystone/actions/.github/workflows/jsr-publish.yml@main
+    needs: test
+    uses: techgoose-labs/actions/.github/workflows/jsr-publish.yml@main
     with:
       working-directory: keep
     secrets:

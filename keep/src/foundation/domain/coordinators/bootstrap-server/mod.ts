@@ -6,7 +6,7 @@ import type { Context } from "#hono";
 // The runtime substrate is bedrock's: it mints the request id, opens the
 // capture, runs the guard, and owns the lifecycle. keep boots a DI tree,
 // builds docs, and hands the result back as a `Unit`.
-import { Bedrock, tracer } from "@mrg-keystone/bedrock";
+import { Bedrock, composedIn, tracer } from "@mrg-keystone/bedrock";
 import type { App, Bag, Policy, Unit } from "@mrg-keystone/bedrock";
 import {
   exerciseEndpoints,
@@ -921,13 +921,24 @@ export async function bootstrapServer(
   let root: App | null = null;
   const standalone = (): App => (root ??= Bedrock({ backend: unit }));
 
-  return {
+  // The object the APP composes is this one — a spread of `unit` plus keep's
+  // surface — so the composition stamp lands here, not on `unit`.
+  const composed: KeepUnit = {
     ...unit,
     docs: server.docs,
-    // Scope-less by construction: a call from a cron tick or a test has no
-    // request to be bound to, and the auth unit sees `channel: "scope-less"`.
+    /**
+     * The scope-less in-process client. A call from a cron tick or a test has
+     * no request to be bound to, and the auth unit sees `channel: "scope-less"`.
+     *
+     * It is THE COMPOSED APP's client whenever this unit has been composed into
+     * one. That is not a nicety: the private root below has no `auth` slot, so
+     * handing out its client from inside a guarded app would answer 200 on a
+     * route the app itself answers 401 for — a bypass, reachable by anyone
+     * holding `api`. Composition is stamped on the unit before any dispatch, so
+     * even code that reads this at module scope gets the right client.
+     */
     get backend(): { fetch: typeof fetch } {
-      return standalone().client;
+      return composedIn(composed) ?? standalone().client;
     },
     // `bootstrapServer(..., { port })` still names the port; bedrock's env
     // registry supplies `PORT` when neither says.
@@ -947,6 +958,7 @@ export async function bootstrapServer(
       return Bedrock(ui ? { ui, backend: unit } : { backend: unit });
     },
   };
+  return composed;
 }
 
 /** @deprecated Options of the one-release `Backend()` adapter. */

@@ -20,7 +20,7 @@ import {
 } from "../../business/endpoint-decorator/mod.ts";
 import { bootstrapServer, policyFromDocs } from "./mod.ts";
 import { Bedrock, grantsSatisfied } from "@mrg-keystone/bedrock";
-import type { Access } from "@mrg-keystone/bedrock";
+import type { Access, Unit } from "@mrg-keystone/bedrock";
 
 class OutDto {
   @ApiProperty()
@@ -128,6 +128,52 @@ Deno.test("bedrock resolves the derived table, qualified by keep's namespace", a
     assertEquals(priv.status, 200);
   } finally {
     await app.stop();
+  }
+});
+
+Deno.test("api.backend is the COMPOSED app's client — never an unguarded private one", async () => {
+  // Found by handing the migration guide to a fresh reader, who noticed that
+  // `api.backend` survives the migration undocumented and still typechecks.
+  // It did more than survive: it built a PRIVATE root with no `auth` slot, so
+  // it answered 200 on a route the composed app answers 401 for. Anyone holding
+  // `api` — a cron script, a test, a maintenance task — had a guard bypass, in
+  // the compatibility surface of the refactor that exists to prevent exactly
+  // that. Composition is stamped on the unit now, and this client follows it.
+  const denyAll: Unit = {
+    namespace: "/auth",
+    policy: [{ path: "/*", access: "open" }],
+    handler: () => new Response("login"),
+    verify: () => null, // nobody is ever authenticated
+  };
+  const api = await bootstrapServer("bypass-probe", ThingsModule);
+  const app = Bedrock({ backend: api, auth: denyAll });
+  try {
+    const viaApp = await app.client.fetch("/api/things/private");
+    assertEquals(viaApp.status, 401);
+    await viaApp.body?.cancel();
+
+    const viaUnit = await api.backend.fetch("/api/things/private");
+    assertEquals(viaUnit.status, 401, "api.backend must meet the same guard");
+    await viaUnit.body?.cancel();
+
+    // The open route still answers on both, so this is a guard, not a blanket.
+    assertEquals((await app.client.fetch("/api/things/public")).status, 200);
+    assertEquals((await api.backend.fetch("/api/things/public")).status, 200);
+  } finally {
+    await app.stop();
+  }
+});
+
+Deno.test("a STANDALONE unit still gets its own client — the private root is not wrong, just private", async () => {
+  const api = await bootstrapServer("standalone-probe", ThingsModule);
+  try {
+    // Never composed: `api.backend` is the private root's client, and with no
+    // auth unit anywhere there is nothing to deny.
+    const res = await api.backend.fetch("/api/things/private");
+    assertEquals(res.status, 200);
+    await res.body?.cancel();
+  } finally {
+    await api.stop();
   }
 });
 

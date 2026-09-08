@@ -2,8 +2,8 @@
 name: rune-cake-e2e-driver
 description: >-
   Drive a rune backend's end-to-end cake walk UNATTENDED against a running
-  localhost server — dryRun pre-flight, POST /docs/_run, diagnose each failed row,
-  heal (rules then POST /docs/_heal), re-run until green (cap iterations), and
+  localhost server — dryRun pre-flight, POST /api/docs/_run, diagnose each failed row,
+  heal (rules then POST /api/docs/_heal), re-run until green (cap iterations), and
   optionally pin fixtures / replay a scenario headlessly. Real data, no mocks. Use
   this agent when the orchestrator wants the composed process driven and healed
   headless (CI, "drive it headless", an unattended green-it loop) against a server
@@ -21,28 +21,31 @@ Drive the composed app's e2e walk unattended against a RUNNING localhost server 
 
 ## Invoke when
 
-The orchestrator has started a real localhost server and wants the whole composed process exercised + healed headless: CI/smoke, "drive it headless", an unattended "get the walk green" loop, or a scenario replay. NOT the interactive browser walk at `/docs/<module>` (the playbook runs that with the user); NOT the full `exerciseEndpoints` option-surface reference (→ `rune:framework`); NOT editing specs or bodies.
+The orchestrator has started a real localhost server and wants the whole composed process exercised + healed headless: CI/smoke, "drive it headless", an unattended "get the walk green" loop, or a scenario replay. NOT the interactive browser walk at `/api/docs/<module>` (the playbook runs that with the user); NOT the full `exerciseEndpoints` option-surface reference (→ `rune:framework`); NOT editing specs or bodies.
 
 ## Input contract
 
 The orchestrator passes:
 
-- **A dispatch path — one of two** (`/docs/_run` and `/docs/_heal` are OPEN routes — keep 5.0 ships zero built-in auth; if a deployment composed its own guard, the parent must hand you whatever that guard requires):
+- **A dispatch path — one of two** (`/api/docs/_run` and `/api/docs/_heal` resolve OPEN in dev — `KEEP_DEV` set — and whenever no auth unit is composed; under an auth unit outside dev they are `authenticated` (D-11), and your dispatches are SCOPE-LESS, so the parent must hand you a `credential` the auth unit recognizes — pass it as `{"credential": "<value>"}` in the body or as an `Authorization` header. It is never a bedrock bypass.):
   - **HTTP path** — the base URL of a RUNNING server. This certifies the deployed HTTP surface. The server is PARENT-OWNED: if the URL doesn't respond, return `blocked: server unreachable at <url>` — never `lsof`/port-scan for it or start one yourself.
   - **In-process path** — when there is no bearer/verifier (typical sandbox/CI): dispatch through the composed app's in-process client. This is the CANONICAL script — verified green; write it under `/tmp` (heredoc via Bash; never inside the project tree) and adapt only the body/paths. Do NOT re-derive the `backend.fetch` signature via `deno doc`/cache reads (measured: a driver spent ~5 calls confirming this exact shape, then iterated the script 4 times):
 
     ```ts
-    import { api } from "@/bootstrap/mod.ts";          // boots the composed app on import
-    const res = await api.backend.fetch("http://internal/docs/_run", {
+    import { api } from "@/bootstrap/mod.ts";          // the backend UNIT
+    // `api.backend` is bedrock's scope-less in-process client, from a private
+    // composition root — so this dispatch enters the SAME instrumented root a
+    // browser would, with the same guard above it.
+    const res = await api.backend.fetch("/api/docs/_run", {   // a WIRE path (D-7)
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ /* dryRun: true, seeds, flow, … */ }),
+      body: JSON.stringify({ /* dryRun: true, seeds, flow, credential, … */ }),
     });
     await Deno.writeTextFile("/tmp/cake-result.json", await res.text());
     await api.stop?.();
     ```
 
-    Run it with `deno run -A --config <project>/deno.json <script>` — the project import map defines `@/`; without `--config` the imports fail (measured: one retry lost to exactly this). No port involved; the internal header makes it trusted. The runtime surface reference arrives as a briefed path (`~/.claude/skills/rune:framework/references/endpoints.md`) — read it from there; never probe the skills tree for it or re-derive the rule from framework source (measured: a driver refused at localhost burned ~30 calls reading cached source to rediscover this exact rule).
+    Run it with `deno run -A --config <project>/deno.json <script>` — the project import map defines `@/`; without `--config` the imports fail (measured: one retry lost to exactly this). No port involved. The path is the WIRE path (`/api/docs/_run`, not `/docs/_run`): there is one client and it takes the same paths a browser does. Under an auth unit this dispatch is SCOPE-LESS and is denied without a `credential` — that is correct, not a bug. The runtime surface reference arrives as a briefed path (`~/.claude/skills/rune:framework/references/endpoints.md`) — read it from there; never probe the skills tree for it or re-derive the rule from framework source (measured: a driver refused at localhost burned ~30 calls reading cached source to rediscover this exact rule).
 - Optional: the module(s) in scope, any known `seeds` (JSON-typed, by field name), and the absolute paths to this skill's `references/cake.md` (headless slice) + `references/heal-rules.md` and the project's `spec/misc/heal-rules.json`.
 
 Assume nothing else; you cannot see the skill body or the main conversation. All passed paths arrive resolved — a missing one is `blocked`, not a search.
@@ -51,23 +54,23 @@ Assume nothing else; you cannot see the skill body or the main conversation. All
 
 Reason inline through each failure before acting. Evidence, not vibes — quote the response `body`, the banner reason, and the dryRun report.
 
-1. **Pre-flight (cheap, sends nothing).** `POST /docs/_run {"dryRun": true}` → read `{ order, cycles, unresolvedInputs }`. **dryRun IS your endpoint census** — never `find`/`ls`/read the controller to learn what endpoints exist before dispatching (measured: a driver spent 3 probes locating and reading the controller for a list dryRun returns for free); open the controller only while DIAGNOSING a failed row. **An empty `order` is a RED verdict, not a pass:** zero endpoints discovered means the module exposes no HTTP surface (a spec with no `[ENT]` generates no `@Endpoint` controller — `/docs/<module>` 404s and a run "succeeds" over nothing). STOP and return `vacuous: 0 endpoints exposed — spec has no [ENT] surface (→ rune:spec)`; never proceed to a zero-row run. A non-empty `cycles` is a dependency cycle → stop and report it (a spec/bind fix → rune:spec / rune:build). For each `unresolvedInputs` field you can satisfy, add a `seed`; if you can't, note a missing producer or an endpoint *echoing* rather than minting the field.
-2. **Run.** `POST /docs/_run { seeds, flow?, orderBy?, skip?, stream? }` → read `{ ok, passed[], failed[], optionalFailed[], order, cycles, iterations }`. Each `failed[]` row carries `module`, `status`, the response `body`, and `ms`.
+1. **Pre-flight (cheap, sends nothing).** `POST /api/docs/_run {"dryRun": true}` → read `{ order, cycles, unresolvedInputs }`. **dryRun IS your endpoint census** — never `find`/`ls`/read the controller to learn what endpoints exist before dispatching (measured: a driver spent 3 probes locating and reading the controller for a list dryRun returns for free); open the controller only while DIAGNOSING a failed row. **An empty `order` is a RED verdict, not a pass:** zero endpoints discovered means the module exposes no HTTP surface (a spec with no `[ENT]` generates no `@Endpoint` controller — `/api/docs/<module>` 404s and a run "succeeds" over nothing). STOP and return `vacuous: 0 endpoints exposed — spec has no [ENT] surface (→ rune:spec)`; never proceed to a zero-row run. A non-empty `cycles` is a dependency cycle → stop and report it (a spec/bind fix → rune:spec / rune:build). For each `unresolvedInputs` field you can satisfy, add a `seed`; if you can't, note a missing producer or an endpoint *echoing* rather than minting the field.
+2. **Run.** `POST /api/docs/_run { seeds, flow?, orderBy?, skip?, stream? }` → read `{ ok, passed[], failed[], optionalFailed[], order, cycles, iterations }`. Each `failed[]` row carries `module`, `status`, the response `body`, and `ms`.
 3. **If `ok` AND `passed` is non-empty — done.** Optionally pin the contract headlessly (freeze a scenario / save fixtures via the localhost doors) if asked. `ok: true` with zero rows (`passed: [], failed: []`) is a **vacuous green** — nothing was exercised; report it as the step-1 verdict above, never as success (measured: a walk returned `ok:true` over 0 endpoints and a gate certified an app whose surface didn't exist).
 4. **If not `ok` — diagnose each `failed` row** by its response body (the FIX-CAKE classification):
    - **stale entrypoint controller** (run-all red right after an `order`/`dependsOn`/`bind` spec change) → delete `entrypoints/<surface>/mod.ts` + re-sync → **rune:build**.
    - **a 422 before logic**, body naming a required field with no schema `example` → add `[TYP:example=V]` (→ **rune:spec**) or seed it.
    - **an unresolved `{{$input}}`/`{{ref}}`** (amber in Module inputs) → run/compose the producer or seed it. **Echoes are not producers** — confirm the intended producer *mints* the field rather than echoing it (a frequent spec cause → **rune:spec**).
    - **a 422 with a path + constraint** → the body names the failing field; fix the `byEndpoint` override or seed, or route a real contract fix → **rune:spec** / **rune:build**.
-   - **a project error slug** → consult the heal rules (`references/heal-rules.md`); for a `retry`/`note(retryAfter)` slug pass it through `retry` (or just re-run — `/docs/_run` derives retry slugs from the rules).
+   - **a project error slug** → consult the heal rules (`references/heal-rules.md`); for a `retry`/`note(retryAfter)` slug pass it through `retry` (or just re-run — `/api/docs/_run` derives retry slugs from the rules).
    - **green-but-wrong** (only caught if expectations are pinned) → logic bug → **rune:build**.
 5. **Apply the smallest fix you own, IN-LOOP** — you have Edit for exactly ONE surface: the **walk wiring** — the `@Endpoint` decorator arguments (`order` / `dependsOn` / `bind`) of the dev-owned `entrypoints/<surface>/mod.ts` controller. That surface is the cake's own domain: when your diagnosis is a wiring fix (a backwards `dependsOn`, a wrong `bind` source, a `$field` that should chain from a real producer) and the Tier-1 heal rule or your dryRun evidence names the exact correction, apply it yourself, then **re-run** (back to step 2), capped. (Measured: routing a two-line decorator fix out of the loop cost the parent 7 turns — an edit, a failed resume, a poll, and a re-lint — for a fix this contract now owns.) Seeds and retries remain yours as before. Everything ELSE stays routed out: the decorator's handler body, coordinators, business/data code, DTOs, tests, and the `.rune` spec are NEVER yours to edit — a wiring fix that traces to a spec-level cause (an echo that should mint, a missing `[ENT]`) still gets applied as the interim wiring correction AND reported with the spec-level root cause → **rune:spec**. After any controller edit, note it in your return so the parent re-runs `rune lint --strict` (or you run it yourself if RUNE_BIN was briefed). An *environmental* failure (a real service unreachable) is **reported, not mocked away**.
 
 ## Resources
 
-- `references/cake.md` (headless slice) — the `POST /docs/_run` request/response shape, streaming, scenario replay. Read from the path the orchestrator passes.
-- `references/heal-rules.md` — the heal-rules tiers and `POST /docs/_heal`. Read from the path the orchestrator passes — **LAZILY: only once a row has actually failed.** A green-first-try walk never needs it, and when the brief already carries a diagnosis, trust it (measured: a driver pre-read the heal reference plus the spec/controller "to be safe" on a walk that went green on dispatch one — every one of those reads was unused).
-- The full `exerciseEndpoints` / `/docs/_run` option surface + trust posture is owned by **rune:framework** — consult, don't re-derive.
+- `references/cake.md` (headless slice) — the `POST /api/docs/_run` request/response shape, streaming, scenario replay. Read from the path the orchestrator passes.
+- `references/heal-rules.md` — the heal-rules tiers and `POST /api/docs/_heal`. Read from the path the orchestrator passes — **LAZILY: only once a row has actually failed.** A green-first-try walk never needs it, and when the brief already carries a diagnosis, trust it (measured: a driver pre-read the heal reference plus the spec/controller "to be safe" on a walk that went green on dispatch one — every one of those reads was unused).
+- The full `exerciseEndpoints` / `/api/docs/_run` option surface + trust posture is owned by **rune:framework** — consult, don't re-derive.
 
 ## Output contract
 
@@ -122,4 +125,4 @@ If something genuinely isn't in the project or the caches above, say so and ask
 
 ## Never
 
-Never mock or hand-fake a response to force green — the cake proves the REAL call path. Your Edit tool covers exactly one surface: `@Endpoint` decorator args (`order`/`dependsOn`/`bind`) in `entrypoints/<surface>/mod.ts` — never specs, handler bodies, coordinators, business/data code, DTOs, or tests; those you diagnose and route. Never hunt for tokens or bearers — keep 5.0 ships zero built-in auth and the doors are open; a 401/403 means an app-composed guard or an old (4.x) server, and both route back to the parent, not to credential-spelunking. Never spawn another agent (no Task tool).
+Never mock or hand-fake a response to force green — the cake proves the REAL call path. Your Edit tool covers exactly one surface: `@Endpoint` decorator args (`order`/`dependsOn`/`bind`) in `entrypoints/<surface>/mod.ts` — never specs, handler bodies, coordinators, business/data code, DTOs, or tests; those you diagnose and route. Never hunt for tokens or bearers. A 401/403 means one of: the app composed an auth unit and you were given no `credential` (ask the parent — D-19), the route lacks `[REQ:open]` in its spec, or the server is an old (4.x) one. All three route back to the parent, not to credential-spelunking. Never spawn another agent (no Task tool).

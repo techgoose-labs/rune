@@ -1,6 +1,6 @@
 # The cake page — behavior, expectations, fixtures, scenarios
 
-The full reference for the interactive cake at `/docs/<module>`: how the walk
+The full reference for the interactive cake at `/api/docs/<module>`: how the walk
 resolves and coerces values, the expectations contract, durable module setup,
 the `spec/misc/cake.json` and scenario artifacts, response-diff, and the flow
 selector. The cake, the system map, and `exerciseEndpoints` are three views of
@@ -17,14 +17,14 @@ With Swagger on (the default), each module gets:
 
 | Path | What |
 | ---- | ---- |
-| `/docs/<module>` | the cake — a guided, ordered walk of the chain |
-| `/docs/<module>/swagger` | standard Swagger UI (→ `rune:docs`) |
-| `/docs/<module>/json` | the raw OpenAPI spec (**token-gated**; → `rune:docs`) |
+| `/api/docs/<module>` | the cake — a guided, ordered walk of the chain |
+| `/api/docs/<module>/swagger` | standard Swagger UI (→ `rune:docs`) |
+| `/api/docs/<module>/json` | the raw OpenAPI spec (**token-gated**; → `rune:docs`) |
 
 Module docs pages are named after the module class, lowercased, without the
 `Module` suffix (`endpointModule("Orders", …)` → `/docs/orders`). The endpoint
 **id** is the handler method name — `dependsOn`/`bind` references use it, and so
-do cake deep links (`/docs/<module>#<id>`).
+do cake deep links (`/api/docs/<module>#<id>`).
 
 ## Cake behavior worth knowing when debugging
 
@@ -125,8 +125,8 @@ JSON meant to be committed, so a process's required setup and contract travel
 with the repo. On load the cake fetches it and applies it as the baseline —
 restoring setup + expectations + persisted variables even in a fresh browser with
 empty `localStorage` (the saved config wins for the keys it carries). The door is
-`GET`/`POST /docs/_fixtures`, on the **`/docs/_*` control-plane gate** (same
-posture as `/docs/_run`): **in-process OR an infra bearer whose app-grants
+`GET`/`POST /api/docs/_fixtures`, on the **`/api/docs/_*` control-plane gate** (same
+posture as `/api/docs/_run`): **in-process OR an infra bearer whose app-grants
 include `dev`** — no localhost trust; the file defaults to
 `<cwd>/spec/misc/cake.json` when the project has a
 `spec/` dir (else the legacy `<cwd>/fixtures/cake.json`), and `KEEP_FIXTURES_DIR`
@@ -139,16 +139,16 @@ The Scenarios rail card freezes the whole walk (active flow, every step's body
 text + params with refs intact, skips) under a name — one committable file per
 scenario. **load** applies one over the page (overwrites editor state); **run** is
 load + Run all. Saved/listed through the control-plane-gated `GET`/`POST
-/docs/_scenarios` (in-process or a `dev`-grant bearer; same-name saves overwrite
+/api/docs/_scenarios` (in-process or a `dev`-grant bearer; same-name saves overwrite
 — that's updating). CI replays one
-headlessly with `POST /docs/_run {"scenario":"<name>"}`: the saved flow runs with
+headlessly with `POST /api/docs/_run {"scenario":"<name>"}`: the saved flow runs with
 each step's **literal** body fields as `byEndpoint` overrides; fields holding
 `{{refs}}` are dropped so the runner's own bind machinery (which the refs mirror)
 fills them.
 
-## `POST /docs/_run` — driving the walk headlessly
+## `POST /api/docs/_run` — driving the walk headlessly
 
-`POST /docs/_run` is the control-plane-gated HTTP door to `exerciseEndpoints` —
+`POST /api/docs/_run` is the control-plane-gated HTTP door to `exerciseEndpoints` —
 **in-process OR an infra bearer whose app-grants include `dev`** (no localhost
 trust) — how the map's **Run all** and a headless agent/CI ask a *running* server
 "does the whole composed process work right now?" without importing the app. A
@@ -169,12 +169,12 @@ posture) lives in the **`rune:framework`** skill's `references/endpoints.md`, be
 `exerciseEndpoints` options it fronts — read it there, not here, so the contract has one
 home.
 
-## Dev mode — `KEEP_DEV` and `/docs/_dev`
+## Dev mode — `KEEP_DEV` and `/api/docs/_dev`
 
 `rune dev` drives a reload channel so open cake/map pages refresh themselves on a
 new process. Set `KEEP_DEV=<status-file path>` and `bootstrapServer`:
 
-- serves `GET /docs/_dev` → JSON `{ bootId, ...statusFileContents }` (any
+- serves `GET /api/docs/_dev` → JSON `{ bootId, ...statusFileContents }` (any
   read/parse failure degrades to `{ bootId }` alone);
 - injects a poller into every cake/map page: polls `_dev` while the page is
   visible, **reloads on a changed `bootId`** (a new process is serving), renders

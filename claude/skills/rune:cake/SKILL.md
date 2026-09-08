@@ -2,13 +2,13 @@
 name: "rune:cake"
 description: >-
   Prove a rune backend actually does what it's supposed to, end to end, through
-  the per-module **cake** at `/docs/<module>` — real data, no mocks, real service
+  the per-module **cake** at `/api/docs/<module>` — real data, no mocks, real service
   connectivity — and fix the cake when a walk goes red. Use when the user says
   "run the cake", "exercise the endpoints", "walk the process", "does the app work
   end to end", "Emulate process / Run all in order", "the cake is red / a step
   fails / won't bind", "$input won't resolve", "run-all is red", "pin an
   expectation / save fixtures", "save/replay a scenario", "fix the heal rules /
-  heal panel", or "drive the whole composed app headless" (`POST /docs/_run`,
+  heal panel", or "drive the whole composed app headless" (`POST /api/docs/_run`,
   `exerciseEndpoints`). Covers serve-and-walk, the real-data e2e discipline,
   headless replay, Expectations→`spec/misc/cake.json`, Scenarios, response-diff,
   the system map, and the FIX-CAKE assist (stale entrypoint controller, missing
@@ -24,7 +24,7 @@ argument-hint: "[module to exercise, or the cake problem to fix]"
 
 # rune:cake — orchestration playbook
 
-The cake is rune's **end-to-end tier**: a per-module guided walk at `/docs/<module>`
+The cake is rune's **end-to-end tier**: a per-module guided walk at `/api/docs/<module>`
 that runs your real endpoints, in dependency order, against **real services with no
 mocks**. The main session drives the **interactive** browser walk and pins the
 contract itself; it delegates the **unattended/headless** drive-and-heal loop to a
@@ -45,13 +45,13 @@ specialist, and routes every real fix to the owning sibling skill.
   as facts; an agent that finds the server unreachable reports blocked — it never `lsof`-scans or
   restarts it.
 - **Entrypoint controllers are generated, never hand-written.** Only an `[ENT]` in the spec
-  generates an `@Endpoint` controller — a `[REQ]`-only module has NO HTTP surface: `/docs/<module>`
+  generates an `@Endpoint` controller — a `[REQ]`-only module has NO HTTP surface: `/api/docs/<module>`
   404s and any walk over it is vacuous. Never hand-create `src/<m>/entrypoints/*` or a hand-rolled
   bootstrap to force a walk (measured: a hand-wired controller + bootstrap turned a lint-clean
   build into 4 `--strict` violations) — declare the `[ENT]` in the spec (→ `rune:spec`) and
   re-sync (→ `rune:build`). **A zero-endpoint walk is RED (vacuous), not green**, whatever `ok`
   says.
-- **Run artifacts never touch the project tree.** The server log, `/docs/_run` output JSON, and
+- **Run artifacts never touch the project tree.** The server log, `/api/docs/_run` output JSON, and
   pid files go to `/tmp` / a scratch dir / a designated out-dir — `rune lint --strict` fails on
   root strays like `server.log` or a result JSON at the project root.
 - **Canonical and certified facts are trusted, not re-verified.** No pre-flight `ls` of
@@ -62,13 +62,13 @@ specialist, and routes every real fix to the owning sibling skill.
 ## When this skill applies
 
 "Does the composed app work right now, with real data?" or "the cake / heal / run-all
-is broken — get it green". Serving and walking `/docs/<module>`, pinning
+is broken — get it green". Serving and walking `/api/docs/<module>`, pinning
 expectations/scenarios, replaying headless, or fixing a red walk.
 
 ## Specialist roster
 
 - **`rune-cake-e2e-driver`** — drives the e2e walk UNATTENDED against a running
-  localhost server (dryRun → `POST /docs/_run` → diagnose each failed row → heal →
+  localhost server (dryRun → `POST /api/docs/_run` → diagnose each failed row → heal →
   re-run to green), reports remaining failures with the owning sibling. Owns the
   headless diagnosis/heal procedure; reads `references/cake.md` + `references/heal-rules.md`.
 
@@ -78,7 +78,7 @@ A subagent can't share the browser or talk to the user, so the interactive walk 
 
 ```text
 deno run -A server/bootstrap/mod.ts     # serve the backend directly (docs at bare /docs/*)
-open http://localhost:<port>/docs/<module>
+open http://localhost:<port>/api/docs/<module>
 # — or, against the composed app (`deno task start`): the backend layer mounts
 #   everything under /api, so the same pages live at /api/docs/<module>
    ├─ Emulate process    # send the next step, read the response, capture its output
@@ -89,7 +89,7 @@ green ✓ on every step ⇒ the logic actually works (not just type-checks)
 - Request bodies are generated from the input DTO schema; bound fields carry
   `{{step.field}}` refs resolved at send time. Captures + variables are shared across
   docs pages via `localStorage`. A `flows` module shows a **flow selector** (default
-  **main** = untagged-only, so a destructive `teardown` never auto-runs). `/docs/_map`
+  **main** = untagged-only, so a destructive `teardown` never auto-runs). `/api/docs/_map`
   is the whole composed app as one live process graph.
 - Prefer **`rune dev`** for the edit loop (watch → re-check/sync → restart; open pages
   self-reload). `rune dev` does **not** run `deno test` — that loop is `rune:build`'s.
@@ -112,11 +112,12 @@ fix or visibly seed past, never a reason to mock.
 
 For unattended / CI / "drive it headless" runs, or an automated get-it-green loop:
 
-1. **Pick the dispatch path.** `POST /docs/_run` (and `/docs/_heal`) are **open
-   routes** — keep 5.0 ships zero built-in auth, so a plain
-   `curl http://localhost:<port>/docs/_run` works against any running server (no
-   token, no bearer; if a deployment composed its OWN guard, satisfy that guard the
-   app's way). Against an already-running server → drive it over HTTP. With no
+1. **Pick the dispatch path.** `POST /api/docs/_run` (and `/api/docs/_heal`) are **open
+   routes in dev and with no auth unit composed** (D-11), so a plain
+   `curl http://localhost:<port>/api/docs/_run` works against a dev server (no
+   token, no bearer). Under an auth unit outside dev the row resolves
+   `authenticated`, and a headless dispatch is SCOPE-LESS — pass a `credential`
+   the auth unit recognizes (D-19), in the body or as `Authorization`. Against an already-running server → drive it over HTTP. With no
    server running (typical sandbox/CI) → the leanest path is **in-process
    dispatch** via the composed app's `backend.fetch` (`bootstrapServer` →
    `{ backend }`) — and **do NOT start a listening server for it**: importing the
@@ -147,7 +148,7 @@ to the owner — this is the coordination map:
 | walk WIRING — a backwards/wrong `order`/`dependsOn`/`bind` in the controller decorator | **the driver, in-loop** (its Edit covers exactly this surface; it re-runs and reports the change) — the underlying spec-level cause still routes to **`rune:spec`** |
 | stale entrypoint controller; unimplemented/wrong body; heal-rule enrichment | **`rune:build`** |
 | missing `[TYP:example=]`; an echo that should mint; a contract fix | **`rune:spec`** |
-| **vacuous walk** — `/docs/<m>` 404 / dryRun `order` empty / 0 rows exercised (no `[ENT]` in the spec) | **`rune:spec`** (declare the `[ENT]`), then **`rune:build`** (re-sync) — never hand-wire |
+| **vacuous walk** — `/api/docs/<m>` 404 / dryRun `order` empty / 0 rows exercised (no `[ENT]` in the spec) | **`rune:spec`** (declare the `[ENT]`), then **`rune:build`** (re-sync) — never hand-wire |
 | the runner option surface; `bootstrapServer`/auth/trust posture | **`rune:framework`** |
 | a per-endpoint Swagger example/description | **`rune:docs`** |
 

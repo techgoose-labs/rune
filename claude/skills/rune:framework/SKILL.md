@@ -3,30 +3,29 @@ name: "rune:framework"
 description: >-
   The runtime that rune-generated Deno backends run on — the "back end" half of
   rune's world. Use when you tune or debug the *running* app rather than the
-  `.rune` spec: `bootstrapServer` (the `{ listen, stop, backend, handler }`
-  return), the in-process `backend.fetch` client, forwarding conn info to
-  `Deno.serve`, and why a request 401s/403s. Covers the infra-only trust model
-  (in-process trusted, an infra-signed session bearer verified offline against
-  zero built-in auth since keep 5.0 — no guard, no infra trust, no sessions,
-  no grants; auth is an app-composed guard layer, and 401/403s trace to version
-  skew or the app's own guard), the `#assert`→`RuneAssertError`→HTTP
-  422 mapping, the `@Endpoint`/`@EndpointController` option semantics
-  (`order`/`dependsOn`/`bind`), the `exerciseEndpoints` headless runner +
-  `POST /docs/_run`, the `/docs/_map` system map, and deployment (standalone,
-  hosting under a sprig UI in the canonical `ui/` + `server/` layout — the
-  git-root `serve.ts` runs `api.compose({ frontend: Frontend() })` importing
-  `./server/bootstrap/mod.ts` (the canonical backend-layer composition; legacy
-  apps still run `serveSprig({ keep: api })`) — via `api.compose`, `Backend`/
-  `BackendFrom`, `withBasePath` (a layer: `(inner?) => handler`), Deno
-  Deploy, logging). Trigger phrases:
-  "why is auth failing / 401 / 403", "forward remoteAddr / conn info",
+  `.rune` spec: what `bootstrapServer` returns (since keep 7.0 a **bedrock
+  `Unit`** — the backend half of an app — plus keep's own `listen`/`stop`/
+  `backend`/`docs`/`mount`/`policy` surface), the one in-process client and its
+  WIRE paths (`bag.fetch("/api/users")`, never `/users`), the composition root
+  `Bedrock({ ui, backend, auth })` in the git-root `serve.ts`, and why a request
+  401s/403s. Covers auth as the THIRD SLOT (keep still ships none of its own;
+  an auth unit's `verify` runs above every unit on every channel — network,
+  in-process, scope-less — and `[REQ:open]` in the spec is what marks a route
+  reachable without a credential), the `#assert`→`RuneAssertError`→HTTP 422
+  mapping, the `@Endpoint`/`@EndpointController` option semantics
+  (`order`/`dependsOn`/`bind`/`access`), the `exerciseEndpoints` headless runner
+  + `POST /api/docs/_run`, the `/api/docs/_map` system map, and deployment
+  (standalone via `Bedrock({ backend: api }).listen()`, the composed `ui/` +
+  `server/` layout, Deno Deploy, and the one observability boundary). Trigger
+  phrases: "why is auth failing / 401 / 403", "add auth to my app",
   "host the backend under a sprig UI", "deploy a sprig+keep app",
-  "deploy to Deno Deploy", "why does this 401/403 / how do I add auth",
-  "what does bootstrapServer return", "run exerciseEndpoints in CI". NOT the
-  `.rune` language or modeling → use `rune:spec`; NOT generating/filling/testing
-  a module → use `rune:build`; NOT the interactive cake walk / `/docs/<m>` UI /
-  heal panel → use `rune:cake`; NOT Swagger examples / `@ApiProperty` /
-  `/docs/<m>/json` doc content → use `rune:docs`.
+  "deploy to Deno Deploy", "what does bootstrapServer return",
+  "what is Bedrock / the composition root", "why is my in-process call 404ing",
+  "run exerciseEndpoints in CI". NOT the `.rune` language or modeling → use
+  `rune:spec`; NOT generating/filling/testing a module → use `rune:build`; NOT
+  the interactive cake walk / `/api/docs/<m>` UI / heal panel → use `rune:cake`;
+  NOT Swagger examples / `@ApiProperty` / `/api/docs/<m>/json` doc content → use
+  `rune:docs`.
 ---
 
 # rune:framework — orchestration playbook
@@ -50,27 +49,29 @@ deploying / hosting under a sprig UI.
 
 ## Specialist roster
 
-- **`rune-framework-auth`** — auth & trust: why a request 401s/403s, the
-  infra-only trust model, verifying the infra session bearer offline against
-  the zero-auth model, the removed 4.x trust stack + its inert env vars,
-  the docs/browser bearer flow. Owns `references/auth.md`.
+- **`rune-framework-auth`** — auth & trust: why a request 401s/403s, auth as
+  the THIRD SLOT (an auth unit's `verify` above every unit on every channel),
+  `[REQ:open]` and where a route's policy actually comes from, reading the
+  caller with `identity(ctx)`, and the removed trust stacks + their inert env
+  vars. Owns `references/auth.md`.
 - **`rune-framework-runtime`** — the process layer: `bootstrapServer`, in-process
   `backend.fetch`, `@Endpoint`/`@EndpointController` semantics, the
-  `exerciseEndpoints` runner + `POST /docs/_run` + `/docs/_map`, `@WsEndpoint`.
-  Owns `references/endpoints.md`.
-- **`rune-framework-deploy`** — deployment & hosting: standalone, sprig-hosted
-  (`api.compose`/`Backend` canonical; `serveSprig`/`sprigUi` legacy), `withBasePath`, Deno Deploy, the in-process `backend`
-  client, logging. Owns `references/deployment.md`.
+  `exerciseEndpoints` runner + `POST /api/docs/_run` + `/api/docs/_map`,
+  `@WsEndpoint`. Owns `references/endpoints.md`.
+- **`rune-framework-deploy`** — deployment & hosting: the composition root
+  `Bedrock({ ui, backend, auth })`, standalone `listen()`, `withBasePath` /
+  `mountsSelf`, wire paths, Deno Deploy, the one observability boundary. Owns
+  `references/deployment.md`.
 
 ## Flow
 
 1. **Classify the question by domain** (main session):
    - auth / 401 / 403 / guard-layer placement / removed auth vars → `rune-framework-auth`
    - `bootstrapServer` / `@Endpoint` semantics / `order`·`dependsOn`·`bind` / the
-     `exerciseEndpoints`·`/docs/_run`·`/docs/_map` runner surface / WS sockets →
-     `rune-framework-runtime`
-   - serving / hosting under sprig / `withBasePath` / Deno Deploy / logging →
-     `rune-framework-deploy`
+     `exerciseEndpoints`·`/api/docs/_run`·`/api/docs/_map` runner surface / WS
+     sockets → `rune-framework-runtime`
+   - serving / the composition root / hosting under sprig / `withBasePath` /
+     Deno Deploy / logging → `rune-framework-deploy`
 2. **Delegate** to that specialist via the Task tool. Pass: the question/symptom
    (with the failing request + origin + any response body), the project root,
    optionally a running server's base URL, and **the absolute path to the

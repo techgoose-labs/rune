@@ -132,9 +132,9 @@ build.
 
 | Path | What |
 | ---- | ---- |
-| `/docs/<module>` | the cake — guided ordered walk (→ **`rune:cake`**) |
-| `/docs/<module>/swagger` | standard Swagger UI |
-| `/docs/<module>/json` | the raw OpenAPI spec — **gated: in-process OR a `dev`-grant infra bearer** |
+| `/api/docs/<module>` | the cake — guided ordered walk (→ **`rune:cake`**) |
+| `/api/docs/<module>/swagger` | standard Swagger UI |
+| `/api/docs/<module>/json` | the raw OpenAPI spec — **gated: in-process OR a `dev`-grant infra bearer** |
 
 Module pages are named after the module class, lowercased, without the
 `Module` suffix (`endpointModule("Orders", …)` → `/docs/orders`). The same
@@ -147,7 +147,7 @@ backend route under `/api`, so the docs surface is `/api/docs/<module>` (spec at
 `/api/docs/<module>/json`); a bare backend serves the same pages at `/docs/*`.
 In-process dispatch is always unprefixed (`backend.fetch("/docs/app/json")`).
 
-Since keep 5.0 the doc pages AND the OpenAPI spec (`/docs/<module>/json`) are
+Since keep 5.0 the doc pages AND the OpenAPI spec (`/api/docs/<module>/json`) are
 **open routes** — keep ships zero built-in auth, so a browser just opens them;
 no token, no bearer. The legacy `?token=` → `localStorage` seeding script still
 rides along in the pages but is inert (a stray token is ignored). If a

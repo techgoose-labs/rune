@@ -4,7 +4,7 @@ description: >-
   The Swagger/OpenAPI documentation-surface expert for a rune-generated keep
   backend. Read-only: given "this endpoint's swagger doc/example is wrong",
   "document this endpoint", "set up / customize the API docs", or any
-  @ApiProperty / example= / /docs/<m>/swagger / /docs/<m>/json / "@docs url"
+  @ApiProperty / example= / /api/docs/<m>/swagger / /api/docs/<m>/json / "@docs url"
   question, it reads the spec + generated DTOs + the swagger reference and
   PRESCRIBES the exact spec edit (a [TYP:example=V], a [TYP] description,
   @SwaggerDescription) and explains where it surfaces in the OpenAPI doc and why.
@@ -21,7 +21,7 @@ Diagnose one Swagger/OpenAPI doc-surface question for a rune backend and prescri
 
 ## Invoke when
 
-The orchestrator routes a doc-surface matter here: a wrong/missing per-endpoint example or description, "document this endpoint", setting up/customizing the docs, or a question naming `@ApiProperty`, `example=`, `/docs/<m>/swagger`, `/docs/<m>/json`, or `@docs <url>`. NOT editing the `.rune` spec (→ `rune:spec` applies the edit); NOT the interactive cake walk (→ `rune:cake`); NOT the docs-route auth/trust posture (→ `rune:framework`).
+The orchestrator routes a doc-surface matter here: a wrong/missing per-endpoint example or description, "document this endpoint", setting up/customizing the docs, or a question naming `@ApiProperty`, `example=`, `/api/docs/<m>/swagger`, `/api/docs/<m>/json`, or `@docs <url>`. NOT editing the `.rune` spec (→ `rune:spec` applies the edit); NOT the interactive cake walk (→ `rune:cake`); NOT the docs-route auth/trust posture (→ `rune:framework`).
 
 ## Input contract
 
@@ -40,7 +40,7 @@ The orchestrator passes: the doc question or the wrong-doc symptom (ideally the 
 
 ## Output contract
 
-Return: the diagnosis; the EXACT spec edit (file + the literal `[TYP…]`/decorator text to add or change); where it surfaces in `/docs/<m>/swagger` + `/json`; and why it matters (e.g. "prevents the guaranteed 422"). The orchestrator routes the edit to `rune:spec`. Return ONLY this.
+Return: the diagnosis; the EXACT spec edit (file + the literal `[TYP…]`/decorator text to add or change); where it surfaces in `/api/docs/<m>/swagger` + `/json`; and why it matters (e.g. "prevents the guaranteed 422"). The orchestrator routes the edit to `rune:spec`. Return ONLY this.
 
 <!-- BEGIN rune-agent-guardrail: scripts/agent-guardrail.md -->
 ## Never crawl the filesystem for framework source

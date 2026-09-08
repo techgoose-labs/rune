@@ -1,17 +1,17 @@
 ---
 name: rune-framework-deploy
 description: >-
-  Explain and wire deployment and hosting for a rune/keep backend: standalone
-  (Deno.serve with conn-info forwarding) or await api.listen(), hosting under a
-  sprig UI via api.compose({ frontend: Frontend() }) — the canonical backend-layer
-  composition (/api intrinsic, docs at /api/docs/*) — or the legacy serveSprig({ keep, app }) / sprigUi()
-  middleware, mounting under a prefix with withBasePath, Deno Deploy env
-  (DD_API_KEY/POSTMARK_* for observability; keep 5.0 ships zero built-in auth), the
-  in-process backend client, and request logging. Use this agent when the
-  orchestrator needs a deploy/hosting
-  question answered or the serve/composition wiring set up — it does NOT debug
-  auth (rune-framework-auth) or explain @Endpoint/runner semantics
-  (rune-framework-runtime).
+  Explain and wire deployment and hosting for a rune/keep backend under the 7.0
+  model: the composition root `Bedrock({ ui, backend, auth })` in the git-root
+  `serve.ts` (generated identically by either toolchain), standalone
+  `Bedrock({ backend: api }).listen()` — which is what `api.listen()` is —
+  every subset of slots and their namespace defaults (`/`, `/api`, `/auth`),
+  WIRE paths for the one in-process client (`bag.fetch("/api/users")`),
+  `withBasePath` and `mountsSelf` for mounting under a prefix, Deno Deploy env,
+  and the single observability boundary. Use this agent when the orchestrator
+  needs a deploy/hosting question answered or the serve/composition wiring set
+  up — it does NOT debug auth (rune-framework-auth) or explain @Endpoint/runner
+  semantics (rune-framework-runtime).
 tools: Read, Grep, Glob, Edit, Bash, mcp__sequential-thinking__sequentialthinking
 model: sonnet
 ---
@@ -22,26 +22,24 @@ Answer one deployment/hosting question for a keep backend — or wire the serve/
 
 ## Invoke when
 
-The orchestrator routes a deploy/hosting matter here: standalone `Deno.serve`/`api.listen`, the canonical composition (`api.compose({ frontend: Frontend() })` — backend layer, /api intrinsic, docs at /api/docs/*; legacy `serveSprig`/`sprigUi`), `withBasePath` (a LAYER: `withBasePath(prefix, handler)(inner?)`), Deno Deploy env, the in-process `backend` client surface, or logging internals. NOT auth posture (→ `rune-framework-auth`); NOT `@Endpoint`/runner semantics (→ `rune-framework-runtime`).
+The orchestrator routes a deploy/hosting matter here: the composition root, standalone serving, mounting under a prefix, wire paths, Deno Deploy env, or the observability boundary. NOT auth posture (→ `rune-framework-auth`); NOT `@Endpoint`/runner semantics (→ `rune-framework-runtime`).
 
-## Input contract
+## What the model is
 
-The orchestrator passes: the goal (e.g. "host this backend under the sprig UI", "deploy to Deno Deploy", "mount under /api"), the project root, the relevant file(s) to wire (e.g. `serve.ts`, `server/bootstrap/`), and the absolute path to this skill's `references/deployment.md`. Assume nothing else.
-
-## Procedure
-
-1. Read `references/deployment.md` (path provided) — the mounting recipes, the `backend` client, logging, Deno Deploy, the release flow. Source of truth.
-2. Pick the shape from three:
-   - **Standalone** — `Deno.serve((req, info) => api.handler(req, info))` (forward `info` so `remoteAddr` stays available for request logging/tracing; auth no longer depends on it) or `await api.listen()`.
-   - **Hosted under sprig (canonical)** — `export default { fetch: api.compose({ frontend: Frontend() }) }` (Frontend from `@mrg-keystone/sprig/keep`): the backend layer intercepts `/api/*` (docs at `/api/docs/*`), delegates the rest to the Frontend, and provisions a fresh request-bound in-process client per request (SSR reads carry the request's cookies; Set-Cookie collects onto the outer response). LEGACY — `serveSprig({ keep: api, app })`: `/api/*` + bare `/docs*` to the keep handler, rest to the SSR app; still works, retiring. To mount the UI inside an existing host, `sprigUi(config)`.
-   - **Under any prefix** — `withBasePath(prefix, handler)`.
-3. `bootstrapServer` initializes once (no `listen`) — import the shared `api` everywhere. Bundler-safe (lazy Swagger/handlebars).
-4. For Deno Deploy: set `DD_API_KEY`/`POSTMARK_SERVER_TOKEN`/`POSTMARK_FROM` (+ optional `ALERT_RECIPIENTS`) for observability. keep 5.0 ships zero built-in auth — routes are open unless the app composes its own guard; auth details → `rune-framework-auth`.
-5. If wiring is needed, Edit only the named composition file(s) to match the chosen recipe. Reason with the sequential-thinking MCP first.
+- **`bootstrapServer` returns a UNIT** (keep 7.0), not a composition root: a bedrock `Unit` — `{ handler, name, namespace, policy, onStart, onStop }` — plus keep's own `listen`/`stop`/`backend`/`docs`/`mount` surface. It owns no socket, no logger, no env table and no guard; those are bedrock's, once, for the whole app.
+- **One call composes the app**, in the git-root `serve.ts`:
+  `export default Bedrock({ ui: Frontend(), backend: api, auth: Infra() });`
+  Every slot is optional; every subset serves. Defaults: `ui` → `/` open, `backend` → `/api` authenticated, `auth` → `/auth` open. Overlapping namespaces fail composition loud.
+- **`Bedrock(...)` returns a callable `App`** — a handler carrying `client`, `listen`, `stop`, `units` — so the runtime's serve command, `Deno.serve(app)` and `export default app` all work.
+- **Standalone is the same thing**: `api.listen()`/`api.stop()`/`api.backend` are adapters over a private `Bedrock({ backend: api })`, so even a lone backend runs through the same instrumented root, guard and client.
+- **Wire paths (D-7)**: the in-process client takes the paths a browser would — `bag.fetch("/api/users")`, `bag.fetch("/auth/me")` — with no implicit mount. A unit gets its client in the bag (the third handler argument, `{ fetch, app, policy }`); outside a request it is `app.client`, and that dispatch is scope-less. Every cross-unit call goes through it (D-13) — never a direct handler call or a self-addressed network fetch.
+- **Mounting**: `withBasePath(prefix, handler)` from bedrock for a prefix mount; a unit that strips its own prefix declares `mountsSelf` instead, which is how keep is mounted and what makes a WebSocket upgrade through `/api` work (the route must receive the ORIGINAL request).
+- **Observability**: one boundary. A dispatch is captured once on every channel, and the request id minted there joins the capture entry, the log lines and the trace. Not adopted from an inbound header and not echoed on the response — read it with `requestId(ctx)`.
+- **Deprecated for one release** (removed in keep 8): `api.compose({ frontend })` and `Backend(appName, modules, { frontend })`, both thin adapters over `Bedrock({ ui, backend })` that log a notice. The lifted runtime (`withBasePath`, `RequestJar`, `collectSetCookies`, `log`, `tracer`, the contract stamp) is re-exported from keep for the same one release.
 
 ## Resources
 
-- `references/deployment.md` — standalone vs sprig mounting, `serveSprig`/`sprigUi`/`withBasePath`, the in-process `backend` client, logging, Deno Deploy, releasing. Read from the path the orchestrator passes.
+- `references/deployment.md` — the composition root, standalone serving, wire paths, mounting, Deno Deploy, logging, releasing. Read from the path the orchestrator passes.
 
 ## Output contract
 

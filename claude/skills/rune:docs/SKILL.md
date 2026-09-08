@@ -7,15 +7,15 @@ description: >-
   and class-validator both emit the `design:type` the builder reads), the
   `[TYP:example=V]` modifier → `@ApiProperty({ example })` and why a required
   unbound field needs an example (else a guaranteed 422 in any walk), the three
-  per-module pages `/docs/<m>` / `/docs/<m>/swagger` / `/docs/<m>/json` (the JSON
+  per-module pages `/api/docs/<m>` / `/api/docs/<m>/swagger` / `/api/docs/<m>/json` (the JSON
   is token-gated), the `@docs <url>` line on a `[SRV]` surfacing as an `@see`
   JSDoc tag on the generated adapter method, the smaller swagger exports
   (`@SwaggerDescription`, `DanetDocumentBuilder`, `setupWithSwagger`), and a
   summary of the browser docs-access token flow. Trigger when the user says "the
   swagger docs for this endpoint need a better example", "set up / customize the
   API docs", "the OpenAPI example is wrong", "document this endpoint", or names
-  `@ApiProperty`, `example=`, `/docs/<m>/swagger`, `/docs/<m>/json`, or "@docs
-  url". NOT the interactive cake walk at `/docs/<m>` (run/exercise the endpoints,
+  `@ApiProperty`, `example=`, `/api/docs/<m>/swagger`, `/api/docs/<m>/json`, or "@docs
+  url". NOT the interactive cake walk at `/api/docs/<m>` (run/exercise the endpoints,
   red walk, heal) → use `rune:cake`; NOT the auth/trust posture on the docs
   routes (who may read `/json`, localhost/token rules) → use `rune:framework`;
   NOT the `[SRV]` declaration or the `@docs` REQUIREMENT itself, nor the
@@ -38,7 +38,7 @@ the actual fix.
 
 A per-endpoint swagger doc/example needs to be sharper or is wrong; "document this
 endpoint"; setting up/customizing the API docs; questions naming `@ApiProperty`,
-`example=`, `/docs/<m>/swagger`, `/docs/<m>/json`, or `@docs <url>`.
+`example=`, `/api/docs/<m>/swagger`, `/api/docs/<m>/json`, or `@docs <url>`.
 
 ## Specialist roster
 
@@ -58,7 +58,7 @@ endpoint"; setting up/customizing the API docs; questions naming `@ApiProperty`,
 
 ## Routing to siblings
 
-- the interactive cake walk at `/docs/<m>` (Run-all, heal) → **`rune:cake`**
+- the interactive cake walk at `/api/docs/<m>` (Run-all, heal) → **`rune:cake`**
 - the docs-route trust posture (who may read `/json`, localhost/token) → **`rune:framework`**
 - the `[TYP:example=]` / `[SRV]` / `@docs` constructs as spec syntax → **`rune:spec`**
 

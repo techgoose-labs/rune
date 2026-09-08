@@ -1,13 +1,13 @@
 # Endpoints, the headless runner, and the system map
 
 The runtime view of keep's process layer: the `@Endpoint`/`@EndpointController`
-metadata, the `exerciseEndpoints` headless runner, the `/docs/_map` system map,
-and the `POST /docs/_run` HTTP door. Everything here derives from the
+metadata, the `exerciseEndpoints` headless runner, the `/api/docs/_map` system map,
+and the `POST /api/docs/_run` HTTP door. Everything here derives from the
 `x-keep-process` vendor extension that `@Endpoint` stamps into each module's
 OpenAPI doc — the cake, the system map, and `exerciseEndpoints` are three views
 of the same metadata.
 
-The *interactive* cake page (`/docs/<module>`), its expectations/scenarios/
+The *interactive* cake page (`/api/docs/<module>`), its expectations/scenarios/
 module-setup, the heal panel, and dev-mode belong to the **`rune:cake`** skill —
 this file owns the runtime/code surface (metadata, runner, map, the HTTP doors).
 
@@ -35,7 +35,7 @@ without the `Module` suffix (`endpointModule("Orders", …)` → `/docs/orders`)
 | `description` | endpoint description for Swagger |
 
 The endpoint **id** is the handler method name — `dependsOn`/`bind`
-references use it, and so do cake deep links (`/docs/<module>#<id>`).
+references use it, and so do cake deep links (`/api/docs/<module>#<id>`).
 
 You rarely write this metadata by hand: `rune sync` derives `order`/`dependsOn`/
 `bind` from the spec's DTO field graph (same-named output→input fields chain
@@ -119,7 +119,7 @@ Options:
 - `maxIterations` — default 5.
 - `retry` — `{ slugs, delayMs?, attempts? }`: a failed response whose
   `body.message` matches a listed slug is re-attempted after a delay (default
-  800 ms × 3) instead of failing the walk. `/docs/_run` derives the slugs from
+  800 ms × 3) instead of failing the walk. `/api/docs/_run` derives the slugs from
   the project's heal rules (`retry` actions / `note` + `retryAfter`) plus the
   built-in transients (`timeout`, `rate-limited`).
 - `onResult` — per-attempt streaming callback (what `stream: true` forwards).
@@ -154,7 +154,7 @@ assert(report.order.indexOf("create") < report.order.indexOf("start"));
 The **`rune:cake`** skill drives this same runner for real-data e2e and the
 **`rune:build`** skill calls it as a CI gate; this file owns its option surface.
 
-## The system map — `/docs/_map`
+## The system map — `/api/docs/_map`
 
 One page for the whole composed app: every module's endpoints as nodes in
 module lanes, columns by dependency depth. Solid edges = intra-module binds;
@@ -163,7 +163,7 @@ an unproduced `$name` renders as an amber badge on its consumer. Flow edges
 are tinted; optional/stub endpoints carry chips. The map is **live** — node
 dots recolor from cake sessions in `localStorage`, any tab. A **Run all**
 button runs the whole composed process server-side via the control-plane-gated
-`POST /docs/_run` walk (in-process or a `dev`-grant bearer), **module by module,
+`POST /api/docs/_run` walk (in-process or a `dev`-grant bearer), **module by module,
 endpoint by endpoint** (lane
 order), under the cake's own defaults: `flow: "__main"` (untagged steps only —
 destructive branches never auto-run), the user's typed environment variables
@@ -171,15 +171,15 @@ as `seeds`, and each module's per-step skips as `skip`. The run **streams**:
 each result is written into that module's cake session as it lands (status,
 response body, ms, captures + shared scope) and its node settles green/red
 while the rest keep pulsing. Clicking a node deep-links to
-`/docs/<module>#<endpointId>` with that step expanded. (Underscore-prefixed so
+`/api/docs/<module>#<endpointId>` with that step expanded. (Underscore-prefixed so
 a module named "map" can still own `/docs/map`.) How the map feeds the cake
 sessions and lights the heal panel when steps fail is the **`rune:cake`** skill.
 
-## Headless run over HTTP — `POST /docs/_run`
+## Headless run over HTTP — `POST /api/docs/_run`
 
 The HTTP door to `exerciseEndpoints` — so an agent, CI, a smoke check, or the
 map UI can ask a *running* server "does the whole composed process work right
-now?" without importing the app. Same trust posture as the rest of the `/docs/_*`
+now?" without importing the app. Same trust posture as the rest of the `/api/docs/_*`
 control plane: **in-process OR an infra bearer whose app-grants include `dev`
 (or `*`)** — no localhost trust; `503` until the in-process backend exists.
 

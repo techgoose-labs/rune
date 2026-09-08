@@ -14,12 +14,36 @@ Defines the notation used in `rune` files.
 - A `[REQ]` has **no HTTP surface of its own** — it is exposed only through an
   `[ENT]` that dispatches to it (see Entrypoint). A `[REQ]`-only module is a pure
   library module.
+- `[REQ:open]` is the **openness marker** — the one modifier `[REQ]` takes. It
+  declares that the endpoint is reachable **without a credential**. Unmarked
+  means authenticated (the backend slot's default), so openness is always
+  something the spec STATES, never something a reader infers.
 
 ```
 [REQ] recording.set(GetRecordingDto): RecordingSetResponseDto
 [REQ] recording.get(GetRecordingDto): RecordingDto
 [REQ] recording.addMetadata(AddMetadataDto): AddMetadataResponseDto
+[REQ:open] health.check({}): HealthDto
 ```
+
+### Openness — where a route's policy comes from
+
+The marker is not decoration; it is the whole of the endpoint's policy, and it
+travels mechanically:
+
+`[REQ:open]` → `access: "open"` on the generated `@Endpoint` →
+`x-bedrock-auth: { access: "open" }` on the operation's OpenAPI →
+a row in the policy table the backend hands the composition root, which resolves
+it and answers.
+
+An unmarked `[REQ]` emits no extension at all — which the root reads as the slot
+default. Silence and an explicit "authenticated" stay distinguishable, so nothing
+downstream has to guess what silence meant.
+
+Mark an endpoint open when a caller with no credential must reach it: a health
+check, a public read, the sign-in POST. Everything else stays unmarked. Getting
+this wrong is now a one-line spec diff rather than a decorator someone has to
+re-apply to generated code after every regeneration.
 
 ## Step
 
@@ -402,9 +426,9 @@ messages):
 - A `from=` source outside the closed set:
   `[TYP] modifier "from" must be one of path, path*, query, header (got "<v>")`
 
-`[REQ]` takes **no** modifier: any `[REQ:x]` is an error
-(`[REQ] does not take a modifier`; `[REQ:core]` keeps its specific message —
-coordinators are module-level by definition).
+`[REQ]` takes exactly one modifier, `:open` (the openness marker). Any other is
+an error: `[REQ] unknown modifier "<m>" — the only one is :open`. `[REQ:core]`
+keeps its specific message — coordinators are module-level by definition.
 
 ## Module Directive
 

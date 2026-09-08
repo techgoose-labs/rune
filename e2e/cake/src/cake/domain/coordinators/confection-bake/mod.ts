@@ -7,7 +7,6 @@ import { Confection } from "@/src/cake/domain/business/confection/mod.ts";
 
 // Coordinator for [REQ] confection.bake(BakeDto): CakeDto.
 export async function bake(input: BakeDto): Promise<CakeDto> {
-
   // core — pure business logic, no I/O
   const out = bakeCore(input);
 

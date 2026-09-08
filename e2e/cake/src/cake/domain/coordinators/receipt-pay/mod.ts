@@ -7,7 +7,6 @@ import { Receipt } from "@/src/cake/domain/business/receipt/mod.ts";
 
 // Coordinator for [REQ] receipt.pay(CheckoutDto): ReceiptDto.
 export async function pay(input: CheckoutDto): Promise<ReceiptDto> {
-
   // core — pure business logic, no I/O
   const out = payCore(input);
 

@@ -7,7 +7,6 @@ import { Ticket } from "@/src/checkout/domain/business/ticket/mod.ts";
 
 // Coordinator for [REQ] ticket.open(StartDto): TicketDto.
 export async function open(input: StartDto): Promise<TicketDto> {
-
   // core — pure business logic, no I/O
   const out = openCore(input);
 

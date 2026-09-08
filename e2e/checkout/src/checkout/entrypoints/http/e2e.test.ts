@@ -11,9 +11,14 @@ Deno.test({
   name: "checkout/http — endpoints run and chain",
   ignore: !Deno.env.get("RUNE_E2E"),
   fn: async () => {
-    const api = await bootstrapServer("checkout", httpModule, { swagger: true });
+    const api = await bootstrapServer("checkout", httpModule, {
+      swagger: true,
+    });
     try {
-      const report = await exerciseEndpoints({ api, overrides: { seeds: { memberId: "memberId-stub" } } });
+      const report = await exerciseEndpoints({
+        api,
+        overrides: { seeds: { memberId: "memberId-stub" } },
+      });
       assertEquals(report.failed.map((r) => r.id), []);
     } finally {
       await api.stop();

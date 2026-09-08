@@ -6,4 +6,3 @@ import { cut } from "./mod.ts";
 Deno.test("cut — happy path", async () => {
   // TODO: implement happy path test
 });
-

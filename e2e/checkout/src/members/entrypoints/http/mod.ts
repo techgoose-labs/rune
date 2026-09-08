@@ -4,7 +4,11 @@
 // together with no seeds: keep orders `create` before checkout's `start` (synthetic edge) and
 // the emulator shows the `auto:` affordance on checkout's module-inputs card.
 
-import { Endpoint, EndpointController, endpointModule } from "@mrg-keystone/rune";
+import {
+  Endpoint,
+  EndpointController,
+  endpointModule,
+} from "@mrg-keystone/rune";
 import { JoinDto } from "@/src/members/dto/join.ts";
 import { MemberDto } from "@/src/members/dto/member.ts";
 

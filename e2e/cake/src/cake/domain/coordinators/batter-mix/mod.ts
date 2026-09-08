@@ -7,7 +7,6 @@ import { Batter } from "@/src/cake/domain/business/batter/mod.ts";
 
 // Coordinator for [REQ] batter.mix(MixDto): BatterDto.
 export async function mix(input: MixDto): Promise<BatterDto> {
-
   // core — pure business logic, no I/O
   const out = mixCore(input);
 

@@ -55,7 +55,10 @@ Deno.test("checkout e2e — exerciseEndpoints drives each flow green", async () 
     });
     assertEquals(card.failed.map((r) => r.id), []);
     assertEquals(card.optionalFailed, []);
-    assert(!card.order.includes("payCash"), "cash branch must not run in the card flow");
+    assert(
+      !card.order.includes("payCash"),
+      "cash branch must not run in the card flow",
+    );
     assertEquals(
       card.passed.map((r) => r.id).sort(),
       ["fulfill", "payCard", "start", "survey"],
@@ -67,7 +70,10 @@ Deno.test("checkout e2e — exerciseEndpoints drives each flow green", async () 
       overrides: { seeds: { memberId: "m-7" } },
     });
     assertEquals(cash.failed.map((r) => r.id), []);
-    assert(!cash.order.includes("payCard"), "card branch must not run in the cash flow");
+    assert(
+      !cash.order.includes("payCard"),
+      "card branch must not run in the cash flow",
+    );
   } finally {
     await api.stop();
   }
@@ -95,7 +101,8 @@ Deno.test("checkout e2e — the unseeded $memberId input fails start", async () 
 // Stage 4 — the interactive emulator: module-inputs card, flow selector, branch walk,
 // OR-join resolution. Opt-in browser stage.
 Deno.test({
-  name: "checkout e2e — emulator: set the $input, pick a flow, walk the branch green",
+  name:
+    "checkout e2e — emulator: set the $input, pick a flow, walk the branch green",
   ignore: Deno.env.get("KEEP_BROWSER") !== "1",
   sanitizeResources: false,
   sanitizeOps: false,
@@ -111,7 +118,7 @@ Deno.test({
     });
     try {
       const page = await browser.newPage();
-      await page.goto(`http://localhost:${p}/docs/checkout`);
+      await page.goto(`http://localhost:${p}/api/docs/checkout`);
 
       // The module declares its external input; the run is blocked until it's set.
       assertEquals(await page.locator("#inputs-card").isVisible(), true);
@@ -201,7 +208,7 @@ Deno.test({
 
       // The module-inputs row is satisfied by the composed producer: dim `auto:` note, no
       // amber unset treatment — before anything has run or been typed.
-      await page.goto(`http://localhost:${p}/docs/checkout`);
+      await page.goto(`http://localhost:${p}/api/docs/checkout`);
       assertEquals(await page.locator("#inputs-card").isVisible(), true);
       const inputsText = await page.locator("#inputs").textContent();
       assert(
@@ -211,14 +218,14 @@ Deno.test({
       assertEquals(await page.locator("#inputs .var-name.unset").count(), 0);
 
       // Run the producer on its own page — the capture lands in the shared scope.
-      await page.goto(`http://localhost:${p}/docs/members`);
+      await page.goto(`http://localhost:${p}/api/docs/members`);
       await page.locator('li[data-id="create"] button.emulate').click();
       await page.locator('li[data-id="create"] .dot.ok').waitFor({
         timeout: 10000,
       });
 
       // Back on checkout: start's preview resolves from the cross-module capture.
-      await page.goto(`http://localhost:${p}/docs/checkout`);
+      await page.goto(`http://localhost:${p}/api/docs/checkout`);
       await page.waitForFunction(
         "(document.querySelector('li[data-id=\"start\"] .resolved')?.textContent || '').includes('member-')",
         { timeout: 5000 },

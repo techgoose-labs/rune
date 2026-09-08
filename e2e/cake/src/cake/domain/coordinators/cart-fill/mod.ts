@@ -7,7 +7,6 @@ import { Cart } from "@/src/cake/domain/business/cart/mod.ts";
 
 // Coordinator for [REQ] cart.fill(ShopDto): CartDto.
 export async function fill(input: ShopDto): Promise<CartDto> {
-
   // core — pure business logic, no I/O
   const out = fillCore(input);
 

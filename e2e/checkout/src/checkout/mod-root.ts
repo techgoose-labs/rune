@@ -10,4 +10,3 @@ export { charge } from "./domain/coordinators/payment-charge/mod.ts";
 export { complete } from "./domain/coordinators/delivery-complete/mod.ts";
 
 export { collect } from "./domain/coordinators/feedback-collect/mod.ts";
-

@@ -7,7 +7,6 @@ import { Delivery } from "@/src/checkout/domain/business/delivery/mod.ts";
 
 // Coordinator for [REQ] delivery.complete(FulfillDto): DoneDto.
 export async function complete(input: FulfillDto): Promise<DoneDto> {
-
   // core — pure business logic, no I/O
   const out = completeCore(input);
 

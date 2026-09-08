@@ -7,7 +7,6 @@ import { Payment } from "@/src/checkout/domain/business/payment/mod.ts";
 
 // Coordinator for [REQ] payment.charge(PayDto): PaymentDto.
 export async function charge(input: PayDto): Promise<PaymentDto> {
-
   // core — pure business logic, no I/O
   const out = chargeCore(input);
 

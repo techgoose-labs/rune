@@ -7,7 +7,6 @@ import { Feedback } from "@/src/checkout/domain/business/feedback/mod.ts";
 
 // Coordinator for [REQ] feedback.collect(SurveyDto): ThanksDto.
 export async function collect(input: SurveyDto): Promise<ThanksDto> {
-
   // core — pure business logic, no I/O
   const out = collectCore(input);
 

@@ -7,7 +7,6 @@ import { Arrival } from "@/src/cake/domain/business/arrival/mod.ts";
 
 // Coordinator for [REQ] arrival.reach(DriveDto): ArrivalDto.
 export async function reach(input: DriveDto): Promise<ArrivalDto> {
-
   // core — pure business logic, no I/O
   const out = reachCore(input);
 

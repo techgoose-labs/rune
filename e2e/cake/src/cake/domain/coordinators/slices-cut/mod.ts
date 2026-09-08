@@ -7,7 +7,6 @@ import { Slices } from "@/src/cake/domain/business/slices/mod.ts";
 
 // Coordinator for [REQ] slices.cut(CutDto): SlicesDto.
 export async function cut(input: CutDto): Promise<SlicesDto> {
-
   // core — pure business logic, no I/O
   const out = cutCore(input);
 

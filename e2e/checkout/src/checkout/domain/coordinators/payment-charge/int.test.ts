@@ -6,4 +6,3 @@ import { charge } from "./mod.ts";
 Deno.test("charge — happy path", async () => {
   // TODO: implement happy path test
 });
-

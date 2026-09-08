@@ -6,4 +6,3 @@ import { bake } from "./mod.ts";
 Deno.test("bake — happy path", async () => {
   // TODO: implement happy path test
 });
-

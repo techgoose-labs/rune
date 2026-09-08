@@ -14,4 +14,3 @@ export { mix } from "./domain/coordinators/batter-mix/mod.ts";
 export { bake } from "./domain/coordinators/confection-bake/mod.ts";
 
 export { cut } from "./domain/coordinators/slices-cut/mod.ts";
-

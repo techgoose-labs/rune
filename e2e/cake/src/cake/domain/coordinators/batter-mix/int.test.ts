@@ -6,4 +6,3 @@ import { mix } from "./mod.ts";
 Deno.test("mix — happy path", async () => {
   // TODO: implement happy path test
 });
-

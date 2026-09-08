@@ -1,4 +1,4 @@
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 export async function check(
   path: string,
@@ -12,12 +12,17 @@ export async function check(
 
   const pathDepth = path.split("/").length;
   const featureDirs = ctx.dirs
-    .filter((d) => d.startsWith(path + "/") && d.split("/").length === pathDepth + 1)
+    .filter((d) =>
+      d.startsWith(path + "/") && d.split("/").length === pathDepth + 1
+    )
     .map((d) => d.split("/").pop()!);
 
   if (featureDirs.length < 3) return null;
 
-  const siblingExports = await ctx.lsp.getSiblingExportSignatures(path, featureDirs);
+  const siblingExports = await ctx.lsp.getSiblingExportSignatures(
+    path,
+    featureDirs,
+  );
 
   // Count which export names appear across siblings
   const exportNameDirs = new Map<string, string[]>();
@@ -53,7 +58,11 @@ export async function check(
 
   if (confirmed.length === 0) return null;
 
-  return [`3+ sibling features export "${confirmed.join('", "')}" with compatible signatures — extract into a poly structure with poly-mod.ts`];
+  return [
+    `3+ sibling features export "${
+      confirmed.join('", "')
+    }" with compatible signatures — extract into a poly structure with poly-mod.ts`,
+  ];
 }
 
 // Exported for unit testing — pure arity arithmetic.
@@ -105,7 +114,8 @@ export function getArity(sig: string): number | null {
   return count;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor detecting missing polymorphic modules.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor detecting missing polymorphic modules.
 
 Rule: When 3+ sibling features under a business/ directory export functions with the same names and compatible type signatures, they should be restructured into the canonical poly shape:
 
@@ -135,7 +145,9 @@ export function buildPrompt(
   return `Directory: ${path}
 Detection: ${detected}
 
-These sibling features all export \`${names.join("`, `")}\` with compatible signatures.
+These sibling features all export \`${
+    names.join("`, `")
+  }\` with compatible signatures.
 
 They should be restructured into the canonical poly shape:
   <feature-name>/base/mod.ts — shared interface and common logic

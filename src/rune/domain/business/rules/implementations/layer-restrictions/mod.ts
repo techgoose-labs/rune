@@ -1,5 +1,5 @@
 import { classifyFile, getLayerFromPath } from "@core/business/classify/mod.ts";
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
 
@@ -7,9 +7,21 @@ const ALLOWED: Record<string, Set<string>> = {
   business: new Set(["business", "dto"]),
   data: new Set(["data", "dto"]),
   coordinators: new Set(["business", "data", "coordinators", "dto"]),
-  entrypoints: new Set(["business", "data", "coordinators", "entrypoints", "dto"]),
+  entrypoints: new Set([
+    "business",
+    "data",
+    "coordinators",
+    "entrypoints",
+    "dto",
+  ]),
   dto: new Set(["dto"]),
-  bootstrap: new Set(["business", "data", "coordinators", "entrypoints", "dto"]),
+  bootstrap: new Set([
+    "business",
+    "data",
+    "coordinators",
+    "entrypoints",
+    "dto",
+  ]),
 };
 
 function uriToRelPath(uri: string, targetDir: string): string | null {
@@ -38,7 +50,9 @@ export async function check(
     if (!imp.startsWith("src/")) continue;
     const targetLayer = getLayerFromPath(imp);
     if (targetLayer !== "unknown" && !allowed.has(targetLayer)) {
-      violations.push(`The "${classification.layer}" layer cannot import from "${targetLayer}" — ${imp}`);
+      violations.push(
+        `The "${classification.layer}" layer cannot import from "${targetLayer}" — ${imp}`,
+      );
     }
   }
 
@@ -48,7 +62,11 @@ export async function check(
     for (const imp of imports) {
       if (!imp.startsWith("src/")) continue;
       let exports;
-      try { exports = await ctx.lsp.getExportTypes(imp); } catch { continue; }
+      try {
+        exports = await ctx.lsp.getExportTypes(imp);
+      } catch {
+        continue;
+      }
 
       for (const exp of exports) {
         const defs = await ctx.lsp.findSymbolDefinition(imp, exp.name);
@@ -57,7 +75,8 @@ export async function check(
           if (!resolvedPath) continue;
           const resolvedLayer = getLayerFromPath(resolvedPath);
           if (resolvedLayer !== "unknown" && !allowed.has(resolvedLayer)) {
-            const v = `Hidden layer violation: "${exp.name}" from ${imp} actually comes from the "${resolvedLayer}" layer (${resolvedPath})`;
+            const v =
+              `Hidden layer violation: "${exp.name}" from ${imp} actually comes from the "${resolvedLayer}" layer (${resolvedPath})`;
             if (!violations.some((e) => e.includes(resolvedPath))) {
               violations.push(v);
             }
@@ -70,7 +89,8 @@ export async function check(
   return violations.length > 0 ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing layer dependency rules in a hexagonal architecture.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing layer dependency rules in a hexagonal architecture.
 
 Layer import rules:
 - business → business, dto only

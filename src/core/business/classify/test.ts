@@ -1,5 +1,10 @@
 import { assertEquals } from "#std/assert";
-import { classifyFile, getModuleFromPath, getLayerFromPath, isModRootImport } from "./mod.ts";
+import {
+  classifyFile,
+  getLayerFromPath,
+  getModuleFromPath,
+  isModRootImport,
+} from "./mod.ts";
 
 Deno.test("classifyFile — bootstrap file", () => {
   const result = classifyFile("src/bootstrap/mod.ts");
@@ -21,12 +26,18 @@ Deno.test("classifyFile — non-src file", () => {
 });
 
 Deno.test("getModuleFromPath", () => {
-  assertEquals(getModuleFromPath("src/orders/domain/business/foo/mod.ts"), "orders");
+  assertEquals(
+    getModuleFromPath("src/orders/domain/business/foo/mod.ts"),
+    "orders",
+  );
   assertEquals(getModuleFromPath("fixtures/data.json"), null);
 });
 
 Deno.test("getLayerFromPath", () => {
-  assertEquals(getLayerFromPath("src/orders/domain/business/foo/mod.ts"), "business");
+  assertEquals(
+    getLayerFromPath("src/orders/domain/business/foo/mod.ts"),
+    "business",
+  );
   assertEquals(getLayerFromPath("src/orders/mod-root.ts"), "unknown");
 });
 

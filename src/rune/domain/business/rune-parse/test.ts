@@ -60,13 +60,26 @@ Deno.test("parse — [REQ:core] is rejected", () => {
   );
 });
 
-Deno.test("parse — any other [REQ:x] modifier is rejected", () => {
-  const ast = parse("[REQ:flow] foo.bar(InDto): OutDto");
-  assertEquals(ast.errors.length, 1);
-  assertEquals(ast.errors[0].message, "[REQ] does not take a modifier");
+Deno.test("parse — [REQ:open] is the openness marker, and the only [REQ] modifier", () => {
+  const open = parse("[REQ:open] foo.bar(InDto): OutDto");
+  assertEquals(open.errors, []);
+  assertEquals(open.reqs[0].isOpen, true);
+
+  // Unmarked is NOT open: silence means the slot default (authenticated), and
+  // the two are different statements.
+  const plain = parse("[REQ] foo.bar(InDto): OutDto");
+  assertEquals(plain.errors, []);
+  assertEquals(plain.reqs[0].isOpen, false);
+
+  const typo = parse("[REQ:flow] foo.bar(InDto): OutDto");
+  assertEquals(typo.errors.length, 1);
+  assertEquals(
+    typo.errors[0].message,
+    '[REQ] unknown modifier "flow" — the only one is :open',
+  );
   // The signature still parses — same recovery as the :core case.
-  assertEquals(ast.reqs.length, 1);
-  assertEquals(ast.reqs[0].noun, "foo");
+  assertEquals(typo.reqs.length, 1);
+  assertEquals(typo.reqs[0].noun, "foo");
 });
 
 Deno.test("parse — step under REQ", () => {
@@ -129,7 +142,10 @@ Deno.test("parse — [SRV] declares transport + name + env vars + description", 
   assertEquals(srv.transport, "SDK");
   assertEquals(srv.name, "firebase");
   assertEquals(srv.envVars, ["FIREBASE_API_KEY", "FIREBASE_PROJECT_ID"]);
-  assertEquals(srv.description, "Firebase callable; charge() idempotent by idemKey");
+  assertEquals(
+    srv.description,
+    "Firebase callable; charge() idempotent by idemKey",
+  );
   // The @docs line is routed to docsLink, NOT appended to the prose description.
   assertEquals(srv.docsLink, "https://firebase.google.com/docs/functions");
   // The boundary call carries the service name as its prefix.
@@ -194,7 +210,10 @@ Deno.test("parse — [SRV] duplicate @docs is an error", () => {
   );
   // first wins; the second is flagged, never overwrites docsLink.
   assertEquals(ast.srvs[0].docsLink, "https://a.dev");
-  assertEquals(ast.errors.some((e) => e.message.includes("duplicate @docs")), true);
+  assertEquals(
+    ast.errors.some((e) => e.message.includes("duplicate @docs")),
+    true,
+  );
 });
 
 Deno.test("parse — @docs under a [DTO] stays plain prose (SRV-only)", () => {
@@ -389,7 +408,10 @@ Deno.test("parse — multi-line description joins with spaces", () => {
     a class representing
     the storage system`,
   );
-  assertEquals(ast.typs[0].description, "a class representing the storage system");
+  assertEquals(
+    ast.typs[0].description,
+    "a class representing the storage system",
+  );
 });
 
 Deno.test("parse — blank line ends description", () => {
@@ -411,7 +433,10 @@ Deno.test("parse — [NON] with description", () => {
   );
   assertEquals(ast.nons.length, 1);
   assertEquals(ast.nons[0].name, "storage");
-  assertEquals(ast.nons[0].description, "a class representing the storage system");
+  assertEquals(
+    ast.nons[0].description,
+    "a class representing the storage system",
+  );
 });
 
 Deno.test("parse — [ENT] entrypoint", () => {
@@ -478,21 +503,35 @@ Deno.test("parse — [ENT:ws] header without a path keeps the surface, null path
 });
 
 Deno.test("parse — [ENT:ws] with no topics is an error (dedent and EOF)", () => {
-  const dedent = parse(`[ENT:ws] chat @ /rooms/{room}\n[DTO] X: a\n[TYP] a: string`);
-  assertEquals(dedent.errors.some((e) => e.message.includes("has no topics")), true);
+  const dedent = parse(
+    `[ENT:ws] chat @ /rooms/{room}\n[DTO] X: a\n[TYP] a: string`,
+  );
+  assertEquals(
+    dedent.errors.some((e) => e.message.includes("has no topics")),
+    true,
+  );
 
   const eof = parse(`[ENT:ws] chat @ /rooms/{room}`);
-  assertEquals(eof.errors.some((e) => e.message.includes("has no topics")), true);
+  assertEquals(
+    eof.errors.some((e) => e.message.includes("has no topics")),
+    true,
+  );
 });
 
 Deno.test("parse — [ENT:ws] malformed topic is an error", () => {
   const ast = parse(`[ENT:ws] chat @ /rooms/{room}\n    not a topic`);
-  assertEquals(ast.errors.some((e) => e.message.includes("malformed topic")), true);
+  assertEquals(
+    ast.errors.some((e) => e.message.includes("malformed topic")),
+    true,
+  );
 });
 
 Deno.test("parse — [ENT:ws] header carrying a full signature is rejected", () => {
   const ast = parse(`[ENT:ws] chat.send(ChatDto): EchoDto`);
-  assertEquals(ast.errors.some((e) => e.message.includes("[ENT:ws] malformed")), true);
+  assertEquals(
+    ast.errors.some((e) => e.message.includes("[ENT:ws] malformed")),
+    true,
+  );
   assertEquals(ast.ents.length, 0);
 });
 
@@ -542,7 +581,9 @@ Deno.test("parse — full example.rune fixture", async () => {
   assertEquals(ast.nons.length, 5);
 
   // Faults parse correctly under boundary steps.
-  const firstReqBoundaries = ast.reqs[0].steps.filter((s) => s.kind === "boundary");
+  const firstReqBoundaries = ast.reqs[0].steps.filter((s) =>
+    s.kind === "boundary"
+  );
   assertEquals(firstReqBoundaries.length >= 2, true);
 
   // No parse errors on the canonical fixture.

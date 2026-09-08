@@ -70,5 +70,7 @@ export const RUNE_COMMIT: string = ${JSON.stringify(commit())};
 export const RUNE_BUILT_AT: string = ${JSON.stringify(builtAt())};
 `;
   Deno.writeTextFileSync(OUT, content);
-  console.log(`Version: ${version()} (${commit().slice(0, 7)}) built ${builtAt()}`);
+  console.log(
+    `Version: ${version()} (${commit().slice(0, 7)}) built ${builtAt()}`,
+  );
 }

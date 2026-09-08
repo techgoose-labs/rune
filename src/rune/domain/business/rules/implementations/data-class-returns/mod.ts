@@ -1,10 +1,18 @@
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 const SOURCE_EXTS = new Set(["ts", "tsx"]);
 const DECORATOR_RE = /@Is[A-Z]\w*\(|@Valid\w*\(/;
 const PRIMITIVE_RETURNS = new Set([
-  "string", "number", "boolean", "bigint", "symbol",
-  "null", "undefined", "any", "unknown", "object",
+  "string",
+  "number",
+  "boolean",
+  "bigint",
+  "symbol",
+  "null",
+  "undefined",
+  "any",
+  "unknown",
+  "object",
 ]);
 
 function unwrapPromise(t: string): string {
@@ -31,7 +39,9 @@ function splitMembers(inner: string): string[] {
   let buf = "";
   for (const ch of inner) {
     if (ch === "{" || ch === "(" || ch === "[") depth++;
-    else if (ch === "}" || ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
+    else if (ch === "}" || ch === ")" || ch === "]") {
+      depth = Math.max(0, depth - 1);
+    }
     if (ch === ";" && depth === 0) {
       parts.push(buf);
       buf = "";
@@ -43,7 +53,9 @@ function splitMembers(inner: string): string[] {
   return parts;
 }
 
-function extractMethodReturns(sig: string): Array<{ name: string; ret: string }> {
+function extractMethodReturns(
+  sig: string,
+): Array<{ name: string; ret: string }> {
   const out: Array<{ name: string; ret: string }> = [];
   const body = sig.match(/\{([\s\S]*)\}\s*$/);
   if (!body) return out;
@@ -54,7 +66,9 @@ function extractMethodReturns(sig: string): Array<{ name: string; ret: string }>
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) continue;
-    const m = line.match(/^(?:public |private |protected |static |readonly |async )*([A-Za-z_$][\w$]*)\s*(?:<[^>]*>)?\s*\(([\s\S]*?)\)\s*:\s*([\s\S]+)$/);
+    const m = line.match(
+      /^(?:public |private |protected |static |readonly |async )*([A-Za-z_$][\w$]*)\s*(?:<[^>]*>)?\s*\(([\s\S]*?)\)\s*:\s*([\s\S]+)$/,
+    );
     if (!m) continue;
     out.push({ name: m[1], ret: m[3].trim() });
   }
@@ -74,7 +88,11 @@ export async function check(
   if (!DECORATOR_RE.test(content)) return null;
 
   let exports;
-  try { exports = await ctx.lsp.getExportTypes(path); } catch { return null; }
+  try {
+    exports = await ctx.lsp.getExportTypes(path);
+  } catch {
+    return null;
+  }
   const classes = exports.filter((e) => e.kind === "Class");
   if (classes.length === 0) return null;
 
@@ -86,7 +104,9 @@ export async function check(
     for (const { name, ret } of methods) {
       if (name === "constructor") continue;
       if (!isOkReturn(ret)) {
-        violations.push(`${cls.name}.${name}() returns "${ret}" — data class methods must return a validated class instance (e.g. assert(T, ...) or plainToInstance(T, ...))`);
+        violations.push(
+          `${cls.name}.${name}() returns "${ret}" — data class methods must return a validated class instance (e.g. assert(T, ...) or plainToInstance(T, ...))`,
+        );
       }
     }
   }
@@ -94,7 +114,8 @@ export async function check(
   return violations.length ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing data class return-type discipline.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing data class return-type discipline.
 
 Rule: Methods on data classes (classes decorated with class-validator @Is*/@Valid* decorators) must return validated class instances — produced via \`assert(T, x)\`, \`plainToInstance(T, x)\`, or \`new T(...)\`. Returning plain object literals, primitives, or untyped values bypasses runtime validation.
 

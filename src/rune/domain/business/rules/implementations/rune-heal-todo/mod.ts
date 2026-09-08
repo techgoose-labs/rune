@@ -28,7 +28,8 @@ const HEAL_RULES_FILE = "heal-rules.json";
 export function isStrict(): boolean {
   const on = (v: string | undefined) =>
     v !== undefined && v !== "" && v !== "0" && v.toLowerCase() !== "false";
-  return on(Deno.env.get("RUNE_LINT_STRICT")) || on(Deno.env.get("RUNE_STRICT"));
+  return on(Deno.env.get("RUNE_LINT_STRICT")) ||
+    on(Deno.env.get("RUNE_STRICT"));
 }
 
 export async function check(

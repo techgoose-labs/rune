@@ -15,7 +15,15 @@ const base = (): Artifact => ({
   builtins: ["string"],
   tokens: {},
   lint: [
-    { id: "r1", type: "name-suffix", target: "spec", severity: "error", enabled: true, params: { tag: "dto" }, message: "x" },
+    {
+      id: "r1",
+      type: "name-suffix",
+      target: "spec",
+      severity: "error",
+      enabled: true,
+      params: { tag: "dto" },
+      message: "x",
+    },
   ],
 });
 
@@ -26,7 +34,13 @@ Deno.test("accepts a structurally + semantically valid artifact", () => {
 
 Deno.test("rejects a duplicate tag id", () => {
   const a = base();
-  a.tags.push({ id: "dto", tag: "[DTX]", label: "Dup", indent: 0, follows: "dtodef" });
+  a.tags.push({
+    id: "dto",
+    tag: "[DTX]",
+    label: "Dup",
+    indent: 0,
+    follows: "dtodef",
+  });
   const r = validateArtifact(a);
   assert(!r.ok);
   assert(r.errors.some((e) => e.message.includes("duplicate tag id")));
@@ -70,8 +84,22 @@ Deno.test("flags a profile gap (inconsistent var keys)", () => {
 Deno.test("accepts constraint modifiers with kind/decorator/param", () => {
   const a = base();
   a.modifiers!.push(
-    { id: "uuid", token: ":uuid", appliesTo: ["dto"], kind: "constraint", decorator: "IsUUID", param: "none" },
-    { id: "min", token: ":min", appliesTo: ["dto"], kind: "constraint", decorator: "Min", param: "number" },
+    {
+      id: "uuid",
+      token: ":uuid",
+      appliesTo: ["dto"],
+      kind: "constraint",
+      decorator: "IsUUID",
+      param: "none",
+    },
+    {
+      id: "min",
+      token: ":min",
+      appliesTo: ["dto"],
+      kind: "constraint",
+      decorator: "Min",
+      param: "number",
+    },
   );
   const r = validateArtifact(a);
   assert(r.ok, r.errors.map((e) => e.message).join("; "));
@@ -88,9 +116,19 @@ Deno.test("canonicalPaths is sourced from the keywords.json artifact", async () 
   const { canonicalPaths } = await import("./canonical-paths.ts");
   // the structure rule depends on these top-level keys + the module node
   assert(canonicalPaths, "canonicalPaths present in the artifact");
-  assert(Array.isArray(canonicalPaths["$rootFiles"]), "$rootFiles list present");
-  assert("<module-name>/" in canonicalPaths["src/"], "module node present under src/");
+  assert(
+    Array.isArray(canonicalPaths["$rootFiles"]),
+    "$rootFiles list present",
+  );
+  assert(
+    "<module-name>/" in canonicalPaths["src/"],
+    "module node present under src/",
+  );
   // and it must match what the artifact actually carries (no drift)
-  const kw = JSON.parse(await Deno.readTextFile(new URL("../../../../../lang/keywords.json", import.meta.url)));
+  const kw = JSON.parse(
+    await Deno.readTextFile(
+      new URL("../../../../../lang/keywords.json", import.meta.url),
+    ),
+  );
   assertEquals(canonicalPaths, kw.canonicalPaths);
 });

@@ -36,7 +36,10 @@ Deno.test("sync scaffolds, then preserves fill-ins and prunes orphans", async ()
 
     // D-durable-home: the staging spec is read in place; subsequent syncs
     // target it at its durable home.
-    assert((await Deno.stat(runePath)).isFile, "spec stays at specs/orders.rune");
+    assert(
+      (await Deno.stat(runePath)).isFile,
+      "spec stays at specs/orders.rune",
+    );
     assert(
       !(await exists(join(root, "src/orders/orders.rune"))),
       "spec is not relocated into src/orders/",
@@ -46,10 +49,18 @@ Deno.test("sync scaffolds, then preserves fill-ins and prunes orphans", async ()
     // sync makes a fresh project compile out of the box: it writes a deno.json
     // with the import aliases the generated code uses (@/, class-validator, …)
     // plus the decorator compiler options the DTO classes need.
-    const denoJson = JSON.parse(await Deno.readTextFile(join(root, "deno.json")));
+    const denoJson = JSON.parse(
+      await Deno.readTextFile(join(root, "deno.json")),
+    );
     assertEquals(denoJson.imports["@/"], "./");
-    assertEquals(denoJson.imports["class-validator"], "npm:class-validator@^0.14");
-    assertEquals(denoJson.imports["#assert"], "jsr:@mrg-keystone/rune@^6/assert");
+    assertEquals(
+      denoJson.imports["class-validator"],
+      "npm:class-validator@^0.14",
+    );
+    assertEquals(
+      denoJson.imports["#assert"],
+      "jsr:@mrg-keystone/rune@^7/assert",
+    );
     assertEquals(denoJson.compilerOptions.experimentalDecorators, true);
 
     // Fill in cart, and plant an orphan feature the spec doesn't declare.
@@ -223,7 +234,11 @@ Deno.test("sync collects written paths and is physically quiet on a no-change re
       0,
     );
     assertEquals(again, [], "no-change re-sync must write nothing");
-    assertEquals(await mtimes(root), before, "no mtime may change on a no-change re-sync");
+    assertEquals(
+      await mtimes(root),
+      before,
+      "no mtime may change on a no-change re-sync",
+    );
   } finally {
     await Deno.remove(root, { recursive: true });
   }
@@ -280,24 +295,39 @@ Deno.test("sync prunes only files it can prove it generated — a hand-authored 
     );
     // A PROVABLY generated orphan: real generated dto content under a name the
     // spec doesn't declare — the prune must still take this one.
-    const generated = await Deno.readTextFile(join(root, "src/orders/dto/place.ts"));
+    const generated = await Deno.readTextFile(
+      join(root, "src/orders/dto/place.ts"),
+    );
     const orphan = join(root, "src/orders/dto/old-order.ts");
     await Deno.writeTextFile(orphan, generated);
 
     logs.length = 0;
     assertEquals(await runSync([runePath, "--root", root]), 0);
-    assert(await exists(hand), "hand-authored dto/ file must survive the prune");
-    assert(!(await exists(orphan)), "a provably generated orphan is still pruned");
+    assert(
+      await exists(hand),
+      "hand-authored dto/ file must survive the prune",
+    );
+    assert(
+      !(await exists(orphan)),
+      "a provably generated orphan is still pruned",
+    );
     // The warning block: a "not rune-generated" header line, the file listed
     // under it (the report prints them on separate lines).
     const warnAt = logs.findIndex((l) => l.includes("not rune-generated"));
-    assert(warnAt !== -1, `a foreign-file warning must print; logs: ${JSON.stringify(logs)}`);
+    assert(
+      warnAt !== -1,
+      `a foreign-file warning must print; logs: ${JSON.stringify(logs)}`,
+    );
     assert(
       logs.slice(warnAt).some((l) => l.includes("dto/ship.ts")),
       `the warning must name the protected file; logs: ${JSON.stringify(logs)}`,
     );
     assert(
-      !logs.some((l) => l.includes("Pruned") || l.includes("- src/") ? l.includes("dto/ship.ts") : false),
+      !logs.some((l) =>
+        l.includes("Pruned") || l.includes("- src/")
+          ? l.includes("dto/ship.ts")
+          : false
+      ),
       "the protected file must not be listed as pruned",
     );
 

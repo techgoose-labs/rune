@@ -1,4 +1,8 @@
-import { RUNE_BUILT_AT, RUNE_COMMIT, RUNE_VERSION } from "@core/dto/version.gen.ts";
+import {
+  RUNE_BUILT_AT,
+  RUNE_COMMIT,
+  RUNE_VERSION,
+} from "@core/dto/version.gen.ts";
 
 const YELLOW = "\x1b[33m";
 const BOLD = "\x1b[1m";

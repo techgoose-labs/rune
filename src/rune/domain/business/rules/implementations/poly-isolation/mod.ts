@@ -1,4 +1,4 @@
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 import { dirname } from "#std/path";
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
@@ -30,7 +30,9 @@ export async function check(
         imp.startsWith(poly.dir + "/") &&
         imp.split("/").pop()?.replace(/\.[^.]+$/, "") !== "poly-mod"
       ) {
-        violations.push(`Importing directly from inside a poly structure — use ${poly.polyModPath} instead of ${imp}`);
+        violations.push(
+          `Importing directly from inside a poly structure — use ${poly.polyModPath} instead of ${imp}`,
+        );
       }
     }
   }
@@ -42,18 +44,29 @@ export async function check(
         if (path.startsWith(poly.dir + "/") || path === poly.dir) continue;
         // Only check imports that DO go through poly-mod (currently passing)
         if (!imp.startsWith(poly.dir + "/")) continue;
-        if (imp.split("/").pop()?.replace(/\.[^.]+$/, "") !== "poly-mod") continue;
+        if (imp.split("/").pop()?.replace(/\.[^.]+$/, "") !== "poly-mod") {
+          continue;
+        }
 
         let exports;
-        try { exports = await ctx.lsp.getExportTypes(imp); } catch { continue; }
+        try {
+          exports = await ctx.lsp.getExportTypes(imp);
+        } catch {
+          continue;
+        }
 
         for (const exp of exports) {
           const defs = await ctx.lsp.findSymbolDefinition(imp, exp.name);
           for (const def of defs) {
             const resolvedPath = uriToRelPath(def.uri, ctx.targetDir);
             if (!resolvedPath) continue;
-            if (!resolvedPath.startsWith(poly.dir + "/") && resolvedPath !== poly.polyModPath) {
-              violations.push(`Poly-mod leak: "${exp.name}" in ${poly.polyModPath} resolves to ${resolvedPath} which is outside the poly structure`);
+            if (
+              !resolvedPath.startsWith(poly.dir + "/") &&
+              resolvedPath !== poly.polyModPath
+            ) {
+              violations.push(
+                `Poly-mod leak: "${exp.name}" in ${poly.polyModPath} resolves to ${resolvedPath} which is outside the poly structure`,
+              );
             }
           }
         }
@@ -64,7 +77,8 @@ export async function check(
   return violations.length > 0 ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing polymorphic module isolation.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing polymorphic module isolation.
 
 Rule: poly-mod files are the ONLY public surface for polymorphic features. External code must import from poly-mod, never from internal files within that feature directory.
 

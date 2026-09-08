@@ -372,12 +372,19 @@ impl Backend {
                     }
                     in_ent = false;
                     if let Some(m) = modifier {
-                        // Parity with the TS parser: the core modifier keeps its
-                        // specific message; any other modifier gets the generic one.
-                        if m == "core" {
+                        // Parity with the TS parser. `:open` is the OPENNESS
+                        // MARKER — the one modifier [REQ] takes: it declares
+                        // that this endpoint is reachable without a credential,
+                        // and codegen emits it as `x-bedrock-auth: {access}` on
+                        // the operation, which is where the backend's policy
+                        // table comes from. Unmarked means authenticated, the
+                        // slot default — openness is stated, never inferred.
+                        if m == "open" {
+                            // valid
+                        } else if m == "core" {
                             diagnostics.push(diag_err(line_num, "[REQ:core] is invalid — coordinators are module-level".to_string()));
                         } else {
-                            diagnostics.push(diag_err(line_num, "[REQ] does not take a modifier".to_string()));
+                            diagnostics.push(diag_err(line_num, format!("[REQ] unknown modifier \"{}\" — the only one is :open", m)));
                         }
                     }
                     if *indent != 0 {

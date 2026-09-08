@@ -18,7 +18,9 @@ export interface OverlayResult {
 
 /** Would applying `next` to `base` weaken it? (disable, or lower severity) */
 function weakens(base: LintRule, next: Partial<LintRule>): string | null {
-  if (next.enabled === false && base.enabled) return "cannot disable a locked rule";
+  if (next.enabled === false && base.enabled) {
+    return "cannot disable a locked rule";
+  }
   if (next.severity && RANK[next.severity] < RANK[base.severity]) {
     return `cannot lower severity of a locked rule (${base.severity} -> ${next.severity})`;
   }
@@ -45,7 +47,13 @@ export function applyOverlay(
       if (reason) {
         rejected.push({ id: base.id, reason, by: author });
         // keep the baseline's enabled/severity; allow non-weakening tweaks
-        return { ...base, ...next, enabled: base.enabled, severity: base.severity, locked: true };
+        return {
+          ...base,
+          ...next,
+          enabled: base.enabled,
+          severity: base.severity,
+          locked: true,
+        };
       }
     }
     return { ...base, ...next };
@@ -54,6 +62,9 @@ export function applyOverlay(
 }
 
 /** True if the overlay leaves every locked rule at least as strict as baseline. */
-export function overlayIsCompliant(baseline: LintRule[], overlay: Partial<LintRule>[]): boolean {
+export function overlayIsCompliant(
+  baseline: LintRule[],
+  overlay: Partial<LintRule>[],
+): boolean {
   return applyOverlay(baseline, overlay).rejected.length === 0;
 }

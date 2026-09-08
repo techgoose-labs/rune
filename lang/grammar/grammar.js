@@ -39,7 +39,7 @@ module.exports = grammar({
 
     // ---- generated keyword rules --------------------------------------
     // [REQ] Requirement (indent 0)
-    req_tag: ($) => "[REQ]",
+    req_tag: ($) => choice("[REQ]", "[REQ:open]"),
     req_line: ($) => seq($.req_tag, field("noun", $.identifier), optional(seq(choice(".", "::"), field("verb", $.method_name))), optional($.http_route), $.parameters, ":", $.return_type),
 
     // [MOD] Module (indent 0)

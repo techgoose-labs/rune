@@ -31,7 +31,9 @@ Deno.test("check — fixture imported by a mod.ts returns violation", async () =
     { "src/app/domain/data/seed/mod.ts": ["fixtures/seeds/users.json"] },
   );
   const result = await check("fixtures/seeds/users.json", "json", ctx);
-  assertEquals(result, ["This fixture is imported by production code — move it to assets/ instead"]);
+  assertEquals(result, [
+    "This fixture is imported by production code — move it to assets/ instead",
+  ]);
 });
 
 Deno.test("check — fixture imported by a bootstrap file returns violation", async () => {
@@ -40,7 +42,9 @@ Deno.test("check — fixture imported by a bootstrap file returns violation", as
     { "src/bootstrap/mod.ts": ["fixtures/config/defaults.json"] },
   );
   const result = await check("fixtures/config/defaults.json", "json", ctx);
-  assertEquals(result, ["This fixture is imported by production code — move it to assets/ instead"]);
+  assertEquals(result, [
+    "This fixture is imported by production code — move it to assets/ instead",
+  ]);
 });
 
 Deno.test("check — fixture imported only by a test file returns null", async () => {
@@ -73,5 +77,7 @@ Deno.test("check — matches import without file extension", async () => {
     { "src/app/domain/data/seed/mod.ts": ["fixtures/seeds/users"] },
   );
   const result = await check("fixtures/seeds/users.ts", "ts", ctx);
-  assertEquals(result, ["This fixture is imported by production code — move it to assets/ instead"]);
+  assertEquals(result, [
+    "This fixture is imported by production code — move it to assets/ instead",
+  ]);
 });

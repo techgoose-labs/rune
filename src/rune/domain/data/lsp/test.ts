@@ -82,9 +82,15 @@ function brokenWriter(): WritableStreamDefaultWriter<Uint8Array> {
     close: () => Promise.resolve(),
     abort: () => Promise.resolve(),
     releaseLock: () => {},
-    get closed() { return Promise.resolve(); },
-    get desiredSize() { return 1; },
-    get ready() { return Promise.resolve(); },
+    get closed() {
+      return Promise.resolve();
+    },
+    get desiredSize() {
+      return 1;
+    },
+    get ready() {
+      return Promise.resolve();
+    },
   } as unknown as WritableStreamDefaultWriter<Uint8Array>;
 }
 
@@ -110,9 +116,16 @@ Deno.test("request — rejects fast on a broken writer and clears the pending en
     `should reject with the pipe error, not the timeout: ${err.message}`,
   );
   // Must settle well under the timeout (fast-fail, not stall the full window).
-  assert(elapsed < TIMEOUT_MS / 2, `request should fail fast, took ${elapsed}ms`);
+  assert(
+    elapsed < TIMEOUT_MS / 2,
+    `request should fail fast, took ${elapsed}ms`,
+  );
   // The pending entry must be cleared so it can't leak/double-settle.
-  assertEquals(lsp.pending.size, 0, "pending entry must be cleared on send failure");
+  assertEquals(
+    lsp.pending.size,
+    0,
+    "pending entry must be cleared on send failure",
+  );
 });
 
 Deno.test("frameLspMessages — a complete multibyte msg as the LAST in buffer is delivered", () => {

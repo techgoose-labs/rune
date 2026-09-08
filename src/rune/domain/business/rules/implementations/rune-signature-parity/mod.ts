@@ -32,12 +32,18 @@ export async function check(
 
   // Coordinator signatures.
   for (const req of ast.reqs) {
-    const file = `src/${moduleName}/domain/coordinators/${processName(req.noun, req.verb)}/mod.ts`;
+    const file = `src/${moduleName}/domain/coordinators/${
+      processName(req.noun, req.verb)
+    }/mod.ts`;
     if (!fileSet.has(file)) continue;
     const content = await ctx.getFileContent(file);
     const missing = checkSignatureRefs(content, req.input, req.output);
     for (const m of missing) {
-      violations.push(`${file}: ${m} (rune declares [REQ] ${req.noun}.${req.verb}(${req.input}): ${req.output} at line ${req.line + 1})`);
+      violations.push(
+        `${file}: ${m} (rune declares [REQ] ${req.noun}.${req.verb}(${req.input}): ${req.output} at line ${
+          req.line + 1
+        })`,
+      );
     }
   }
 
@@ -49,14 +55,22 @@ export async function check(
     const content = await ctx.getFileContent(file);
     const missing = checkSignatureRefs(content, ent.input, ent.output);
     for (const m of missing) {
-      violations.push(`${file}: ${m} (rune declares [ENT] ${ent.surface}.${ent.action}(${ent.input}): ${ent.output} at line ${ent.line + 1})`);
+      violations.push(
+        `${file}: ${m} (rune declares [ENT] ${ent.surface}.${ent.action}(${ent.input}): ${ent.output} at line ${
+          ent.line + 1
+        })`,
+      );
     }
   }
 
   return violations.length > 0 ? violations : null;
 }
 
-function checkSignatureRefs(content: string, input: string, output: string): string[] {
+function checkSignatureRefs(
+  content: string,
+  input: string,
+  output: string,
+): string[] {
   const missing: string[] = [];
   // Skip inline DTO inputs like `{a:b, c:d}` — only named DTOs are checked.
   const inputName = isNamedDto(input) ? input : null;
@@ -75,7 +89,9 @@ function isNamedDto(s: string): boolean {
 }
 
 function mentionsIdent(content: string, ident: string): boolean {
-  const re = new RegExp(`\\b${ident.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+  const re = new RegExp(
+    `\\b${ident.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+  );
   return re.test(content);
 }
 

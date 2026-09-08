@@ -16,8 +16,13 @@ function ctxWith(contents: Record<string, string>): PipelineContext {
 const WITH_TODO = JSON.stringify({
   v: 1,
   slugs: {
-    "not-enabled": [{ kind: "run-step", match: "/enable/i", why: "real", }],
-    "quota-exceeded": [{ kind: "note", label: "TODO", why: "TODO", todo: true }],
+    "not-enabled": [{ kind: "run-step", match: "/enable/i", why: "real" }],
+    "quota-exceeded": [{
+      kind: "note",
+      label: "TODO",
+      why: "TODO",
+      todo: true,
+    }],
     "stale-cursor": [{ kind: "note", label: "TODO", todo: true }],
   },
 });

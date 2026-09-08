@@ -83,7 +83,9 @@ export async function runManifest(args: string[]): Promise<number> {
   }
 
   const absRune = resolve(parsed.runePath);
-  const root = parsed.root !== null ? resolve(parsed.root) : resolveRoot(absRune);
+  const root = parsed.root !== null
+    ? resolve(parsed.root)
+    : resolveRoot(absRune);
   const relRune = relative(root, absRune);
 
   let runeText: string;

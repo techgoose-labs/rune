@@ -31,8 +31,17 @@ Deno.test("check — skips non-module paths", async () => {
 
 Deno.test("check — skips core module", async () => {
   const ctx = makeCtx(
-    ["src/core/business/classify/mod.ts", "src/core/business/classify/test.ts", "src/core/dto/types.ts"],
-    ["src/core", "src/core/business", "src/core/business/classify", "src/core/dto"],
+    [
+      "src/core/business/classify/mod.ts",
+      "src/core/business/classify/test.ts",
+      "src/core/dto/types.ts",
+    ],
+    [
+      "src/core",
+      "src/core/business",
+      "src/core/business/classify",
+      "src/core/dto",
+    ],
   );
   const result = await check("src/core", "folder", ctx);
   assertEquals(result, null);
@@ -126,7 +135,10 @@ Deno.test("check — flags single-feature module", async () => {
   );
   const result = await check("src/notify", "folder", ctx);
   assertEquals(result !== null, true);
-  assertEquals(result!.some((v) => v.includes("only one business feature")), true);
+  assertEquals(
+    result!.some((v) => v.includes("only one business feature")),
+    true,
+  );
 });
 
 Deno.test("check — flags underutilized layers", async () => {
@@ -151,7 +163,10 @@ Deno.test("check — flags underutilized layers", async () => {
 Deno.test("check — flags high coupling on small module", async () => {
   const imports: Record<string, string[]> = {
     "src/tiny/mod-root.ts": ["src/big/mod-root.ts"],
-    "src/tiny/domain/business/feat/mod.ts": ["src/big/mod-root.ts", "src/big/mod-root.ts"],
+    "src/tiny/domain/business/feat/mod.ts": [
+      "src/big/mod-root.ts",
+      "src/big/mod-root.ts",
+    ],
     "src/tiny/domain/data/svc/mod.ts": ["src/big/mod-root.ts"],
   };
   const ctx = makeCtx(
@@ -173,13 +188,19 @@ Deno.test("check — flags high coupling on small module", async () => {
   );
   const result = await check("src/tiny", "folder", ctx);
   assertEquals(result !== null, true);
-  assertEquals(result!.some((v) => v.includes("imports") && v.includes("merging")), true);
+  assertEquals(
+    result!.some((v) => v.includes("imports") && v.includes("merging")),
+    true,
+  );
 });
 
 Deno.test("check — does not flag coupling on large well-formed module", async () => {
   const imports: Record<string, string[]> = {
     "src/orders/mod-root.ts": ["src/auth/mod-root.ts"],
-    "src/orders/domain/business/create/mod.ts": ["src/auth/mod-root.ts", "src/auth/mod-root.ts"],
+    "src/orders/domain/business/create/mod.ts": [
+      "src/auth/mod-root.ts",
+      "src/auth/mod-root.ts",
+    ],
     "src/orders/domain/business/cancel/mod.ts": ["src/auth/mod-root.ts"],
     "src/orders/domain/data/db/mod.ts": ["src/auth/mod-root.ts"],
     "src/orders/domain/coordinators/process/mod.ts": ["src/auth/mod-root.ts"],

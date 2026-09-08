@@ -1,10 +1,10 @@
 import { join } from "#std/path";
 import type {
+  Diagnostic,
   ExportInfo,
   Location,
-  Diagnostic,
-  LspConfig,
   LspCapabilities,
+  LspConfig,
 } from "@core/dto/types.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -14,8 +14,14 @@ interface SymbolInfo {
   name: string;
   kind: number;
   detail?: string;
-  range: { start: { line: number; character: number }; end: { line: number; character: number } };
-  selectionRange: { start: { line: number; character: number }; end: { line: number; character: number } };
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+  selectionRange: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
 }
 
 export class Lsp {
@@ -27,7 +33,10 @@ export class Lsp {
   // is therefore held as raw bytes — slicing a decoded UTF-16 string by a byte
   // length overshoots on any multibyte char and desyncs the stream.
   private buffer: Uint8Array = new Uint8Array(0);
-  private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  private pending = new Map<
+    number,
+    { resolve: (v: unknown) => void; reject: (e: Error) => void }
+  >();
   private readLoop: Promise<void> | null = null;
   private projectRoot: string;
   private config: LspConfig;
@@ -83,14 +92,21 @@ export class Lsp {
 
   // -- Document management --
 
-  private async openDoc(relPath: string): Promise<{ uri: string; content: string }> {
+  private async openDoc(
+    relPath: string,
+  ): Promise<{ uri: string; content: string }> {
     const absPath = join(this.projectRoot, relPath);
     const uri = `file://${absPath}`;
     const content = await Deno.readTextFile(absPath);
 
     if (!this.openDocs.has(uri)) {
       await this.notify("textDocument/didOpen", {
-        textDocument: { uri, languageId: "typescript", version: 1, text: content },
+        textDocument: {
+          uri,
+          languageId: "typescript",
+          version: 1,
+          text: content,
+        },
       });
       this.openDocs.add(uri);
     }
@@ -107,7 +123,9 @@ export class Lsp {
 
   // -- Symbol resolution --
 
-  private async getSymbols(relPath: string): Promise<{ symbols: SymbolInfo[]; uri: string; content: string }> {
+  private async getSymbols(
+    relPath: string,
+  ): Promise<{ symbols: SymbolInfo[]; uri: string; content: string }> {
     const { uri, content } = await this.openDoc(relPath);
 
     if (!this.capabilities.documentSymbol) return { symbols: [], uri, content };
@@ -176,7 +194,10 @@ export class Lsp {
     return result;
   }
 
-  async getSymbolType(relPath: string, symbolName: string): Promise<string | null> {
+  async getSymbolType(
+    relPath: string,
+    symbolName: string,
+  ): Promise<string | null> {
     if (!this.capabilities.hover) return null;
 
     try {
@@ -186,7 +207,7 @@ export class Lsp {
       const result = await this.request("textDocument/hover", {
         textDocument: { uri: pos.uri },
         position: { line: pos.line, character: pos.character },
-      // deno-lint-ignore no-explicit-any
+        // deno-lint-ignore no-explicit-any
       }) as any | null;
 
       if (!result?.contents) return null;
@@ -195,7 +216,9 @@ export class Lsp {
       if (result.contents.value) return result.contents.value;
       if (Array.isArray(result.contents)) {
         return result.contents
-          .map((c: string | { value: string }) => typeof c === "string" ? c : c.value)
+          .map((c: string | { value: string }) =>
+            typeof c === "string" ? c : c.value
+          )
           .join("\n");
       }
       return null;
@@ -204,7 +227,10 @@ export class Lsp {
     }
   }
 
-  async findSymbolReferences(relPath: string, symbolName: string): Promise<Location[]> {
+  async findSymbolReferences(
+    relPath: string,
+    symbolName: string,
+  ): Promise<Location[]> {
     if (!this.capabilities.references) return [];
 
     const pos = await this.findSymbolPosition(relPath, symbolName);
@@ -214,7 +240,11 @@ export class Lsp {
       textDocument: { uri: pos.uri },
       position: { line: pos.line, character: pos.character },
       context: { includeDeclaration: false },
-    }) as Array<{ uri: string; range: { start: { line: number; character: number } } }> | null;
+    }) as
+      | Array<
+        { uri: string; range: { start: { line: number; character: number } } }
+      >
+      | null;
 
     if (!result || !Array.isArray(result)) return [];
 
@@ -225,7 +255,10 @@ export class Lsp {
     }));
   }
 
-  async findSymbolImplementations(relPath: string, symbolName: string): Promise<Location[]> {
+  async findSymbolImplementations(
+    relPath: string,
+    symbolName: string,
+  ): Promise<Location[]> {
     if (!this.capabilities.implementation) return [];
 
     const pos = await this.findSymbolPosition(relPath, symbolName);
@@ -234,7 +267,11 @@ export class Lsp {
     const result = await this.request("textDocument/implementation", {
       textDocument: { uri: pos.uri },
       position: { line: pos.line, character: pos.character },
-    }) as Array<{ uri: string; range: { start: { line: number; character: number } } }> | null;
+    }) as
+      | Array<
+        { uri: string; range: { start: { line: number; character: number } } }
+      >
+      | null;
 
     if (!result || !Array.isArray(result)) return [];
 
@@ -245,7 +282,10 @@ export class Lsp {
     }));
   }
 
-  async findSymbolDefinition(relPath: string, symbolName: string): Promise<Location[]> {
+  async findSymbolDefinition(
+    relPath: string,
+    symbolName: string,
+  ): Promise<Location[]> {
     if (!this.capabilities.definition) return [];
 
     const pos = await this.findSymbolPosition(relPath, symbolName);
@@ -254,7 +294,7 @@ export class Lsp {
     const result = await this.request("textDocument/definition", {
       textDocument: { uri: pos.uri },
       position: { line: pos.line, character: pos.character },
-    // deno-lint-ignore no-explicit-any
+      // deno-lint-ignore no-explicit-any
     }) as any;
 
     if (!result) return [];
@@ -262,7 +302,12 @@ export class Lsp {
     const locs = Array.isArray(result) ? result : [result];
     return locs
       .filter((r: { uri?: string }) => r.uri)
-      .map((r: { uri: string; range: { start: { line: number; character: number } } }) => ({
+      .map((
+        r: {
+          uri: string;
+          range: { start: { line: number; character: number } };
+        },
+      ) => ({
         uri: r.uri,
         line: r.range.start.line,
         character: r.range.start.character,
@@ -280,7 +325,7 @@ export class Lsp {
     if (this.capabilities.diagnostics) {
       const result = await this.request("textDocument/diagnostic", {
         textDocument: { uri },
-      // deno-lint-ignore no-explicit-any
+        // deno-lint-ignore no-explicit-any
       }) as { items?: any[] } | null;
 
       if (!result?.items) return [];
@@ -308,17 +353,29 @@ export class Lsp {
       await this.request("shutdown", null);
       await this.notify("exit", null);
     } catch { /* */ }
-    try { await this.writer?.close(); } catch { /* */ }
-    try { await this.reader?.cancel(); } catch { /* */ }
+    try {
+      await this.writer?.close();
+    } catch { /* */ }
+    try {
+      await this.reader?.cancel();
+    } catch { /* */ }
     this.writer = null;
     this.reader = null;
-    try { proc.kill(); } catch { /* */ }
-    try { await proc.status; } catch { /* */ }
+    try {
+      proc.kill();
+    } catch { /* */ }
+    try {
+      await proc.status;
+    } catch { /* */ }
   }
 
   // -- JSON-RPC transport --
 
-  private async request(method: string, params: unknown, timeoutMs = 10_000): Promise<unknown> {
+  private async request(
+    method: string,
+    params: unknown,
+    timeoutMs = 10_000,
+  ): Promise<unknown> {
     const id = ++this.requestId;
     const msg = JSON.stringify({ jsonrpc: "2.0", id, method, params });
     return new Promise((resolve, reject) => {
@@ -327,8 +384,14 @@ export class Lsp {
         reject(new Error(`LSP ${method} timed out`));
       }, timeoutMs);
       this.pending.set(id, {
-        resolve: (v: unknown) => { clearTimeout(timer); resolve(v); },
-        reject: (e: Error) => { clearTimeout(timer); reject(e); },
+        resolve: (v: unknown) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        reject: (e: Error) => {
+          clearTimeout(timer);
+          reject(e);
+        },
       });
       // Handle the send failure (broken pipe / closed writer) so it (a) never
       // becomes a floating unhandled rejection that crashes the host and (b)
@@ -380,7 +443,9 @@ export class Lsp {
         const msg = JSON.parse(body);
         if ("method" in msg && "id" in msg) {
           // Server-to-client request — respond immediately so the server doesn't block
-          this.send(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: null }));
+          this.send(
+            JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: null }),
+          );
         } else if ("id" in msg && this.pending.has(msg.id)) {
           const { resolve, reject } = this.pending.get(msg.id)!;
           this.pending.delete(msg.id);
@@ -446,19 +511,41 @@ export function frameLspMessages(
 
 function symbolKindToString(kind: number): string {
   const kinds: Record<number, string> = {
-    1: "File", 2: "Module", 3: "Namespace", 4: "Package",
-    5: "Class", 6: "Method", 7: "Property", 8: "Field",
-    9: "Constructor", 10: "Enum", 11: "Interface", 12: "Function",
-    13: "Variable", 14: "Constant", 15: "String", 16: "Number",
-    17: "Boolean", 18: "Array", 19: "Object", 20: "Key",
-    21: "Null", 22: "EnumMember", 23: "Struct", 24: "Event",
-    25: "Operator", 26: "TypeParameter",
+    1: "File",
+    2: "Module",
+    3: "Namespace",
+    4: "Package",
+    5: "Class",
+    6: "Method",
+    7: "Property",
+    8: "Field",
+    9: "Constructor",
+    10: "Enum",
+    11: "Interface",
+    12: "Function",
+    13: "Variable",
+    14: "Constant",
+    15: "String",
+    16: "Number",
+    17: "Boolean",
+    18: "Array",
+    19: "Object",
+    20: "Key",
+    21: "Null",
+    22: "EnumMember",
+    23: "Struct",
+    24: "Event",
+    25: "Operator",
+    26: "TypeParameter",
   };
   return kinds[kind] ?? "Unknown";
 }
 
 const SEVERITY_MAP: Record<number, Diagnostic["severity"]> = {
-  1: "error", 2: "warning", 3: "info", 4: "hint",
+  1: "error",
+  2: "warning",
+  3: "info",
+  4: "hint",
 };
 
 // deno-lint-ignore no-explicit-any

@@ -48,7 +48,11 @@ export async function check(
     ];
     for (const f of baseFiles) {
       if (!fileSet.has(f)) {
-        violations.push(`Missing poly file: ${f} (for [PLY] ${ply.noun} at line ${ply.line + 1})`);
+        violations.push(
+          `Missing poly file: ${f} (for [PLY] ${ply.noun} at line ${
+            ply.line + 1
+          })`,
+        );
       }
     }
 
@@ -58,7 +62,11 @@ export async function check(
       const caseFiles = [`${caseDir}/mod.ts`, `${caseDir}/test.ts`];
       for (const f of caseFiles) {
         if (!fileSet.has(f)) {
-          violations.push(`Missing case file: ${f} (for [CSE] ${cse.name} at line ${cse.line + 1})`);
+          violations.push(
+            `Missing case file: ${f} (for [CSE] ${cse.name} at line ${
+              cse.line + 1
+            })`,
+          );
         }
       }
     }

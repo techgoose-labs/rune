@@ -35,7 +35,7 @@ function renderTree(node: Node, prefix: string, isLast: boolean[]): string[] {
   entries.forEach(([k, v], i) => {
     const last = i === entries.length - 1;
     const connector = last ? "└── " : "├── ";
-    const indent = isLast.map(l => l ? "    " : "│   ").join("");
+    const indent = isLast.map((l) => l ? "    " : "│   ").join("");
 
     if (isFolderKey(k)) {
       const name = dirName(k);
@@ -51,7 +51,9 @@ function renderTree(node: Node, prefix: string, isLast: boolean[]): string[] {
           const vIndent = indent + (last ? "    " : "│   ");
           const vConn = vLast ? "└── " : "├── ";
           lines.push(`${vIndent}${vConn}# variant ${vi + 1}`);
-          lines.push(...renderTree(variant as Node, "", [...isLast, last, vLast]));
+          lines.push(
+            ...renderTree(variant as Node, "", [...isLast, last, vLast]),
+          );
         });
       } else if (isObj(v)) {
         lines.push(`${indent}${connector}${name}/${descSuffix}`);
@@ -69,7 +71,9 @@ function renderTree(node: Node, prefix: string, isLast: boolean[]): string[] {
   return lines;
 }
 
-const spec = (JSON.parse(await Deno.readTextFile(SPEC_PATH)) as { canonicalPaths: Node }).canonicalPaths;
+const spec =
+  (JSON.parse(await Deno.readTextFile(SPEC_PATH)) as { canonicalPaths: Node })
+    .canonicalPaths;
 
 const forbiddenDirs = spec["$forbiddenDirNames"] as string[] ?? [];
 const looseNames = spec["$looseFileNames"] as string[] ?? [];
@@ -87,7 +91,9 @@ const tree = topEntries.flatMap(([k, v]) => {
       v.forEach((variant, vi) => {
         if (!isObj(variant)) return;
         lines.push(`    # variant ${vi + 1}`);
-        lines.push(...renderTree(variant as Node, "", [true]).map(l => "    " + l));
+        lines.push(
+          ...renderTree(variant as Node, "", [true]).map((l) => "    " + l),
+        );
       });
       return lines;
     }
@@ -109,9 +115,15 @@ const md = `# Canonical Project Shape
 
 ## Rules
 
-- **Allowed root files** (by stem): ${rootFiles.map(f => `\`${f}\``).join(", ")}
-- **Forbidden directory names** (anywhere): ${forbiddenDirs.map(f => `\`${f}\``).join(", ")}
-- **Loose file names** (flagged anywhere): ${looseNames.map(f => `\`${f}\``).join(", ")}
+- **Allowed root files** (by stem): ${
+  rootFiles.map((f) => `\`${f}\``).join(", ")
+}
+- **Forbidden directory names** (anywhere): ${
+  forbiddenDirs.map((f) => `\`${f}\``).join(", ")
+}
+- **Loose file names** (flagged anywhere): ${
+  looseNames.map((f) => `\`${f}\``).join(", ")
+}
 
 ## Where this sits in a composed repo
 
@@ -120,7 +132,7 @@ A rune-generated keep backend is the \`server/\` package of a composed monorepo:
 \`\`\`
 <git-root>/
   deno.json     # Deno workspace ["./ui","./server"]
-  serve.ts      # serveSprig({ keep: api }) — imports ./server/bootstrap/mod.ts
+  serve.ts      # Bedrock({ ui: Frontend(), backend: api }) — the composition root
   ui/           # the sprig UI package (ui/src/, ui/static/)
   server/       # <- THE CODEGEN ROOT: the tree below is rooted HERE
   spec/         # shared authoring (spec/runes/, spec/misc/, spec/ui/) at the git root

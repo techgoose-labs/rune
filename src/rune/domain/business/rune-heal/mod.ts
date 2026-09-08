@@ -90,7 +90,7 @@ export function planHealRules(
       if (!req) continue;
       for (const slug of reqSlugs(req)) {
         let set = raisedBy.get(slug);
-        if (!set) raisedBy.set(slug, (set = new Set()));
+        if (!set) raisedBy.set(slug, set = new Set());
         set.add(ent.action);
       }
     }
@@ -200,11 +200,23 @@ function inferRunStep(
 
 // Affix words that wrap a precondition noun/verb in a fault slug.
 const NEG_PREFIX = new Set([
-  "not", "no", "missing", "un", "without", "needs", "need", "requires",
+  "not",
+  "no",
+  "missing",
+  "un",
+  "without",
+  "needs",
+  "need",
+  "requires",
   "require",
 ]);
 const ABSENT_SUFFIX = new Set([
-  "required", "missing", "needed", "absent", "unset", "unconfigured",
+  "required",
+  "missing",
+  "needed",
+  "absent",
+  "unset",
+  "unconfigured",
   "disabled",
 ]);
 

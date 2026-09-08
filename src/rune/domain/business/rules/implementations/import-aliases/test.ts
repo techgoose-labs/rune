@@ -15,7 +15,8 @@ function makeCtx(files: Record<string, string>): PipelineContext {
 
 Deno.test("flags dotdot imports", async () => {
   const ctx = makeCtx({
-    "src/mod/domain/foo.ts": `import { x } from "${"../"}../core/dto/types.ts";`,
+    "src/mod/domain/foo.ts":
+      `import { x } from "${"../"}../core/dto/types.ts";`,
   });
   const result = await check("src/mod/domain/foo.ts", "ts", ctx);
   assertEquals(result !== null, true);

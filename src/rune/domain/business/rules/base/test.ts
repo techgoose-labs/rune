@@ -1,5 +1,5 @@
 import { assertEquals } from "#std/assert";
-import type { CheckFn, BuildPromptFn } from "./mod.ts";
+import type { BuildPromptFn, CheckFn } from "./mod.ts";
 
 Deno.test("CheckFn type contract is valid", () => {
   const _check: CheckFn = async (_path, _target, _ctx) => null;

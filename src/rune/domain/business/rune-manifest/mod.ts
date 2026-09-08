@@ -272,17 +272,23 @@ export function planManifest(
       plan.errors.push(
         `${runePath}: no core.rune found under the resolved project root ` +
           `"${root}" — shared services live in its src/core/core.rune and none ` +
-          `was found there, so the boundary service${plural ? "s" : ""} ${names} ` +
+          `was found there, so the boundary service${
+            plural ? "s" : ""
+          } ${names} ` +
           `cannot be resolved. The root is usually mis-resolved here (e.g. the ` +
           `spec is staged above the rune project): pass \`--root <project-dir>\` ` +
-          `— the dir whose src/core/core.rune declares ${plural ? "them" : "it"} ` +
+          `— the dir whose src/core/core.rune declares ${
+            plural ? "them" : "it"
+          } ` +
           `— or move the spec into that project. rune resolves the root from the ` +
           `spec's path; see \`rune sync --help\`.`,
       );
     } else {
       for (const [service, line] of undeclared) {
         plan.errors.push(
-          `${runePath}:${line + 1}: undeclared service "${service}" — declare ` +
+          `${runePath}:${
+            line + 1
+          }: undeclared service "${service}" — declare ` +
             `it as \`[SRV] (TRANSPORT)${service}: <ENV,…>\` in src/core/core.rune`,
         );
       }
@@ -396,10 +402,27 @@ export function planManifest(
       }
     }
     for (const [surface, ents] of bySurface) {
-      addEntrypointSurface(emit, module, surface, ents, ast.reqs, entProcess, runePath, types);
+      addEntrypointSurface(
+        emit,
+        module,
+        surface,
+        ents,
+        ast.reqs,
+        entProcess,
+        runePath,
+        types,
+      );
     }
     for (const [surface, ents] of wsBySurface) {
-      addWsSocketSurface(emit, module, surface, ents, ast.reqs, runePath, types);
+      addWsSocketSurface(
+        emit,
+        module,
+        surface,
+        ents,
+        ast.reqs,
+        runePath,
+        types,
+      );
     }
   }
   if (ast.reqs.length > 0) {
@@ -611,7 +634,9 @@ function addPolyFeature(
   // resolve. Surface it as a manifest error and emit nothing for this PLY.
   if (ply.cases.length === 0) {
     errors.push(
-      `${runePath}:${ply.line + 1}: [PLY] ${ply.noun}.${ply.verb} requires at ` +
+      `${runePath}:${
+        ply.line + 1
+      }: [PLY] ${ply.noun}.${ply.verb} requires at ` +
         `least one [CSE] (a polymorphic step needs ≥1 variant case)`,
     );
     return;
@@ -635,7 +660,11 @@ function addPolyFeature(
   const nonDoc = nonDesc ? `// ${typedPly.noun}: ${nonDesc}\n` : "";
   const realSig = `${ply.verb}(${ply.params.join(", ")}): ${ply.output}`;
   const polyCtx = { ply: typedPly, runePath, variants, nonDoc, realSig };
-  emit("poly-base-mod", `${dir}/base/mod.ts`, render(tpl("poly-base-mod"), polyCtx));
+  emit(
+    "poly-base-mod",
+    `${dir}/base/mod.ts`,
+    render(tpl("poly-base-mod"), polyCtx),
+  );
   emit(
     "poly-base-test",
     `${dir}/base/test.ts`,
@@ -712,7 +741,9 @@ function addAdapter(
     ? "\n// Boundary methods to reach:\n" +
       methods.map((m) => {
         const svc = m.service ? ` (service: ${m.service})` : "";
-        return `//   ${toPascal(step.noun)}.${m.verb}(${m.params.join(", ")})${svc}`;
+        return `//   ${toPascal(step.noun)}.${m.verb}(${
+          m.params.join(", ")
+        })${svc}`;
       }).join("\n") + "\n"
     : "";
   emit(
@@ -793,7 +824,11 @@ function addCoreService(emit: Emit, srv: SrvNode, runePath: string): void {
     "});",
     "",
   ];
-  emit("core-service-test", `src/core/data/${kebab}/smk.test.ts`, test.join("\n"));
+  emit(
+    "core-service-test",
+    `src/core/data/${kebab}/smk.test.ts`,
+    test.join("\n"),
+  );
 }
 
 // The rune parser accepts arbitrary prose in a description (rune-parse:610-614)
@@ -810,9 +845,22 @@ function jsdocSafe(description: string): string {
 // union containing any of these is a REAL type union (e.g. `string | number`),
 // NOT a string-literal enum, so its members are left unquoted (enumMembers).
 const TS_TYPE_TOKENS = new Set([
-  "string", "number", "boolean", "bigint", "symbol", "object",
-  "null", "undefined", "void", "unknown", "any", "never",
-  "true", "false", "Uint8Array", "Date",
+  "string",
+  "number",
+  "boolean",
+  "bigint",
+  "symbol",
+  "object",
+  "null",
+  "undefined",
+  "void",
+  "unknown",
+  "any",
+  "never",
+  "true",
+  "false",
+  "Uint8Array",
+  "Date",
 ]);
 
 // A bare-word union like `GET | POST | DELETE` (or `draft | sent | declinedBot`)
@@ -841,7 +889,9 @@ function enumList(members: string[]): string {
 
 // Map a rune [TYP] primitive to a TS type + the class-validator decorator that
 // validates it. Unknown/unmapped types keep their TS spelling with no decorator.
-function tsFor(typeName: string | undefined): { ts: string; dec: string | null } {
+function tsFor(
+  typeName: string | undefined,
+): { ts: string; dec: string | null } {
   switch (typeName) {
     case "string":
       return { ts: "string", dec: "IsString" };
@@ -859,7 +909,10 @@ function tsFor(typeName: string | undefined): { ts: string; dec: string | null }
       // @IsIn. Anything else (a nested [DTO], a generic) passes through verbatim.
       const members = enumMembers(typeName);
       if (members) {
-        return { ts: members.map((m) => JSON.stringify(m)).join(" | "), dec: null };
+        return {
+          ts: members.map((m) => JSON.stringify(m)).join(" | "),
+          dec: null,
+        };
       }
       return { ts: typeName, dec: null };
     }
@@ -948,10 +1001,14 @@ function renderDto(
     if (nested) {
       hasNested = true;
       if (nested.name !== dto.name) nestedImports.add(nested.name);
-      if (nested.description) lead.push(`/** ${jsdocSafe(nested.description)} */`);
+      if (nested.description) {
+        lead.push(`/** ${jsdocSafe(nested.description)} */`);
+      }
       if (array) {
         lead.push(
-          `// rune: ${base}(${lenientArray ? "s?" : "s"}) — array of [DTO] ${nested.name}` +
+          `// rune: ${base}(${
+            lenientArray ? "s?" : "s"
+          }) — array of [DTO] ${nested.name}` +
             (lenientArray ? " (elements not validated — may be null)" : ""),
         );
       }
@@ -1002,7 +1059,9 @@ function renderDto(
     }
     if (array) {
       lead.push(
-        `// rune: ${base}(${lenientArray ? "s?" : "s"}) — array of [TYP] ${base}` +
+        `// rune: ${base}(${
+          lenientArray ? "s?" : "s"
+        }) — array of [TYP] ${base}` +
           (lenientArray ? " (elements not validated — may be null)" : ""),
       );
     }
@@ -1024,7 +1083,9 @@ function renderDto(
     // stay on the property.
     const itemHint: string[] = [];
     const pushHint = (h: string) => (array ? itemHint : api).push(h);
-    if (typ?.description) api.push(`description: ${JSON.stringify(typ.description)}`);
+    if (typ?.description) {
+      api.push(`description: ${JSON.stringify(typ.description)}`);
+    }
     let baseDec = dec;
     for (const mod of typ?.modifiers ?? []) {
       const eq = mod.indexOf("=");
@@ -1062,11 +1123,15 @@ function renderDto(
       const list = enumList(enumVals);
       if (!lenientArray) {
         validators.add("IsIn");
-        constraints.push(array ? `@IsIn(${list}, { each: true })` : `@IsIn(${list})`);
+        constraints.push(
+          array ? `@IsIn(${list}, { each: true })` : `@IsIn(${list})`,
+        );
       }
       pushHint(`enum: ${list}`);
     }
-    if (typ?.typeName === "Uint8Array") api.push(`type: "string"`, `format: "binary"`);
+    if (typ?.typeName === "Uint8Array") {
+      api.push(`type: "string"`, `format: "binary"`);
+    }
     if (itemHint.length > 0) api.push(`items: { ${itemHint.join(", ")} }`);
     // `(s?)` arrays keep only @IsArray() (emitted above) — the element type check is dropped so
     // dirty inbound data (e.g. a null in pathway_tags) is tolerated instead of hard-422ing.
@@ -1122,7 +1187,9 @@ function renderDto(
   }
   for (const n of [...nestedImports].sort()) {
     const file = transformName(n, types.nameBinding);
-    lines.push(`import { ${n} } from "@/${dtoDir(n, module, types)}/${file}.ts";`);
+    lines.push(
+      `import { ${n} } from "@/${dtoDir(n, module, types)}/${file}.ts";`,
+    );
   }
   if (hasNested || validators.size > 0) lines.push("");
   // Class JSDoc carries the [DTO] prose + a visibility tag; a provenance line
@@ -1224,7 +1291,9 @@ function renderTyp(
     );
   }
   if (typ.isCore) {
-    lines.push("// core: shared across modules — narrow with cross-module care.");
+    lines.push(
+      "// core: shared across modules — narrow with cross-module care.",
+    );
   }
   lines.push(`export type ${toPascal(typ.name)} = ${ts};`, "");
   return lines.join("\n");
@@ -1256,13 +1325,17 @@ function renderBusinessTest(
   // fault -> the method that declares it, so the fault stub names its raiser.
   const faultVerb = new Map<string, string>();
   for (const m of methods) {
-    for (const f of m.faults ?? []) if (!faultVerb.has(f)) faultVerb.set(f, m.verb);
+    for (const f of m.faults ?? []) {
+      if (!faultVerb.has(f)) faultVerb.set(f, m.verb);
+    }
   }
   if (methods.length > 0) {
     // A comment-only Arrange/Act/Assert skeleton (E32). Comment-only because a
     // live `new Id().generate()` is TS2576 and DTO-arg calls don't compile here.
     for (const m of methods) {
-      const sig = `${m.verb}(${m.params.join(", ")})${m.output ? `: ${m.output}` : ""}`;
+      const sig = `${m.verb}(${m.params.join(", ")})${
+        m.output ? `: ${m.output}` : ""
+      }`;
       L.push("");
       L.push(`Deno.test("${pascal}.${m.verb}", () => {`);
       L.push(
@@ -1301,7 +1374,11 @@ function renderBusinessTest(
 // primitive, no cast needed); anything else has no runtime contract.
 type Seam =
   | { kind: "dto"; cls: string }
-  | { kind: "primitive"; fn: "string" | "number" | "boolean" | "uint8Array"; ts: string }
+  | {
+    kind: "primitive";
+    fn: "string" | "number" | "boolean" | "uint8Array";
+    ts: string;
+  }
   | { kind: "opaque" };
 
 function seamFor(type: string, typMap: Map<string, TypNode>): Seam {
@@ -1404,9 +1481,12 @@ function renderCoordinator(
   types: TypeContext,
 ): string {
   const { typMap } = types;
-  const isBoundary = (s: StepLike): s is BoundaryStepNode => s.kind === "boundary";
+  const isBoundary = (s: StepLike): s is BoundaryStepNode =>
+    s.kind === "boundary";
   const boundaries = req.steps.filter(isBoundary);
-  const valueSteps = boundaries.filter((s) => s.output !== "void" && s.output !== "");
+  const valueSteps = boundaries.filter((s) =>
+    s.output !== "void" && s.output !== ""
+  );
   // Value-returning boundaries split by verb: read verbs may load pre-core;
   // mutation verbs (role.addGrant, invoice.save, gateway.authorize) are
   // emitted post-core even when their args are all input-fed — emitting a
@@ -1497,7 +1577,11 @@ function renderCoordinator(
   const postActions: PostAction[] = [];
   for (const s of boundaries) {
     if (s.output === "void") {
-      postActions.push({ kind: "write", step: s, field: writeFieldFor(s.verb) });
+      postActions.push({
+        kind: "write",
+        step: s,
+        field: writeFieldFor(s.verb),
+      });
     } else if (s.output === "") {
       postActions.push({ kind: "send", step: s });
     } else if (!isReadVerb(s.verb) || !isInputRead(s)) {
@@ -1514,8 +1598,9 @@ function renderCoordinator(
   // When a post-core step produces the REQ's own output, IT is the result
   // source — the core no longer returns `result` (it can't build the output a
   // boundary produces); the coordinator returns that step's asserted value.
-  const resultRead = [...produces].reverse().find((r) => r.type === req.output) ??
-    null;
+  const resultRead =
+    [...produces].reverse().find((r) => r.type === req.output) ??
+      null;
 
   const inputSeam = seamFor(req.input, typMap);
   const outputSeam = seamFor(req.output, typMap);
@@ -1531,7 +1616,10 @@ function renderCoordinator(
   // `settingsKey` from a `settingsKey::current()` step, say.
   const producers = new Map<string, StepNode>();
   for (const s of req.steps) {
-    if (s.kind === "step" && s.output && s.output !== "void" && !/Dto$/.test(s.output)) {
+    if (
+      s.kind === "step" && s.output && s.output !== "void" &&
+      !/Dto$/.test(s.output)
+    ) {
       if (!producers.has(s.output)) producers.set(s.output, s);
     }
   }
@@ -1542,12 +1630,17 @@ function renderCoordinator(
   const hoisted = new Set<string>();
   const queue: string[] = [];
   const consider = (p: string) => {
-    if (!/Dto$/.test(p) && !inputFields.has(p) && producers.has(p) && !hoisted.has(p)) {
+    if (
+      !/Dto$/.test(p) && !inputFields.has(p) && producers.has(p) &&
+      !hoisted.has(p)
+    ) {
       hoisted.add(p);
       queue.push(p);
     }
   };
-  for (const s of [...inputReads, ...sends, ...coreReads]) s.params.forEach(consider);
+  for (const s of [...inputReads, ...sends, ...coreReads]) {
+    s.params.forEach(consider);
+  }
   while (queue.length) producers.get(queue.shift()!)!.params.forEach(consider);
   // A whole-DTO param is the coordinator's own input DTO — pass the validated input that's
   // already in scope (`validInput`, or `input` when there's no seam), not `undefined as never`.
@@ -1751,7 +1844,9 @@ function renderCoordinator(
   );
   const inputCtx = `"${req.noun}.${req.verb} input"`;
   if (inputSeam.kind === "dto") {
-    B.push(`  const validInput = assert(${inputSeam.cls}, input, ${inputCtx});`);
+    B.push(
+      `  const validInput = assert(${inputSeam.cls}, input, ${inputCtx});`,
+    );
   } else if (inputSeam.kind === "primitive") {
     B.push(`  const validInput = assert.${inputSeam.fn}(input, ${inputCtx});`);
   }
@@ -1765,7 +1860,9 @@ function renderCoordinator(
   // input field. Static steps call the class; instance steps `new` it.
   if (hoisted.size) {
     B.push("");
-    B.push("  // value producers — pure steps whose output the boundaries below consume");
+    B.push(
+      "  // value producers — pure steps whose output the boundaries below consume",
+    );
     for (const [name, s] of producers) {
       if (!hoisted.has(name)) continue;
       const cls = toPascal(s.noun);
@@ -1777,7 +1874,9 @@ function renderCoordinator(
   }
   if (readVars.length) {
     B.push("");
-    B.push("  // reads — load inputs through the data adapters (validated at the seam)");
+    B.push(
+      "  // reads — load inputs through the data adapters (validated at the seam)",
+    );
     for (const [i, r] of readVars.entries()) {
       // a read may chain a field off any read already emitted ABOVE it — never
       // off itself or a later one (spec order is the availability order).
@@ -1805,9 +1904,13 @@ function renderCoordinator(
   B.push(coreIsVoid ? `  ${coreCall};` : `  const out = ${coreCall};`);
   if (post.length > 0) {
     B.push("");
-    B.push("  // after the core — boundary calls in spec order (validated at the seam)");
+    B.push(
+      "  // after the core — boundary calls in spec order (validated at the seam)",
+    );
     if (postActions.some((a) => a.kind !== "produce" || a.mutation)) {
-      B.push("  // (guards run in the core above: a throw there prevents every call below)");
+      B.push(
+        "  // (guards run in the core above: a throw there prevents every call below)",
+      );
     }
     B.push(...post);
   }
@@ -1839,10 +1942,14 @@ function renderCoordinator(
     resultRead ? "" : "the result",
   ].filter(Boolean).join(" plus ") ||
     "nothing (the post-core boundary calls produce the flow's values)";
-  B.push(`// Pure business logic for ${req.noun}.${req.verb} — no I/O. Takes the`);
+  B.push(
+    `// Pure business logic for ${req.noun}.${req.verb} — no I/O. Takes the`,
+  );
   B.push(`// request input${takesReads}; returns ${returnsClause}.`);
   B.push(
-    `function ${req.verb}Core(${coreParams}): ${coreIsVoid ? "void" : `{ ${ret} }`} {`,
+    `function ${req.verb}Core(${coreParams}): ${
+      coreIsVoid ? "void" : `{ ${ret} }`
+    } {`,
   );
   for (const n of newNouns) {
     B.push(`  const ${camel(n)} = new ${toPascal(n)}();`);
@@ -1897,7 +2004,9 @@ function renderCoordinator(
   }
   for (const n of boundaryNouns) {
     L.push(
-      `import { ${toPascal(n)} as ${toPascal(n)}Data } from "@/src/${module}/domain/data/${
+      `import { ${toPascal(n)} as ${
+        toPascal(n)
+      }Data } from "@/src/${module}/domain/data/${
         applyCase(n, "kebab")
       }/mod.ts";`,
     );
@@ -2012,7 +2121,9 @@ function computeEntProcess(
         // an explicit `ext` type. The plural convention (keep's composition contract): `$name`
         // also resolves at run time from the first element of a captured `name + "s"` collection
         // output, so a plural producer makes the field wireable — the list→item gap auto-closes.
-        const mintedElsewhere = ents.some((p) => p !== ent && minted(p).has(field));
+        const mintedElsewhere = ents.some((p) =>
+          p !== ent && minted(p).has(field)
+        );
         const pluralProducer = ents.some((p) =>
           p !== ent && minted(p).has(`${field}s`)
         );
@@ -2065,7 +2176,9 @@ function inputFieldSources(
     const array = /\(s\??\)/.test(raw);
     const base = raw.replace(/\(s\??\)/g, "").replace(/\?/g, "").trim();
     const name = array ? `${base}s` : base;
-    const mod = types.typMap.get(base)?.modifiers.find((m) => m.startsWith("from="));
+    const mod = types.typMap.get(base)?.modifiers.find((m) =>
+      m.startsWith("from=")
+    );
     if (!mod) continue;
     out.push({ field: name, source: mod.slice("from=".length) as FieldSource });
   }
@@ -2172,8 +2285,12 @@ function renderEntrypointController(
   L.push(`// Generated by rune manifest from ${runePath}.`);
   L.push("// Edit the body. Re-running manifest will not overwrite this file.");
   L.push("");
-  L.push(`import { Endpoint, EndpointController, endpointModule } from "@mrg-keystone/rune";`);
-  for (const d of dtos) L.push(`import { ${d.type} } from "@/${d.dir}/${d.file}.ts";`);
+  L.push(
+    `import { Endpoint, EndpointController, endpointModule } from "@mrg-keystone/rune";`,
+  );
+  for (const d of dtos) {
+    L.push(`import { ${d.type} } from "@/${d.dir}/${d.file}.ts";`);
+  }
   for (const line of coordImports) L.push(line);
   L.push("");
   L.push(`@EndpointController(${JSON.stringify(applyCase(surface, "kebab"))})`);
@@ -2197,7 +2314,9 @@ function renderEntrypointController(
     const routePath = ent.pathTemplate
       ? translateTemplate(ent.pathTemplate)
       : entRoutePath(ent.action, fieldSources);
-    if (ent.pathTemplate) Object.assign(sources, templateSources(ent.pathTemplate));
+    if (ent.pathTemplate) {
+      Object.assign(sources, templateSources(ent.pathTemplate));
+    }
     const method = ent.method && ent.method !== "post" ? ent.method : null;
     const opts = [
       `path: ${JSON.stringify(routePath)}`,
@@ -2206,15 +2325,27 @@ function renderEntrypointController(
       `output: ${ent.output}`,
       `order: ${p.order}`,
     ];
-    if (p.dependsOn.length) opts.push(`dependsOn: ${JSON.stringify(p.dependsOn)}`);
-    if (Object.keys(p.bind).length) opts.push(`bind: ${JSON.stringify(p.bind)}`);
+    if (p.dependsOn.length) {
+      opts.push(`dependsOn: ${JSON.stringify(p.dependsOn)}`);
+    }
+    if (Object.keys(p.bind).length) {
+      opts.push(`bind: ${JSON.stringify(p.bind)}`);
+    }
     if (p.flows.length) {
       opts.push(
         `flows: ${JSON.stringify(p.flows.length === 1 ? p.flows[0] : p.flows)}`,
       );
     }
     if (p.optional) opts.push("optional: true");
-    if (Object.keys(sources).length) opts.push(`sources: ${JSON.stringify(sources)}`);
+    if (Object.keys(sources).length) {
+      opts.push(`sources: ${JSON.stringify(sources)}`);
+    }
+    // The OPENNESS MARKER, straight from the spec's `[REQ:open]` (D-3). It
+    // reaches the composition root as `x-bedrock-auth` on this operation, and
+    // that is the whole of the endpoint's policy — no decorator to hand-apply
+    // to generated code, and nothing to re-apply after the next regeneration.
+    // Unmarked emits nothing, which bedrock reads as the slot default.
+    if (entReqNode.get(ent)?.isOpen) opts.push('access: "open"');
     // E38: a JSDoc block (delegate target, @param/@returns from DTO prose,
     // @throws from the coordinator's faults) plus `//` lines explaining the
     // derived process metadata. The @Endpoint decorator itself stays one line.
@@ -2226,7 +2357,9 @@ function renderEntrypointController(
       const how = ent.delegate
         ? "named by the [ENT] body"
         : "matched by input/output signature";
-      jsdoc.push(`Delegates to coordinator ${matched.noun}.${matched.verb} (${how}).`);
+      jsdoc.push(
+        `Delegates to coordinator ${matched.noun}.${matched.verb} (${how}).`,
+      );
     } else {
       jsdoc.push("No coordinator wired — see the handler body.");
     }
@@ -2256,14 +2389,20 @@ function renderEntrypointController(
         L.push(`  // ${field} <- ${v}`);
       }
     }
-    if (p.dependsOn.length) L.push(`  // Runs after: ${p.dependsOn.join(", ")}.`);
+    if (p.dependsOn.length) {
+      L.push(`  // Runs after: ${p.dependsOn.join(", ")}.`);
+    }
     if (p.flows.length) {
       L.push(
-        `  // Only in the "${p.flows.join(`", "`)}" flow branch (untagged endpoints`,
+        `  // Only in the "${
+          p.flows.join(`", "`)
+        }" flow branch (untagged endpoints`,
       );
       L.push("  // run in every flow).");
     }
-    if (p.optional) L.push("  // Optional: attempted but never blocks the run.");
+    if (p.optional) {
+      L.push("  // Optional: attempted but never blocks the run.");
+    }
     // E37: spec provenance (+1 → the [ENT] line).
     L.push(`  // from ${runePath}:${ent.line + 1}`);
     L.push(`  @Endpoint({ ${opts.join(", ")} })`);
@@ -2281,7 +2420,9 @@ function renderEntrypointController(
         ? processName(ent.delegate.noun, ent.delegate.verb)
         : "<noun>-<verb>";
       L.push(`    // No [REQ] matches (${ent.input}): ${ent.output}.`);
-      L.push(`    // Create src/${module}/domain/coordinators/${target}/mod.ts`);
+      L.push(
+        `    // Create src/${module}/domain/coordinators/${target}/mod.ts`,
+      );
       L.push(`    throw new Error("not implemented");`);
     }
     L.push(`  }`);
@@ -2354,8 +2495,12 @@ function renderEntrypointE2e(
     legend.push("      // Endpoint chain (by @Endpoint order):");
     for (const e of ordered) {
       const p = process.get(e);
-      const deps = p?.dependsOn.length ? ` (after ${p.dependsOn.join(", ")})` : "";
-      legend.push(`      //   ${p?.order ?? "?"}. ${e.action} -> ${e.output}${deps}`);
+      const deps = p?.dependsOn.length
+        ? ` (after ${p.dependsOn.join(", ")})`
+        : "";
+      legend.push(
+        `      //   ${p?.order ?? "?"}. ${e.action} -> ${e.output}${deps}`,
+      );
     }
   }
   const exerciseCall = seedEntries
@@ -2372,10 +2517,16 @@ function renderEntrypointE2e(
     "// Fill the coordinator bodies, then run with RUNE_E2E=1 to drive every endpoint",
     "// to green (orders by @Endpoint order, chains outputs into inputs via bind).",
     "Deno.test({",
-    `  name: ${JSON.stringify(`${module}/${applyCase(surface, "kebab")} — endpoints run and chain`)},`,
+    `  name: ${
+      JSON.stringify(
+        `${module}/${applyCase(surface, "kebab")} — endpoints run and chain`,
+      )
+    },`,
     `  ignore: !Deno.env.get("RUNE_E2E"),`,
     "  fn: async () => {",
-    `    const api = await bootstrapServer(${JSON.stringify(module)}, ${moduleConst}, { swagger: true });`,
+    `    const api = await bootstrapServer(${
+      JSON.stringify(module)
+    }, ${moduleConst}, { swagger: true });`,
     "    try {",
     ...legend,
     exerciseCall,
@@ -2403,7 +2554,15 @@ function addEntrypointSurface(
   emit(
     "entrypoint-mod",
     `${dir}/mod.ts`,
-    renderEntrypointController(module, surface, ents, reqs, process, runePath, types),
+    renderEntrypointController(
+      module,
+      surface,
+      ents,
+      reqs,
+      process,
+      runePath,
+      types,
+    ),
   );
   emit(
     "entrypoint-e2e",
@@ -2430,7 +2589,11 @@ function renderWsController(
 
   // Value imports (the DTO classes are referenced at runtime in @WsEndpoint). dtoImports
   // already skips non-DTO names, so a `void` reply or an empty `()` payload imports nothing.
-  const dtos = dtoImports(ents.flatMap((e) => [e.input, e.output]), module, types);
+  const dtos = dtoImports(
+    ents.flatMap((e) => [e.input, e.output]),
+    module,
+    types,
+  );
 
   // Match each topic to its [REQ] coordinator by (input, output) DTO pair (or explicit delegate).
   const coordImports = new Set<string>();
@@ -2438,7 +2601,9 @@ function renderWsController(
   const entReqNode = new Map<EntNode, ReqNode | null>();
   for (const ent of ents) {
     const req = ent.delegate
-      ? reqs.find((r) => r.noun === ent.delegate!.noun && r.verb === ent.delegate!.verb)
+      ? reqs.find((r) =>
+        r.noun === ent.delegate!.noun && r.verb === ent.delegate!.verb
+      )
       : reqs.find((r) => r.input === ent.input && r.output === ent.output);
     entReqNode.set(ent, req ?? null);
     if (!req) {
@@ -2466,7 +2631,9 @@ function renderWsController(
   L.push(
     `import { endpointModule, WsEndpoint, WsEndpointController } from "@mrg-keystone/rune";`,
   );
-  for (const d of dtos) L.push(`import { ${d.type} } from "@/${d.dir}/${d.file}.ts";`);
+  for (const d of dtos) {
+    L.push(`import { ${d.type} } from "@/${d.dir}/${d.file}.ts";`);
+  }
   for (const line of coordImports) L.push(line);
   L.push("");
   L.push(`@WsEndpointController(${JSON.stringify(socketPath)})`);
@@ -2482,23 +2649,36 @@ function renderWsController(
       ...(hasReply ? [`output: ${ent.output}`] : []),
     ];
     const matched = entReqNode.get(ent) ?? null;
-    const dtoDesc = (n: string): string => types.dtoByName.get(n)?.description ?? "";
+    const dtoDesc = (n: string): string =>
+      types.dtoByName.get(n)?.description ?? "";
     const jsdoc: string[] = [];
     if (matched) {
       const how = ent.delegate
         ? "named by the [ENT:ws] body"
         : "matched by input/output signature";
-      jsdoc.push(`Topic "${ent.action}" → coordinator ${matched.noun}.${matched.verb} (${how}).`);
+      jsdoc.push(
+        `Topic "${ent.action}" → coordinator ${matched.noun}.${matched.verb} (${how}).`,
+      );
     } else {
-      jsdoc.push(`Topic "${ent.action}" — no coordinator wired, see the handler body.`);
+      jsdoc.push(
+        `Topic "${ent.action}" — no coordinator wired, see the handler body.`,
+      );
     }
     if (!noInput) {
       const d = dtoDesc(ent.input);
-      jsdoc.push(`@param data ${ent.input}${d ? ` — ${d}` : ""} (the inbound message payload)`);
+      jsdoc.push(
+        `@param data ${ent.input}${
+          d ? ` — ${d}` : ""
+        } (the inbound message payload)`,
+      );
     }
     if (hasReply) {
       const od = dtoDesc(ent.output);
-      jsdoc.push(`@returns ${ent.output}${od ? ` — ${od}` : ""} (sent back to the sender)`);
+      jsdoc.push(
+        `@returns ${ent.output}${
+          od ? ` — ${od}` : ""
+        } (sent back to the sender)`,
+      );
     } else {
       jsdoc.push(`@returns nothing — this topic sends no reply`);
     }
@@ -2515,7 +2695,9 @@ function renderWsController(
     L.push(`  @WsEndpoint({ ${opts.join(", ")} })`);
     const retType = hasReply ? ent.output : "void";
     L.push(
-      `  ${ent.action}(${noInput ? "" : `data: ${ent.input}`}): Promise<${retType}> {`,
+      `  ${ent.action}(${
+        noInput ? "" : `data: ${ent.input}`
+      }): Promise<${retType}> {`,
     );
     const alias = entCoord.get(ent);
     if (alias) {
@@ -2525,7 +2707,9 @@ function renderWsController(
         ? processName(ent.delegate.noun, ent.delegate.verb)
         : "<noun>-<verb>";
       L.push(`    // No [REQ] matches (${ent.input || "{}"}): ${ent.output}.`);
-      L.push(`    // Create src/${module}/domain/coordinators/${target}/mod.ts`);
+      L.push(
+        `    // Create src/${module}/domain/coordinators/${target}/mod.ts`,
+      );
       L.push(`    throw new Error("not implemented");`);
     }
     L.push(`  }`);
@@ -2573,13 +2757,17 @@ function addModRoot(
   // twice → TS2300. Qualify the colliding re-exports with the noun
   // (`resolve as accessResolve`); verbs that are unique in the module stay bare.
   const verbCounts = new Map<string, number>();
-  for (const r of reqs) verbCounts.set(r.verb, (verbCounts.get(r.verb) ?? 0) + 1);
+  for (const r of reqs) {
+    verbCounts.set(r.verb, (verbCounts.get(r.verb) ?? 0) + 1);
+  }
   // E10/E46: a module front-door doc — the [MOD] prose, the domain-noun glossary
   // ([NON]), the type vocabulary ([TYP]), and the backing services ([SRV]) —
   // built in JS (the template engine has no conditionals), each section guarded.
   const doc: string[] = [];
   if (moduleDescription) {
-    for (const ln of moduleDescription.split("\n")) doc.push(`// ${ln}`.trimEnd());
+    for (const ln of moduleDescription.split("\n")) {
+      doc.push(`// ${ln}`.trimEnd());
+    }
   }
   const section = (title: string, lines: string[]): void => {
     if (lines.length === 0) return;
@@ -2587,12 +2775,24 @@ function addModRoot(
     doc.push(`// ${title}`);
     for (const l of lines) doc.push(`//   ${l}`);
   };
-  section("Domain nouns (from [NON]):", nons.map((n) =>
-    `${n.name}${n.description ? `: ${n.description}` : ""}`));
-  section("Type vocabulary (from [TYP]):", typs.map((t) =>
-    `${t.name}: ${t.typeName}${t.description ? ` — ${t.description}` : ""}`));
-  section("Backing services (shared, from src/core/core.rune):", srvs.map((s) =>
-    `${s.name} (${s.transport})${s.envVars.length ? `: ${s.envVars.join(", ")}` : ""}`));
+  section(
+    "Domain nouns (from [NON]):",
+    nons.map((n) => `${n.name}${n.description ? `: ${n.description}` : ""}`),
+  );
+  section(
+    "Type vocabulary (from [TYP]):",
+    typs.map((t) =>
+      `${t.name}: ${t.typeName}${t.description ? ` — ${t.description}` : ""}`
+    ),
+  );
+  section(
+    "Backing services (shared, from src/core/core.rune):",
+    srvs.map((s) =>
+      `${s.name} (${s.transport})${
+        s.envVars.length ? `: ${s.envVars.join(", ")}` : ""
+      }`
+    ),
+  );
   const moduleDoc = doc.length > 0 ? doc.join("\n") + "\n" : "";
   emit(
     "mod-root",

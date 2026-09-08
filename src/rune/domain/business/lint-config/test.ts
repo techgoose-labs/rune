@@ -18,8 +18,18 @@ const artifactLint: LintRule[] = [
 ];
 
 const results: EntryResult[] = [
-  { rule: "import-aliases", path: "a.ts", target: "ts", violations: ["uses ../"] },
-  { rule: "module-isolation", path: "b.ts", target: "ts", violations: ["cross-module"] },
+  {
+    rule: "import-aliases",
+    path: "a.ts",
+    target: "ts",
+    violations: ["uses ../"],
+  },
+  {
+    rule: "module-isolation",
+    path: "b.ts",
+    target: "ts",
+    violations: ["cross-module"],
+  },
 ];
 
 Deno.test("maps engine rule names to artifact severity", () => {
@@ -30,12 +40,20 @@ Deno.test("maps engine rule names to artifact severity", () => {
 
 Deno.test("annotates findings with severity", () => {
   const out = annotateAndFilter(results, resolveSettings(artifactLint));
-  assertEquals(out.find((f) => f.rule === "import-aliases")?.severity, "warning");
-  assertEquals(out.find((f) => f.rule === "module-isolation")?.severity, "error");
+  assertEquals(
+    out.find((f) => f.rule === "import-aliases")?.severity,
+    "warning",
+  );
+  assertEquals(
+    out.find((f) => f.rule === "module-isolation")?.severity,
+    "error",
+  );
 });
 
 Deno.test("disabled rule is filtered out", () => {
-  const disabled = artifactLint.map((r) => r.type === "no-relative-import" ? { ...r, enabled: false } : r);
+  const disabled = artifactLint.map((r) =>
+    r.type === "no-relative-import" ? { ...r, enabled: false } : r
+  );
   const out = annotateAndFilter(results, resolveSettings(disabled));
   assert(!out.some((f) => f.rule === "import-aliases"));
   assert(out.some((f) => f.rule === "module-isolation"));
@@ -43,7 +61,12 @@ Deno.test("disabled rule is filtered out", () => {
 
 Deno.test("unmapped rule defaults to enabled/error", () => {
   const out = annotateAndFilter(
-    [{ rule: "fixture-promotion", path: "c.ts", target: "ts", violations: ["x"] }],
+    [{
+      rule: "fixture-promotion",
+      path: "c.ts",
+      target: "ts",
+      violations: ["x"],
+    }],
     resolveSettings(artifactLint),
   );
   assertEquals(out[0].severity, "error");

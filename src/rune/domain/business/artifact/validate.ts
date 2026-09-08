@@ -45,7 +45,10 @@ export function semanticErrors(a: Artifact): ArtifactError[] {
     errors.push({ path: "lint", message: `duplicate lint rule id "${id}"` });
   }
   for (const id of dupes(a.modifiers ?? [], (m) => m.id)) {
-    errors.push({ path: "modifiers", message: `duplicate modifier id "${id}"` });
+    errors.push({
+      path: "modifiers",
+      message: `duplicate modifier id "${id}"`,
+    });
   }
 
   // duplicate tag literals (counting synonyms): a literal must map to one tag
@@ -54,7 +57,10 @@ export function semanticErrors(a: Artifact): ArtifactError[] {
     for (const lit of [t.tag, ...(t.synonyms ?? [])]) {
       const prev = literalOwner.get(lit);
       if (prev && prev !== t.id) {
-        errors.push({ path: `tags.${t.id}`, message: `tag literal "${lit}" is already used by tag "${prev}"` });
+        errors.push({
+          path: `tags.${t.id}`,
+          message: `tag literal "${lit}" is already used by tag "${prev}"`,
+        });
       }
       literalOwner.set(lit, t.id);
     }
@@ -64,27 +70,36 @@ export function semanticErrors(a: Artifact): ArtifactError[] {
   for (const m of a.modifiers ?? []) {
     for (const ref of m.appliesTo) {
       if (!tagIds.has(ref)) {
-        errors.push({ path: `modifiers.${m.id}.appliesTo`, message: `modifier "${m.id}" applies to unknown tag id "${ref}"` });
+        errors.push({
+          path: `modifiers.${m.id}.appliesTo`,
+          message: `modifier "${m.id}" applies to unknown tag id "${ref}"`,
+        });
       }
     }
   }
   for (const r of a.lint) {
     const t = r.params?.tag;
     if (typeof t === "string" && !tagIds.has(t)) {
-      errors.push({ path: `lint.${r.id}.params.tag`, message: `lint rule "${r.id}" references unknown tag id "${t}"` });
+      errors.push({
+        path: `lint.${r.id}.params.tag`,
+        message: `lint rule "${r.id}" references unknown tag id "${t}"`,
+      });
     }
   }
 
   // contradictory indent/follows: a [CSE]-like tag (follows "case") must be
   // indented strictly deeper than every [PLY]-like opener (follows "poly").
-  const polyIndents = a.tags.filter((t) => t.follows === "poly").map((t) => t.indent);
+  const polyIndents = a.tags.filter((t) => t.follows === "poly").map((t) =>
+    t.indent
+  );
   if (polyIndents.length > 0) {
     const maxPoly = Math.max(...polyIndents);
     for (const t of a.tags) {
       if (t.follows === "case" && t.indent <= maxPoly) {
         errors.push({
           path: `tags.${t.id}.indent`,
-          message: `contradictory indent: case tag "${t.id}" (indent ${t.indent}) is not deeper than its [PLY] opener (indent ${maxPoly})`,
+          message:
+            `contradictory indent: case tag "${t.id}" (indent ${t.indent}) is not deeper than its [PLY] opener (indent ${maxPoly})`,
         });
       }
     }
@@ -95,11 +110,17 @@ export function semanticErrors(a: Artifact): ArtifactError[] {
   const profiles = a.profiles ?? [];
   if (profiles.length > 1) {
     const allKeys = new Set<string>();
-    for (const p of profiles) for (const k of Object.keys(p.vars)) allKeys.add(k);
+    for (const p of profiles) {
+      for (const k of Object.keys(p.vars)) allKeys.add(k);
+    }
     for (const p of profiles) {
       for (const k of allKeys) {
         if (!(k in p.vars)) {
-          errors.push({ path: `profiles.${p.id}.vars`, message: `profile "${p.id}" is missing var "${k}" defined by another profile (gap)` });
+          errors.push({
+            path: `profiles.${p.id}.vars`,
+            message:
+              `profile "${p.id}" is missing var "${k}" defined by another profile (gap)`,
+          });
         }
       }
     }
@@ -126,7 +147,10 @@ export function validateArtifact(input: unknown): ValidationResult {
  * Engine-on-load guard: validate, print precise diagnostics to stderr, and
  * return the parsed artifact — or null if invalid (caller exits non-zero).
  */
-export function loadArtifact(input: unknown, source = "artifact"): Artifact | null {
+export function loadArtifact(
+  input: unknown,
+  source = "artifact",
+): Artifact | null {
   const result = validateArtifact(input);
   if (result.ok && result.artifact) return result.artifact;
   console.error(`invalid ${source}:`);

@@ -51,7 +51,10 @@ export interface RuleSetting {
 export function resolveSettings(lint: LintRule[]): Map<string, RuleSetting> {
   const byType = new Map<string, RuleSetting>();
   for (const r of lint) {
-    byType.set(r.type, { enabled: r.enabled, severity: r.severity as Severity });
+    byType.set(r.type, {
+      enabled: r.enabled,
+      severity: r.severity as Severity,
+    });
   }
   const out = new Map<string, RuleSetting>();
   for (const [name, type] of Object.entries(RULE_TYPE_MAP)) {
@@ -82,7 +85,9 @@ export function annotateAndFilter(
     const s = settings.get(r.rule);
     if (s && !s.enabled) continue;
     const severity = s?.severity ?? "error";
-    for (const v of r.violations) out.push({ rule: r.rule, path: r.path, severity, message: v });
+    for (const v of r.violations) {
+      out.push({ rule: r.rule, path: r.path, severity, message: v });
+    }
   }
   out.sort((a, b) =>
     a.rule.localeCompare(b.rule) ||

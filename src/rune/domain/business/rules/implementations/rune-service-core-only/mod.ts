@@ -31,8 +31,7 @@ export async function check(
   );
 }
 
-export const SYSTEM_PROMPT =
-  `You are enforcing the rune-service-core-only rule.
+export const SYSTEM_PROMPT = `You are enforcing the rune-service-core-only rule.
 
 [SRV] declarations are shared infrastructure. They live in exactly one spec —
 src/core/core.rune — so a backing service's transport, env vars, and @docs link

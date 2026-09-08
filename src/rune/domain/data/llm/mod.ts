@@ -11,7 +11,10 @@ export interface QueryOptions {
   model?: string;
 }
 
-export async function quickQuery(prompt: string, opts: QueryOptions = {}): Promise<string> {
+export async function quickQuery(
+  prompt: string,
+  opts: QueryOptions = {},
+): Promise<string> {
   const args = ["-p", prompt, "--allowedTools", ""];
   if (opts.model) args.push("--model", opts.model);
   if (opts.systemPrompt) args.push("--system-prompt", opts.systemPrompt);

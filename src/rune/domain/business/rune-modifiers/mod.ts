@@ -34,7 +34,16 @@ function entry(
   takesText = false,
   values: readonly string[] | null = null,
 ): [string, TypModifierSpec] {
-  return [id, { id, base, takesValue, takesText, values, decorator, call, eachCall }];
+  return [id, {
+    id,
+    base,
+    takesValue,
+    takesText,
+    values,
+    decorator,
+    call,
+    eachCall,
+  }];
 }
 
 /** The closed set of input sources a `from=` modifier may name. `path*` is the

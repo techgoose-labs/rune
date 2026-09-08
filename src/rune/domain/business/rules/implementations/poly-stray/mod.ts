@@ -1,6 +1,7 @@
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
-const EXPORT_RE = /export\s+(?:async\s+)?function\s+(\w+)|export\s+const\s+(\w+)/g;
+const EXPORT_RE =
+  /export\s+(?:async\s+)?function\s+(\w+)|export\s+const\s+(\w+)/g;
 
 function extractExportNames(content: string): Set<string> {
   const names = new Set<string>();
@@ -70,7 +71,7 @@ export async function check(
 
     // Find common exports across all implementations
     const commonExports = [...implExportSets[0]].filter((name) =>
-      implExportSets.every((s) => s.has(name)),
+      implExportSets.every((s) => s.has(name))
     );
     if (commonExports.length < 2) continue;
     const commonSet = new Set(commonExports);
@@ -90,7 +91,9 @@ export async function check(
       if (overlap.length >= 2) {
         const standaloneName = standalone.split("/").pop()!;
         const polyName = polyDir.split("/").pop()!;
-        violations.push(`"${standaloneName}" looks like it belongs inside the "${polyName}" poly structure — it shares the same exports`);
+        violations.push(
+          `"${standaloneName}" looks like it belongs inside the "${polyName}" poly structure — it shares the same exports`,
+        );
       }
     }
   }
@@ -98,7 +101,8 @@ export async function check(
   return violations.length > 0 ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor detecting stray implementations.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor detecting stray implementations.
 
 Rule: When a standalone feature under business/ exports the same interface as implementations inside a sibling poly structure, it should be moved into that poly structure as another implementation variant.
 
@@ -126,7 +130,15 @@ export function buildPrompt(
   return `Directory: ${path}
 Detections: ${JSON.stringify(violations)}
 
-${parts.map((p) => `\`${p!.stray}/\` exports the same interface as implementations inside \`${p!.poly}/\`. It should be moved to \`${p!.poly}/implementations/${p!.stray}/\`.`).join("\n")}
+${
+    parts.map((p) =>
+      `\`${
+        p!.stray
+      }/\` exports the same interface as implementations inside \`${
+        p!.poly
+      }/\`. It should be moved to \`${p!.poly}/implementations/${p!.stray}/\`.`
+    ).join("\n")
+  }
 
 How should the developer restructure this?`;
 }

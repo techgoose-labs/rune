@@ -1,4 +1,4 @@
-import type { PipelineContext, EntryTarget } from "@/core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@/core/dto/types.ts";
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
 
@@ -18,14 +18,17 @@ export async function check(
   for (const m of content.matchAll(importRe)) {
     const spec = m[1] ?? m[2];
     if (spec && spec.includes("..")) {
-      violations.push(`"../" import is not allowed — use an @ alias instead (${spec})`);
+      violations.push(
+        `"../" import is not allowed — use an @ alias instead (${spec})`,
+      );
     }
   }
 
   return violations.length > 0 ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing import alias conventions.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing import alias conventions.
 
 Rule: Relative parent imports (\`../\`) are banned. All cross-directory imports must use import aliases prefixed with \`@\`.
 

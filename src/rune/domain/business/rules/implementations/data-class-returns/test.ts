@@ -11,8 +11,12 @@ function makeCtx(content: string, sig: string): PipelineContext {
     getImports: async () => [],
     lsp: {
       capabilities: {
-        documentSymbol: true, hover: true, references: true,
-        implementation: true, definition: true, diagnostics: true,
+        documentSymbol: true,
+        hover: true,
+        references: true,
+        implementation: true,
+        definition: true,
+        diagnostics: true,
       },
       getExportTypes: async () => [{ name: "User", kind: "Class", type: "" }],
       getSiblingExportSignatures: async () => new Map(),
@@ -26,7 +30,10 @@ function makeCtx(content: string, sig: string): PipelineContext {
 }
 
 Deno.test("skips files without class-validator decorators", async () => {
-  const ctx = makeCtx("export class Foo { bar(): string { return ''; } }", "class Foo { bar(): string; }");
+  const ctx = makeCtx(
+    "export class Foo { bar(): string { return ''; } }",
+    "class Foo { bar(): string; }",
+  );
   const result = await check("src/x/y.ts", "ts", ctx);
   assertEquals(result, null);
 });

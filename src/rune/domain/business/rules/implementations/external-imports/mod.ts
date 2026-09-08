@@ -1,4 +1,4 @@
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
 
@@ -19,14 +19,17 @@ export async function check(
     const spec = m[1] ?? m[2];
     if (!spec) continue;
     if (spec.startsWith("npm:") || spec.startsWith("jsr:")) {
-      violations.push(`Direct "${spec}" import is not allowed — add a # alias in deno.json and import via the alias instead`);
+      violations.push(
+        `Direct "${spec}" import is not allowed — add a # alias in deno.json and import via the alias instead`,
+      );
     }
   }
 
   return violations.length > 0 ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing external import conventions.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing external import conventions.
 
 Rule: Direct \`npm:\` and \`jsr:\` specifiers are banned in source files. All external packages must be aliased in deno.json import maps with a \`#\` prefix, and source files import via the alias.
 

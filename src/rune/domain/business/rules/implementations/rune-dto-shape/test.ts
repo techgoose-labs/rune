@@ -69,7 +69,8 @@ Deno.test("check — :core modifier routes to core/dto/", async () => {
 Deno.test("check — normalizes optional property suffix", async () => {
   const rune = `[DTO] FooDto: name, value?
     a description`;
-  const dtoContent = `export const FooDto = z.object({ name: z.string(), value: z.string().optional() });`;
+  const dtoContent =
+    `export const FooDto = z.object({ name: z.string(), value: z.string().optional() });`;
   const ctx = ctxWith(rune, ["src/recording/dto/foo.ts"], {
     "src/recording/dto/foo.ts": dtoContent,
     "specs/recording.rune": rune,
@@ -81,7 +82,8 @@ Deno.test("check — normalizes optional property suffix", async () => {
 Deno.test("check — normalizes array property suffix", async () => {
   const rune = `[DTO] SearchDto: url(s)
     a description`;
-  const dtoContent = `export const SearchDto = z.object({ urls: z.array(z.string()) });`;
+  const dtoContent =
+    `export const SearchDto = z.object({ urls: z.array(z.string()) });`;
   const ctx = ctxWith(rune, ["src/recording/dto/search.ts"], {
     "src/recording/dto/search.ts": dtoContent,
     "specs/recording.rune": rune,

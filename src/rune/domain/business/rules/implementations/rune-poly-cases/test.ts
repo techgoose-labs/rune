@@ -75,7 +75,10 @@ Deno.test("check — kebab-cases case names", async () => {
   const ctx = ctxWith(RUNE, []);
   const result = await check("specs/recording.rune", "rune", ctx);
   // fiveNine → five-nine in path
-  assertEquals(result?.some((v) => v.includes("/implementations/five-nine/")), true);
+  assertEquals(
+    result?.some((v) => v.includes("/implementations/five-nine/")),
+    true,
+  );
 });
 
 Deno.test("check — no violations when all files present", async () => {

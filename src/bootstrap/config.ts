@@ -25,7 +25,11 @@ if (import.meta.main) {
   }
 
   const resolvedPath = new TextDecoder().decode(stdout).trim();
-  console.log(`LSP: ${resolvedPath} ${args.join(" ")} (using bare name "${binary}" for portability)`);
+  console.log(
+    `LSP: ${resolvedPath} ${
+      args.join(" ")
+    } (using bare name "${binary}" for portability)`,
+  );
 
   const initOptions: Record<string, Record<string, unknown>> = {
     deno: { enable: true },

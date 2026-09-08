@@ -1,4 +1,4 @@
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 export type CheckFn = (
   path: string,

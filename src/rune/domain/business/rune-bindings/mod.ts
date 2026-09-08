@@ -193,7 +193,8 @@ export function isInProgSpec(path: string): boolean {
 // Recognition (isProjectSpec/moduleFromSpecPath) keys off the `spec/runes/` etc.
 // prefixes, so normalize the parent hops away first — the only source of a leading
 // `../` is exactly this sibling-staging case (a path UNDER the root never has one).
-const stripLeadingParent = (path: string): string => path.replace(/^(?:\.\.\/)+/, "");
+const stripLeadingParent = (path: string): string =>
+  path.replace(/^(?:\.\.\/)+/, "");
 
 /** Strip the `.in-prog` draft tag, leaving the canonical `<name>.rune` path. */
 export function canonicalSpecPath(path: string): string {
@@ -217,7 +218,9 @@ export function isProjectSpec(rawPath: string): boolean {
   const path = stripLeadingParent(rawPath); // sibling `../spec/runes/…` staging → `spec/runes/…`
   if (isInProgSpec(path)) return false; // drafts: excluded from auto-discovery
   for (const dir of SPEC_DIRS) {
-    if (path.startsWith(dir) && !path.slice(dir.length).includes("/")) return true;
+    if (path.startsWith(dir) && !path.slice(dir.length).includes("/")) {
+      return true;
+    }
   }
   if (path.startsWith("src/")) {
     const rest = path.slice("src/".length);

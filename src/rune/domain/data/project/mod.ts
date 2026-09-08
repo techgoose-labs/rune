@@ -2,7 +2,13 @@ import { join, relative } from "#std/path";
 
 export async function getIgnoredPaths(gitRoot: string): Promise<Set<string>> {
   const cmd = new Deno.Command("git", {
-    args: ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"],
+    args: [
+      "ls-files",
+      "--others",
+      "--ignored",
+      "--exclude-standard",
+      "--directory",
+    ],
     cwd: gitRoot,
     stdout: "piped",
     stderr: "piped",
@@ -30,7 +36,9 @@ export async function findGitRoot(): Promise<string> {
   return new TextDecoder().decode(stdout).trim();
 }
 
-export async function readWorkspaceMembers(gitRoot: string): Promise<string[] | null> {
+export async function readWorkspaceMembers(
+  gitRoot: string,
+): Promise<string[] | null> {
   const denoJsonPath = join(gitRoot, "deno.json");
   let text: string;
   try {

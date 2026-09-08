@@ -41,7 +41,11 @@ export async function check(
     const filePath = `${dir}/${fileName}.ts`;
 
     if (!fileSet.has(filePath)) {
-      violations.push(`Missing TYP file: ${filePath} (for [TYP${typ.isCore ? ":core" : ""}] ${typ.name} at line ${typ.line + 1})`);
+      violations.push(
+        `Missing TYP file: ${filePath} (for [TYP${
+          typ.isCore ? ":core" : ""
+        }] ${typ.name} at line ${typ.line + 1})`,
+      );
       continue;
     }
 
@@ -49,7 +53,11 @@ export async function check(
     // The type name should appear as an identifier somewhere.
     const re = new RegExp(`\\b${escapeRegex(typ.name)}\\b`);
     if (!re.test(content)) {
-      violations.push(`TYP ${filePath} doesn't reference "${typ.name}" — file may not match the rune declaration (line ${typ.line + 1})`);
+      violations.push(
+        `TYP ${filePath} doesn't reference "${typ.name}" — file may not match the rune declaration (line ${
+          typ.line + 1
+        })`,
+      );
     }
   }
 

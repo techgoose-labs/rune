@@ -2,7 +2,11 @@ import { assertEquals } from "#std/assert";
 import { check } from "./mod.ts";
 import type { PipelineContext } from "@core/dto/types.ts";
 
-function ctxWith(rune: string, files: string[], contents: Record<string, string> = {}): PipelineContext {
+function ctxWith(
+  rune: string,
+  files: string[],
+  contents: Record<string, string> = {},
+): PipelineContext {
   return {
     targetDir: "/tmp",
     files,
@@ -32,7 +36,8 @@ export async function set(input: GetRecordingDto): Promise<IdDto> { return new I
 });
 
 Deno.test("check — flags missing input DTO reference", async () => {
-  const code = `export async function set(input: WrongDto): Promise<IdDto> { return new IdDto(); }`;
+  const code =
+    `export async function set(input: WrongDto): Promise<IdDto> { return new IdDto(); }`;
   const ctx = ctxWith(RUNE, [
     "src/recording/domain/coordinators/recording-set/mod.ts",
   ], {
@@ -45,7 +50,8 @@ Deno.test("check — flags missing input DTO reference", async () => {
 });
 
 Deno.test("check — flags missing output DTO reference", async () => {
-  const code = `export async function set(input: GetRecordingDto): Promise<unknown> { return null; }`;
+  const code =
+    `export async function set(input: GetRecordingDto): Promise<unknown> { return null; }`;
   const ctx = ctxWith(RUNE, [
     "src/recording/domain/coordinators/recording-set/mod.ts",
   ], {
@@ -67,7 +73,8 @@ Deno.test("check — checks entrypoint signatures too", async () => {
   const rune = `[MOD] recording
 
 [ENT] http.postRecording(GetRecordingDto): IdDto`;
-  const code = `export async function postRecording(input: WrongDto): Promise<unknown> { return null; }`;
+  const code =
+    `export async function postRecording(input: WrongDto): Promise<unknown> { return null; }`;
   const ctx = ctxWith(rune, [
     "src/recording/entrypoints/http/mod.ts",
   ], {
@@ -84,7 +91,8 @@ Deno.test("check — skips inline DTO inputs", async () => {
 
 [REQ] recording.set({a:b, c:d}): IdDto
     id::create(name): id`;
-  const code = `export async function set(input: { a: B; c: D }): Promise<IdDto> { return new IdDto(); }`;
+  const code =
+    `export async function set(input: { a: B; c: D }): Promise<IdDto> { return new IdDto(); }`;
   const ctx = ctxWith(rune, [
     "src/recording/domain/coordinators/recording-set/mod.ts",
   ], {

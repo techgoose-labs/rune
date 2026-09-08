@@ -1,8 +1,9 @@
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
 
-const BARREL_RE = /export\s+(?:\{[^}]*\}\s+from|(?:\*|\*\s+as\s+\w+)\s+from)\s+["'][^"']+["']/g;
+const BARREL_RE =
+  /export\s+(?:\{[^}]*\}\s+from|(?:\*|\*\s+as\s+\w+)\s+from)\s+["'][^"']+["']/g;
 
 export async function check(
   path: string,
@@ -17,12 +18,17 @@ export async function check(
 
   const content = await ctx.getFileContent(path);
 
-  if (BARREL_RE.test(content)) return ["Re-exports (barrel pattern) are only allowed in mod-root.ts, poly-mod.ts, and bootstrap files"];
+  if (BARREL_RE.test(content)) {
+    return [
+      "Re-exports (barrel pattern) are only allowed in mod-root.ts, poly-mod.ts, and bootstrap files",
+    ];
+  }
 
   return null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing barrel export discipline.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing barrel export discipline.
 
 Rule: Re-exports (export { x } from, export * from) are ONLY allowed in mod-root, poly-mod, or bootstrap files. All other files must export their own declarations directly.
 

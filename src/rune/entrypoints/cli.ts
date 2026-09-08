@@ -14,12 +14,16 @@ export function parseArgs(
   const suggest = !args.includes("--no-suggest") && !json;
 
   const moduleIndex = args.indexOf("--module");
-  const module = moduleIndex !== -1 && args[moduleIndex + 1] ? args[moduleIndex + 1] : null;
+  const module = moduleIndex !== -1 && args[moduleIndex + 1]
+    ? args[moduleIndex + 1]
+    : null;
 
   // First positional arg (not a flag or flag value) as dir
   const flagValues = new Set<number>();
   if (moduleIndex !== -1) flagValues.add(moduleIndex + 1);
-  const positional = args.find((a, i) => !a.startsWith("--") && !flagValues.has(i));
+  const positional = args.find((a, i) =>
+    !a.startsWith("--") && !flagValues.has(i)
+  );
 
   return { dir: positional ?? ".", module, suggest, json };
 }
@@ -31,13 +35,19 @@ export function parseArgs(
  * Prereq-1). Sorted so two runs over the same input are byte-identical (L0).
  */
 export function printJson(results: EntryResult[]): void {
-  const flat: { rule: string; path: string; line: number; message: string }[] = [];
+  const flat: { rule: string; path: string; line: number; message: string }[] =
+    [];
   for (const r of results) {
     for (const v of r.violations) {
       // Pull a leading "line N" / "L<n>" hint out of the message when present,
       // else 0 — the message text is always the stable discriminator.
       const m = v.match(/(?:^|\b)(?:line|L)\s*(\d+)/i);
-      flat.push({ rule: r.rule, path: r.path, line: m ? Number(m[1]) : 0, message: v });
+      flat.push({
+        rule: r.rule,
+        path: r.path,
+        line: m ? Number(m[1]) : 0,
+        message: v,
+      });
     }
   }
   flat.sort((a, b) =>
@@ -68,7 +78,9 @@ export function printResults(results: EntryResult[]): void {
   }
 
   for (const [rule, items] of grouped) {
-    console.log(`${BOLD}${RED}[${rule}]${RESET} — ${items.length} violation(s)\n`);
+    console.log(
+      `${BOLD}${RED}[${rule}]${RESET} — ${items.length} violation(s)\n`,
+    );
     for (const item of items) {
       console.log(`  ${YELLOW}${item.path}${RESET}`);
       for (const v of item.violations) {
@@ -81,5 +93,7 @@ export function printResults(results: EntryResult[]): void {
     }
   }
 
-  console.log(`${BOLD}${RED}${results.length} total violation(s) found.${RESET}`);
+  console.log(
+    `${BOLD}${RED}${results.length} total violation(s) found.${RESET}`,
+  );
 }

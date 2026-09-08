@@ -15,7 +15,7 @@ A rune-generated keep backend is the `server/` package of a composed monorepo:
 ```
 <git-root>/
   deno.json     # Deno workspace ["./ui","./server"]
-  serve.ts      # serveSprig({ keep: api }) — imports ./server/bootstrap/mod.ts
+  serve.ts      # Bedrock({ ui: Frontend(), backend: api }) — the composition root
   ui/           # the sprig UI package (ui/src/, ui/static/)
   server/       # <- THE CODEGEN ROOT: the tree below is rooted HERE
   spec/         # shared authoring (spec/runes/, spec/misc/, spec/ui/) at the git root
@@ -124,7 +124,7 @@ assets/
     └── <category>/
         └── <name>.*  # static asset
 dist/  # Compiled output — not source-controlled
-app/  # sprig UI app (frontend) — its own layout (src/pages, shell, islands) is owned and validated by sprig, not rune; rune hosts it via serve.ts (serveSprig). Ignored here like spec/ui
+app/  # sprig UI app (frontend) — its own layout (src/pages, shell, islands) is owned and validated by sprig, not rune; rune hosts it via serve.ts (Bedrock). Ignored here like spec/ui
 ```
 
 ## Key Conventions

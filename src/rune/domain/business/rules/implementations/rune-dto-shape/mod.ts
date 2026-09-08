@@ -1,10 +1,10 @@
 import type { EntryTarget, PipelineContext } from "@/core/dto/types.ts";
 import { parse } from "@rune/domain/business/rune-parse/mod.ts";
 import {
+  bindings,
   isProjectSpec,
   moduleFromSpecPath,
   transformName,
-  bindings,
 } from "@rune/domain/business/rune-bindings/mod.ts";
 
 // rune-dto-shape: every [DTO] in a rune file must have a Zod schema file at:
@@ -35,14 +35,22 @@ export async function check(
     const filePath = `${dir}/${fileName}.ts`;
 
     if (!fileSet.has(filePath)) {
-      violations.push(`Missing DTO file: ${filePath} (for [DTO${dto.isCore ? ":core" : ""}] ${dto.name} at line ${dto.line + 1})`);
+      violations.push(
+        `Missing DTO file: ${filePath} (for [DTO${
+          dto.isCore ? ":core" : ""
+        }] ${dto.name} at line ${dto.line + 1})`,
+      );
       continue;
     }
 
     const content = await ctx.getFileContent(filePath);
     const missing = findMissingProperties(content, dto.properties);
     if (missing.length > 0) {
-      violations.push(`DTO ${filePath} is missing properties from rune: ${missing.join(", ")} (line ${dto.line + 1})`);
+      violations.push(
+        `DTO ${filePath} is missing properties from rune: ${
+          missing.join(", ")
+        } (line ${dto.line + 1})`,
+      );
     }
   }
 
@@ -51,7 +59,10 @@ export async function check(
 
 // Each rune property like "providerName", "metadata?", "url(s)" must appear as an
 // identifier in the DTO file. Normalize the rune property to its bare form.
-function findMissingProperties(content: string, properties: string[]): string[] {
+function findMissingProperties(
+  content: string,
+  properties: string[],
+): string[] {
   const missing: string[] = [];
   for (const raw of properties) {
     const ident = normalizeProperty(raw);

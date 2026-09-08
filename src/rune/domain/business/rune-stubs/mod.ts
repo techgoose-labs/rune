@@ -140,7 +140,7 @@ export function planInputDiagnostics(
     mods.push(m);
     for (const ent of ast.ents) {
       const out = dtoByName.get(ent.output);
-      if (out) for (const f of dtoFieldNames(out)) producedAnywhere.add(f);
+      if (out) { for (const f of dtoFieldNames(out)) producedAnywhere.add(f); }
     }
   }
 
@@ -211,7 +211,9 @@ export function planInputDiagnostics(
     if (types.size > 1) {
       notes.push(
         `inputs: [TYP:ext] "${field}" is declared with conflicting types across ` +
-          `modules (${[...types].sort().join(", ")}) — a single ghost stub can ` +
+          `modules (${
+            [...types].sort().join(", ")
+          }) — a single ghost stub can ` +
           `only mint one; align the [TYP:ext] declarations so every consumer ` +
           `agrees on the type`,
       );
@@ -290,7 +292,9 @@ export function renderStubsModule(fields: StubField[]): string {
     "",
   ];
   if (needsCounter) {
-    L.push("// Module-level counter: re-runs mint fresh values, never colliding captures.");
+    L.push(
+      "// Module-level counter: re-runs mint fresh values, never colliding captures.",
+    );
     L.push("let counter = 1;");
     L.push("");
   }
@@ -326,7 +330,9 @@ export function renderStubsModule(fields: StubField[]): string {
   });
   L.push("}");
   L.push("");
-  L.push('export const stubsModule = endpointModule("Stubs", [StubsController]);');
+  L.push(
+    'export const stubsModule = endpointModule("Stubs", [StubsController]);',
+  );
   L.push("");
   return L.join("\n");
 }

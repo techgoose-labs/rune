@@ -44,7 +44,9 @@ function withBlock(text: string): string {
   if (b !== -1) {
     // Replace whatever is currently between the markers.
     const e = text.indexOf(END, b);
-    if (e === -1) throw new Error("found BEGIN marker without END — file hand-edited?");
+    if (e === -1) {
+      throw new Error("found BEGIN marker without END — file hand-edited?");
+    }
     return text.slice(0, b) + block + text.slice(e + END.length);
   }
   // First insertion: place the block just above the `## Never` section, else append.
@@ -82,5 +84,9 @@ if (check) {
   }
   console.log(`agent guardrail in sync across ${AGENTS_DIR}.`);
 } else {
-  console.log(wrote === 0 ? "agent guardrail already up to date." : `updated ${wrote} agent(s).`);
+  console.log(
+    wrote === 0
+      ? "agent guardrail already up to date."
+      : `updated ${wrote} agent(s).`,
+  );
 }

@@ -27,7 +27,11 @@ Deno.test("check — flags barrel in regular file", async () => {
     getImports: async () => [],
     lsp: null,
   };
-  const result = await check("src/orders/domain/business/foo/mod.ts", "ts", ctx);
+  const result = await check(
+    "src/orders/domain/business/foo/mod.ts",
+    "ts",
+    ctx,
+  );
   assertEquals(result![0].includes("Re-exports"), true);
 });
 
@@ -40,6 +44,10 @@ Deno.test("check — passes file with no re-exports", async () => {
     getImports: async () => [],
     lsp: null,
   };
-  const result = await check("src/orders/domain/business/foo/mod.ts", "ts", ctx);
+  const result = await check(
+    "src/orders/domain/business/foo/mod.ts",
+    "ts",
+    ctx,
+  );
   assertEquals(result, null);
 });

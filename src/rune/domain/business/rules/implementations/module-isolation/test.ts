@@ -12,11 +12,19 @@ const mockCtx: PipelineContext = {
 };
 
 Deno.test("check — skips folders", async () => {
-  const result = await check("src/orders/domain/business/foo", "folder", mockCtx);
+  const result = await check(
+    "src/orders/domain/business/foo",
+    "folder",
+    mockCtx,
+  );
   assertEquals(result, null);
 });
 
 Deno.test("check — no violations when no imports", async () => {
-  const result = await check("src/orders/domain/business/foo/mod.ts", "ts", mockCtx);
+  const result = await check(
+    "src/orders/domain/business/foo/mod.ts",
+    "ts",
+    mockCtx,
+  );
   assertEquals(result, null);
 });

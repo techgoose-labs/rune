@@ -2,7 +2,11 @@ import { assertEquals } from "#std/assert";
 import { check } from "./mod.ts";
 import type { PipelineContext } from "@core/dto/types.ts";
 
-function ctxWith(rune: string, files: string[], contents: Record<string, string> = {}): PipelineContext {
+function ctxWith(
+  rune: string,
+  files: string[],
+  contents: Record<string, string> = {},
+): PipelineContext {
   return {
     targetDir: "/tmp",
     files,

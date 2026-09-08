@@ -77,7 +77,18 @@ function attachProcessMetadata(
       const op = pathItem[method] as { operationId?: string } | undefined;
       if (!op?.operationId) continue;
       const process = byOperationId.get(op.operationId);
-      if (process) (op as Record<string, unknown>)["x-keep-process"] = process;
+      if (!process) continue;
+      (op as Record<string, unknown>)["x-keep-process"] = process;
+      // The openness marker travels as its OWN extension, separate from the
+      // process metadata, because it is read by a different consumer for a
+      // different purpose: `x-keep-process` drives the emulator and the runner,
+      // `x-bedrock-auth` is where keep's policy table comes from (D-3). Absent
+      // means the slot default — bedrock never has to guess what silence meant.
+      if (process.access !== undefined) {
+        (op as Record<string, unknown>)["x-bedrock-auth"] = {
+          access: process.access,
+        };
+      }
     }
   }
 }

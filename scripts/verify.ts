@@ -17,8 +17,14 @@ import { planManifest } from "@rune/domain/business/rune-manifest/mod.ts";
 import { rules, runPipeline } from "@rune/mod-root.ts";
 import { getIgnoredPaths } from "@rune/domain/data/project/mod.ts";
 import { validateArtifact } from "@rune/domain/business/artifact/validate.ts";
-import { annotateAndFilter, resolveSettings } from "@rune/domain/business/lint-config/mod.ts";
-import { applyOverlay, overlayIsCompliant } from "@rune/domain/business/governance/mod.ts";
+import {
+  annotateAndFilter,
+  resolveSettings,
+} from "@rune/domain/business/lint-config/mod.ts";
+import {
+  applyOverlay,
+  overlayIsCompliant,
+} from "@rune/domain/business/governance/mod.ts";
 import { migrate } from "@rune/domain/business/migrate/mod.ts";
 import { generate as studioGenerate } from "../rune-studio/lib/engine.ts";
 import type { EntryResult } from "@core/dto/types.ts";
@@ -81,11 +87,17 @@ async function writeGolden(path: string, content: string): Promise<void> {
 
 /** Flatten lint results to the stable, sorted shape printJson emits. */
 function lintToJson(results: EntryResult[]) {
-  const flat: { rule: string; path: string; line: number; message: string }[] = [];
+  const flat: { rule: string; path: string; line: number; message: string }[] =
+    [];
   for (const r of results) {
     for (const v of r.violations) {
       const m = v.match(/(?:^|\b)(?:line|L)\s*(\d+)/i);
-      flat.push({ rule: r.rule, path: r.path, line: m ? Number(m[1]) : 0, message: v });
+      flat.push({
+        rule: r.rule,
+        path: r.path,
+        line: m ? Number(m[1]) : 0,
+        message: v,
+      });
     }
   }
   flat.sort((a, b) =>
@@ -114,12 +126,19 @@ async function gateDrift(): Promise<GateResult> {
   });
   const g = await gen.output();
   if (!g.success) {
-    return { name: "Drift", ok: false, detail: `generate.mjs failed: ${new TextDecoder().decode(g.stderr)}` };
+    return {
+      name: "Drift",
+      ok: false,
+      detail: `generate.mjs failed: ${new TextDecoder().decode(g.stderr)}`,
+    };
   }
   const diff = new Deno.Command("git", {
     args: [
-      "diff", "--exit-code", "--",
-      "lang/grammar/grammar.js", "lang/queries/highlights.scm",
+      "diff",
+      "--exit-code",
+      "--",
+      "lang/grammar/grammar.js",
+      "lang/queries/highlights.scm",
     ],
     cwd: ROOT,
     stdout: "piped",
@@ -127,8 +146,17 @@ async function gateDrift(): Promise<GateResult> {
   });
   const d = await diff.output();
   return d.success
-    ? { name: "Drift", ok: true, detail: "regeneration reproduces every derived artifact byte-for-byte" }
-    : { name: "Drift", ok: false, detail: "derived artifacts differ after regeneration:\n" + new TextDecoder().decode(d.stdout) };
+    ? {
+      name: "Drift",
+      ok: true,
+      detail: "regeneration reproduces every derived artifact byte-for-byte",
+    }
+    : {
+      name: "Drift",
+      ok: false,
+      detail: "derived artifacts differ after regeneration:\n" +
+        new TextDecoder().decode(d.stdout),
+    };
 }
 
 // ---- corpus health ---------------------------------------------------------
@@ -138,15 +166,26 @@ function gateCorpus(): GateResult {
   for (const p of validSpecs) {
     const ast = parse(Deno.readTextFileSync(p));
     if (ast.errors.length > 0) {
-      bad.push(`valid/${stem(p)} parsed with ${ast.errors.length} error(s): ${ast.errors.map((e) => e.message).join("; ")}`);
+      bad.push(
+        `valid/${stem(p)} parsed with ${ast.errors.length} error(s): ${
+          ast.errors.map((e) => e.message).join("; ")
+        }`,
+      );
     }
   }
   for (const p of invalidSpecs) {
     const ast = parse(Deno.readTextFileSync(p));
-    if (ast.errors.length === 0) bad.push(`invalid/${stem(p)} parsed clean (expected an error)`);
+    if (ast.errors.length === 0) {
+      bad.push(`invalid/${stem(p)} parsed clean (expected an error)`);
+    }
   }
   return bad.length === 0
-    ? { name: "corpus", ok: true, detail: `${validSpecs.length} valid + ${invalidSpecs.length} invalid specs; every verdict matches its tag` }
+    ? {
+      name: "corpus",
+      ok: true,
+      detail:
+        `${validSpecs.length} valid + ${invalidSpecs.length} invalid specs; every verdict matches its tag`,
+    }
     : { name: "corpus", ok: false, detail: bad.join("\n") };
 }
 
@@ -157,8 +196,13 @@ async function gateL0(): Promise<GateResult> {
   for (const p of validSpecs) {
     const text = Deno.readTextFileSync(p);
     const rel = `corpus/valid/${stem(p)}.rune`;
-    if (stableJson(parse(text)) !== stableJson(parse(text))) bad.push(`parse(${stem(p)}) not stable`);
-    if (stableJson(planManifest(rel, text, new Set())) !== stableJson(planManifest(rel, text, new Set()))) {
+    if (stableJson(parse(text)) !== stableJson(parse(text))) {
+      bad.push(`parse(${stem(p)}) not stable`);
+    }
+    if (
+      stableJson(planManifest(rel, text, new Set())) !==
+        stableJson(planManifest(rel, text, new Set()))
+    ) {
       bad.push(`manifest(${stem(p)}) not stable`);
     }
   }
@@ -170,7 +214,12 @@ async function gateL0(): Promise<GateResult> {
     if (a !== b) bad.push(`lint --json (${name}) not stable across runs`);
   }
   return bad.length === 0
-    ? { name: "L0", ok: true, detail: "parse, manifest, and lint --json are byte-identical across two runs" }
+    ? {
+      name: "L0",
+      ok: true,
+      detail:
+        "parse, manifest, and lint --json are byte-identical across two runs",
+    }
     : { name: "L0", ok: false, detail: bad.join("\n") };
 }
 
@@ -203,12 +252,25 @@ async function gateGolden(
       continue;
     }
     const expected = await readMaybe(goldenPath);
-    if (expected === null) bad.push(`${subdir}/${stem(p)}: no golden (run --update-goldens)`);
-    else if (expected !== actual) bad.push(`${subdir}/${stem(p)}: differs from golden`);
+    if (expected === null) {
+      bad.push(`${subdir}/${stem(p)}: no golden (run --update-goldens)`);
+    } else if (expected !== actual) {
+      bad.push(`${subdir}/${stem(p)}: differs from golden`);
+    }
   }
-  if (update) return { name, ok: true, detail: `captured ${validSpecs.length} ${subdir} golden(s)` };
+  if (update) {
+    return {
+      name,
+      ok: true,
+      detail: `captured ${validSpecs.length} ${subdir} golden(s)`,
+    };
+  }
   return bad.length === 0
-    ? { name, ok: true, detail: `${validSpecs.length} ${subdir} golden(s) match` }
+    ? {
+      name,
+      ok: true,
+      detail: `${validSpecs.length} ${subdir} golden(s) match`,
+    }
     : { name, ok: false, detail: bad.join("\n") };
 }
 
@@ -218,7 +280,9 @@ async function gateL5(): Promise<GateResult> {
   const bad: string[] = [];
   // The Rust-binary bridge is retired (ADR 0001).
   if (await fileExists(join(ROOT, "rune-studio/lib/runegen.ts"))) {
-    bad.push("lib/runegen.ts still present — the Rust bridge must be retired (ADR 0001)");
+    bad.push(
+      "lib/runegen.ts still present — the Rust bridge must be retired (ADR 0001)",
+    );
   }
   // The Studio's interpreter is a thin wrapper over the engine, so its codegen
   // is byte-identical to engine output. Generate every [MOD] spec both ways
@@ -227,14 +291,23 @@ async function gateL5(): Promise<GateResult> {
     const text = Deno.readTextFileSync(join(CORPUS, "valid", `${name}.rune`));
     // Same runePath the Studio wrapper uses, so the comparison is byte-exact.
     const plan = planManifest("specs/spec.rune", text, new Set());
-    const engineFiles = [...plan.toCreate, ...plan.toRegenerate].sort((a, b) => a.path.localeCompare(b.path));
+    const engineFiles = [...plan.toCreate, ...plan.toRegenerate].sort((a, b) =>
+      a.path.localeCompare(b.path)
+    );
     const studioFiles = studioGenerate(text);
     if (stableJson(engineFiles) !== stableJson(studioFiles)) {
-      bad.push(`${name}: Studio preview differs from engine output (not sharing the interpreter)`);
+      bad.push(
+        `${name}: Studio preview differs from engine output (not sharing the interpreter)`,
+      );
     }
   }
   return bad.length === 0
-    ? { name: "L5", ok: true, detail: `Studio interpreter (lib/engine.ts) is the shared engine — preview byte-equals engine output across ${GEN_FIXTURES.length} specs; Rust bridge retired` }
+    ? {
+      name: "L5",
+      ok: true,
+      detail:
+        `Studio interpreter (lib/engine.ts) is the shared engine — preview byte-equals engine output across ${GEN_FIXTURES.length} specs; Rust bridge retired`,
+    }
     : { name: "L5", ok: false, detail: bad.join("\n") };
 }
 
@@ -242,49 +315,106 @@ async function gateL5(): Promise<GateResult> {
 
 async function gateL7(): Promise<GateResult> {
   const bad: string[] = [];
-  const legacy = JSON.parse(await Deno.readTextFile(join(ROOT, "fixtures/artifact/n-1/legacy.json")));
+  const legacy = JSON.parse(
+    await Deno.readTextFile(join(ROOT, "fixtures/artifact/n-1/legacy.json")),
+  );
   // It must genuinely be N-1: rejected by the current contract.
-  if (validateArtifact(legacy).ok) bad.push("the N-1 fixture validates under N — it is not actually older");
+  if (validateArtifact(legacy).ok) {
+    bad.push("the N-1 fixture validates under N — it is not actually older");
+  }
   const { artifact: migrated, applied } = migrate(legacy);
   const v = validateArtifact(migrated);
-  if (!v.ok) bad.push(`migrated artifact still invalid: ${v.errors.map((e) => e.message).join("; ")}`);
+  if (!v.ok) {
+    bad.push(
+      `migrated artifact still invalid: ${
+        v.errors.map((e) => e.message).join("; ")
+      }`,
+    );
+  }
   // It must still parse + generate under N (using the migrated artifact).
   for (const name of GEN_FIXTURES) {
     const text = Deno.readTextFileSync(join(CORPUS, "valid", `${name}.rune`));
     const ast = parse(text, { tags: migrated.tags });
-    if (ast.errors.length > 0) bad.push(`${name}: does not parse under migrated artifact`);
+    if (ast.errors.length > 0) {
+      bad.push(`${name}: does not parse under migrated artifact`);
+    }
     const plan = planManifest("spec.rune", text, new Set(), {
       bindings: migrated.bindings,
       codegen: migrated.codegen.templates,
     });
     const baseline = planManifest("spec.rune", text, new Set());
     if (plan.errors.length > 0 || stableJson(plan) !== stableJson(baseline)) {
-      bad.push(`${name}: does not generate identically under migrated artifact`);
+      bad.push(
+        `${name}: does not generate identically under migrated artifact`,
+      );
     }
   }
   return bad.length === 0
-    ? { name: "L7", ok: true, detail: `N-1 artifact migrated (${applied.length} step(s)) and the corpus still parses + generates under N` }
+    ? {
+      name: "L7",
+      ok: true,
+      detail:
+        `N-1 artifact migrated (${applied.length} step(s)) and the corpus still parses + generates under N`,
+    }
     : { name: "L7", ok: false, detail: bad.join("\n") };
 }
 
 function gateGovernance(): GateResult {
   // A spec author provably cannot weaken a locked rule (D6).
   const baseline = [
-    { id: "layer-restrictions", type: "layer-restrictions", target: "generated" as const, severity: "error" as const, enabled: true, message: "x", locked: true },
-    { id: "module-fragmentation", type: "module-fragmentation", target: "generated" as const, severity: "warning" as const, enabled: true, message: "y", locked: false },
+    {
+      id: "layer-restrictions",
+      type: "layer-restrictions",
+      target: "generated" as const,
+      severity: "error" as const,
+      enabled: true,
+      message: "x",
+      locked: true,
+    },
+    {
+      id: "module-fragmentation",
+      type: "module-fragmentation",
+      target: "generated" as const,
+      severity: "warning" as const,
+      enabled: true,
+      message: "y",
+      locked: false,
+    },
   ];
   const bad: string[] = [];
   // disabling a locked rule is rejected; the rule stays enabled
-  const disabled = applyOverlay(baseline, [{ id: "layer-restrictions", enabled: false }], "spec-author");
-  if (disabled.rules.find((r) => r.id === "layer-restrictions")?.enabled !== true) bad.push("locked rule was disabled by overlay");
-  if (disabled.rejected.length !== 1) bad.push("disable attempt not recorded in the audit trail");
+  const disabled = applyOverlay(baseline, [{
+    id: "layer-restrictions",
+    enabled: false,
+  }], "spec-author");
+  if (
+    disabled.rules.find((r) => r.id === "layer-restrictions")?.enabled !== true
+  ) bad.push("locked rule was disabled by overlay");
+  if (disabled.rejected.length !== 1) {
+    bad.push("disable attempt not recorded in the audit trail");
+  }
   // downgrading severity is rejected
-  if (overlayIsCompliant(baseline, [{ id: "layer-restrictions", severity: "warning" }])) bad.push("locked rule severity downgrade was accepted");
+  if (
+    overlayIsCompliant(baseline, [{
+      id: "layer-restrictions",
+      severity: "warning",
+    }])
+  ) bad.push("locked rule severity downgrade was accepted");
   // a non-locked rule still tunes freely
-  const tuned = applyOverlay(baseline, [{ id: "module-fragmentation", enabled: false }]);
-  if (tuned.rules.find((r) => r.id === "module-fragmentation")?.enabled !== false) bad.push("non-locked rule could not be tuned");
+  const tuned = applyOverlay(baseline, [{
+    id: "module-fragmentation",
+    enabled: false,
+  }]);
+  if (
+    tuned.rules.find((r) => r.id === "module-fragmentation")?.enabled !== false
+  ) bad.push("non-locked rule could not be tuned");
   return bad.length === 0
-    ? { name: "governance", ok: true, detail: "locked rules cannot be weakened (disable/downgrade rejected + audited); non-locked rules tune freely" }
+    ? {
+      name: "governance",
+      ok: true,
+      detail:
+        "locked rules cannot be weakened (disable/downgrade rejected + audited); non-locked rules tune freely",
+    }
     : { name: "governance", ok: false, detail: bad.join("\n") };
 }
 
@@ -292,7 +422,11 @@ function gateGovernance(): GateResult {
 
 async function commandExists(cmd: string): Promise<boolean> {
   try {
-    return (await new Deno.Command(cmd, { args: ["--version"], stdout: "null", stderr: "null" }).output()).success;
+    return (await new Deno.Command(cmd, {
+      args: ["--version"],
+      stdout: "null",
+      stderr: "null",
+    }).output()).success;
   } catch {
     return false;
   }
@@ -300,7 +434,12 @@ async function commandExists(cmd: string): Promise<boolean> {
 
 async function gateGrammar(): Promise<GateResult> {
   if (!(await commandExists("tree-sitter"))) {
-    return { name: "grammar", ok: false, detail: "tree-sitter CLI not installed — the WO-6 build pipeline requires it" };
+    return {
+      name: "grammar",
+      ok: false,
+      detail:
+        "tree-sitter CLI not installed — the WO-6 build pipeline requires it",
+    };
   }
   const bad: string[] = [];
   const build = new Deno.Command("deno", {
@@ -310,23 +449,47 @@ async function gateGrammar(): Promise<GateResult> {
     stderr: "piped",
   });
   const r = await build.output();
-  if (!r.success) bad.push("build-grammar.ts failed: " + new TextDecoder().decode(r.stderr).split("\n").slice(-4).join(" "));
+  if (!r.success) {
+    bad.push(
+      "build-grammar.ts failed: " +
+        new TextDecoder().decode(r.stderr).split("\n").slice(-4).join(" "),
+    );
+  }
 
-  if (!(await fileExists(join(ROOT, "lang/grammar/rune.wasm")))) bad.push("grammar/rune.wasm not produced");
-  if (!(await fileExists(join(ROOT, "rune-studio/static/rune-tree-sitter.wasm")))) bad.push("studio static WASM not published");
+  if (!(await fileExists(join(ROOT, "lang/grammar/rune.wasm")))) {
+    bad.push("grammar/rune.wasm not produced");
+  }
+  if (
+    !(await fileExists(join(ROOT, "rune-studio/static/rune-tree-sitter.wasm")))
+  ) bad.push("studio static WASM not published");
 
   // The grammar + highlights are regenerated from the artifact: every tag id
   // must appear as a parse rule and a highlight capture (so a tag/colour change
   // in the artifact recolours both the in-Studio and external editors).
-  const reg = JSON.parse(await Deno.readTextFile(join(ROOT, "lang/keywords.json")));
-  const grammarJson = await Deno.readTextFile(join(ROOT, "lang/grammar/src/grammar.json"));
-  const highlights = await Deno.readTextFile(join(ROOT, "lang/queries/highlights.scm"));
+  const reg = JSON.parse(
+    await Deno.readTextFile(join(ROOT, "lang/keywords.json")),
+  );
+  const grammarJson = await Deno.readTextFile(
+    join(ROOT, "lang/grammar/src/grammar.json"),
+  );
+  const highlights = await Deno.readTextFile(
+    join(ROOT, "lang/queries/highlights.scm"),
+  );
   for (const t of reg.tags as Array<{ id: string }>) {
-    if (!grammarJson.includes(`"${t.id}_tag"`)) bad.push(`grammar missing rule for tag "${t.id}"`);
-    if (!highlights.includes(`(${t.id}_tag) @rune.tag`)) bad.push(`highlights missing capture for tag "${t.id}"`);
+    if (!grammarJson.includes(`"${t.id}_tag"`)) {
+      bad.push(`grammar missing rule for tag "${t.id}"`);
+    }
+    if (!highlights.includes(`(${t.id}_tag) @rune.tag`)) {
+      bad.push(`highlights missing capture for tag "${t.id}"`);
+    }
   }
   return bad.length === 0
-    ? { name: "grammar", ok: true, detail: `regenerated from artifact + compiled to WASM; all ${reg.tags.length} tags have parse rules + highlight captures` }
+    ? {
+      name: "grammar",
+      ok: true,
+      detail:
+        `regenerated from artifact + compiled to WASM; all ${reg.tags.length} tags have parse rules + highlight captures`,
+    }
     : { name: "grammar", ok: false, detail: bad.join("\n") };
 }
 
@@ -346,10 +509,16 @@ async function gateL1(): Promise<GateResult> {
   const ARTIFACT = join(ROOT, "fixtures/artifact");
 
   // The current registry (live, single source) must validate.
-  const reg = JSON.parse(await Deno.readTextFile(join(ROOT, "lang/keywords.json")));
+  const reg = JSON.parse(
+    await Deno.readTextFile(join(ROOT, "lang/keywords.json")),
+  );
   const regResult = validateArtifact(reg);
   if (!regResult.ok) {
-    bad.push(`live keywords.json rejected: ${regResult.errors.map((e) => e.message).join("; ")}`);
+    bad.push(
+      `live keywords.json rejected: ${
+        regResult.errors.map((e) => e.message).join("; ")
+      }`,
+    );
   }
 
   // Every valid/ fixture must validate.
@@ -357,24 +526,49 @@ async function gateL1(): Promise<GateResult> {
   for (const e of Deno.readDirSync(join(ARTIFACT, "valid"))) {
     if (!e.name.endsWith(".json")) continue;
     validCount++;
-    const a = JSON.parse(await Deno.readTextFile(join(ARTIFACT, "valid", e.name)));
+    const a = JSON.parse(
+      await Deno.readTextFile(join(ARTIFACT, "valid", e.name)),
+    );
     const r = validateArtifact(a);
-    if (!r.ok) bad.push(`valid/${e.name} rejected: ${r.errors.map((x) => x.message).join("; ")}`);
+    if (!r.ok) {
+      bad.push(
+        `valid/${e.name} rejected: ${
+          r.errors.map((x) => x.message).join("; ")
+        }`,
+      );
+    }
   }
 
   // Every invalid/ fixture must be rejected with its expected message.
-  const exp = JSON.parse(await Deno.readTextFile(join(ARTIFACT, "expectations.json"))) as Record<string, string>;
+  const exp = JSON.parse(
+    await Deno.readTextFile(join(ARTIFACT, "expectations.json")),
+  ) as Record<string, string>;
   for (const [name, sub] of Object.entries(exp)) {
-    const a = JSON.parse(await Deno.readTextFile(join(ARTIFACT, "invalid", `${name}.json`)));
+    const a = JSON.parse(
+      await Deno.readTextFile(join(ARTIFACT, "invalid", `${name}.json`)),
+    );
     const r = validateArtifact(a);
-    const hit = !r.ok && r.errors.some((x) => x.message.includes(sub) || x.path.includes(sub));
+    const hit = !r.ok &&
+      r.errors.some((x) => x.message.includes(sub) || x.path.includes(sub));
     if (!hit) {
-      bad.push(`invalid/${name}: expected a "${sub}" rejection, got ${r.ok ? "OK" : r.errors.map((x) => `[${x.path}] ${x.message}`).join(" | ")}`);
+      bad.push(
+        `invalid/${name}: expected a "${sub}" rejection, got ${
+          r.ok
+            ? "OK"
+            : r.errors.map((x) => `[${x.path}] ${x.message}`).join(" | ")
+        }`,
+      );
     }
   }
 
   return bad.length === 0
-    ? { name: "L1", ok: true, detail: `current registry + ${validCount} valid fixtures accepted; ${Object.keys(exp).length} crafted-invalid fixtures rejected with precise messages` }
+    ? {
+      name: "L1",
+      ok: true,
+      detail: `current registry + ${validCount} valid fixtures accepted; ${
+        Object.keys(exp).length
+      } crafted-invalid fixtures rejected with precise messages`,
+    }
     : { name: "L1", ok: false, detail: bad.join("\n") };
 }
 
@@ -397,7 +591,9 @@ async function gateL6(): Promise<GateResult> {
   const bad: string[] = [];
   const srcBefore = await gitDiffNames("src/shape-checker");
 
-  const artifact = JSON.parse(await Deno.readTextFile(join(ROOT, "lang/keywords.json")));
+  const artifact = JSON.parse(
+    await Deno.readTextFile(join(ROOT, "lang/keywords.json")),
+  );
   const specPath = join(CORPUS, "valid", "module-billing.rune");
   const text = await Deno.readTextFile(specPath);
   const rel = "corpus/valid/module-billing.rune";
@@ -405,9 +601,13 @@ async function gateL6(): Promise<GateResult> {
   // Baseline consistency: passing the artifact's (unmutated) bindings must match
   // the engine's default output — so L3 still holds when the engine reads them.
   const planDefault = planManifest(rel, text, new Set());
-  const planArtifact = planManifest(rel, text, new Set(), { bindings: artifact.bindings });
+  const planArtifact = planManifest(rel, text, new Set(), {
+    bindings: artifact.bindings,
+  });
   if (stableJson(planDefault) !== stableJson(planArtifact)) {
-    bad.push("artifact bindings (unmutated) produced different output than the engine default — L3 would break");
+    bad.push(
+      "artifact bindings (unmutated) produced different output than the engine default — L3 would break",
+    );
   }
 
   // Mutation: drop the "Dto" suffix-strip from the <name> binding. DTO files
@@ -418,79 +618,126 @@ async function gateL6(): Promise<GateResult> {
 
   const pathsA = new Set(planArtifact.toCreate.map((f) => f.path));
   const pathsB = planMutated.toCreate.map((f) => f.path);
-  const gained = pathsB.filter((p) => /\/dto\/.*-dto\.ts$/.test(p) && !pathsA.has(p));
+  const gained = pathsB.filter((p) =>
+    /\/dto\/.*-dto\.ts$/.test(p) && !pathsA.has(p)
+  );
   if (stableJson(planArtifact) === stableJson(planMutated)) {
     bad.push("mutating the <name> binding produced no output change");
   } else if (gained.length === 0) {
-    bad.push("expected DTO file paths to gain a '-dto' segment after dropping stripSuffix; got: " + pathsB.filter((p) => p.includes("/dto/")).join(", "));
+    bad.push(
+      "expected DTO file paths to gain a '-dto' segment after dropping stripSuffix; got: " +
+        pathsB.filter((p) => p.includes("/dto/")).join(", "),
+    );
   }
 
   // (b) TEMPLATE mutation (WO-4b). The artifact's codegen templates reproduce
   // the engine default (L3 consistency); editing one changes generated content.
-  const tmplBaseline = planManifest(rel, text, new Set(), { codegen: artifact.codegen.templates });
+  const tmplBaseline = planManifest(rel, text, new Set(), {
+    codegen: artifact.codegen.templates,
+  });
   if (stableJson(planDefault) !== stableJson(tmplBaseline)) {
-    bad.push("artifact codegen.templates (unmutated) produced different output than the engine default — L3 would break");
+    bad.push(
+      "artifact codegen.templates (unmutated) produced different output than the engine default — L3 would break",
+    );
   }
   const tmplMutated = structuredClone(artifact.codegen.templates);
   const MARKER = "// L6-TEMPLATE-MUTATION-MARKER";
-  tmplMutated["adapter-smk-test"] = MARKER + "\n" + tmplMutated["adapter-smk-test"];
+  tmplMutated["adapter-smk-test"] = MARKER + "\n" +
+    tmplMutated["adapter-smk-test"];
   const planTmpl = planManifest(rel, text, new Set(), { codegen: tmplMutated });
-  const smkFile = planTmpl.toCreate.find((f) => f.path.endsWith("/smk.test.ts"));
+  const smkFile = planTmpl.toCreate.find((f) =>
+    f.path.endsWith("/smk.test.ts")
+  );
   if (!smkFile || !smkFile.content.includes(MARKER)) {
-    bad.push("mutating the 'adapter-smk-test' codegen template did not change the generated smoke-test content");
+    bad.push(
+      "mutating the 'adapter-smk-test' codegen template did not change the generated smoke-test content",
+    );
   }
 
   // (c) PARSE recognition mutation (WO-4c). The parser recognises tag literals
   // from the artifact's tags table; adding a synonym makes a new literal parse
   // with no parser edit.
-  const consSpec = "[REQ] x.do(InDto): OutDto\n    [CONS] widget\n    db:x.save(InDto): OutDto\n      timeout\n    [RET] OutDto\n[DTO] InDto: a\n    in\n[DTO] OutDto: b\n    out\n";
+  const consSpec =
+    "[REQ] x.do(InDto): OutDto\n    [CONS] widget\n    db:x.save(InDto): OutDto\n      timeout\n    [RET] OutDto\n[DTO] InDto: a\n    in\n[DTO] OutDto: b\n    out\n";
   const defaultParse = parse(consSpec, { tags: artifact.tags });
   const withCons = structuredClone(artifact.tags);
   const newTag = withCons.find((t: { id: string }) => t.id === "new");
   newTag.synonyms = [...(newTag.synonyms ?? []), "[CONS]"];
   const mutatedParse = parse(consSpec, { tags: withCons });
-  const defaultRejects = defaultParse.errors.some((e: { message: string }) => e.message.includes("[CONS]") || e.message.includes("unrecognized"));
-  const mutatedAccepts = !mutatedParse.errors.some((e: { message: string }) => e.message.includes("unrecognized"));
-  if (!defaultRejects) bad.push("expected the default tag set to reject the unknown [CONS] literal");
-  if (!mutatedAccepts) bad.push("adding [CONS] as a synonym in the artifact did not make it parse");
+  const defaultRejects = defaultParse.errors.some((e: { message: string }) =>
+    e.message.includes("[CONS]") || e.message.includes("unrecognized")
+  );
+  const mutatedAccepts = !mutatedParse.errors.some((e: { message: string }) =>
+    e.message.includes("unrecognized")
+  );
+  if (!defaultRejects) {
+    bad.push(
+      "expected the default tag set to reject the unknown [CONS] literal",
+    );
+  }
+  if (!mutatedAccepts) {
+    bad.push(
+      "adding [CONS] as a synonym in the artifact did not make it parse",
+    );
+  }
 
   // (d) LINT policy mutation (WO-4d). Rule enabled/severity comes from the
   // artifact's lint array; flipping severity or disabling a rule changes a real
   // lint run with no rule-code change.
   const dirty = join(PROJECTS, "dirty");
-  const lintResults = await runPipeline(dirty, rules, await getIgnoredPaths(dirty));
-  const annotated = annotateAndFilter(lintResults, resolveSettings(artifact.lint));
+  const lintResults = await runPipeline(
+    dirty,
+    rules,
+    await getIgnoredPaths(dirty),
+  );
+  const annotated = annotateAndFilter(
+    lintResults,
+    resolveSettings(artifact.lint),
+  );
   // severity: module-isolation is "error" in the artifact; flip to "warning".
   const sevMut = structuredClone(artifact.lint);
-  const miRule = sevMut.find((r: { type: string }) => r.type === "module-isolation");
+  const miRule = sevMut.find((r: { type: string }) =>
+    r.type === "module-isolation"
+  );
   if (miRule) miRule.severity = "warning";
   const annotatedSev = annotateAndFilter(lintResults, resolveSettings(sevMut));
   const before = annotated.find((f) => f.rule === "module-isolation")?.severity;
-  const after = annotatedSev.find((f) => f.rule === "module-isolation")?.severity;
+  const after = annotatedSev.find((f) => f.rule === "module-isolation")
+    ?.severity;
   if (!(before === "error" && after === "warning")) {
-    bad.push(`severity mutation: expected module-isolation error->warning, got ${before}->${after}`);
+    bad.push(
+      `severity mutation: expected module-isolation error->warning, got ${before}->${after}`,
+    );
   }
   // enabled: disable no-relative-import (engine import-aliases) -> findings drop.
   const enMut = structuredClone(artifact.lint);
-  const relRule = enMut.find((r: { type: string }) => r.type === "no-relative-import");
+  const relRule = enMut.find((r: { type: string }) =>
+    r.type === "no-relative-import"
+  );
   if (relRule) relRule.enabled = false;
   const annotatedDis = annotateAndFilter(lintResults, resolveSettings(enMut));
   const hadAliases = annotated.some((f) => f.rule === "import-aliases");
   const stillAliases = annotatedDis.some((f) => f.rule === "import-aliases");
   if (!(hadAliases && !stillAliases)) {
-    bad.push(`enabled mutation: expected import-aliases findings to drop when disabled (had=${hadAliases}, still=${stillAliases})`);
+    bad.push(
+      `enabled mutation: expected import-aliases findings to drop when disabled (had=${hadAliases}, still=${stillAliases})`,
+    );
   }
 
   // (e) END-TO-END THROUGH THE UI DATA PATH (WO-7 / L6 e2e). The Studio's
   // registry-driven generate (the same call /api/generate makes after the UI
   // edits data/keywords.json) must reflect a registry edit.
-  const e2eSpec = Deno.readTextFileSync(join(CORPUS, "valid", "module-billing.rune"));
+  const e2eSpec = Deno.readTextFileSync(
+    join(CORPUS, "valid", "module-billing.rune"),
+  );
   const uiA = studioGenerate(e2eSpec, artifact);
   const uiRegMut = structuredClone(artifact);
   delete uiRegMut.bindings["<name>"].stripSuffix; // same edit a UI user could make
   const uiB = studioGenerate(e2eSpec, uiRegMut);
   if (stableJson(uiA) === stableJson(uiB)) {
-    bad.push("editing the registry (UI data path) did not change the Studio's engine-backed output");
+    bad.push(
+      "editing the registry (UI data path) did not change the Studio's engine-backed output",
+    );
   }
 
   const srcAfter = await gitDiffNames("src/shape-checker");
@@ -499,7 +746,12 @@ async function gateL6(): Promise<GateResult> {
   }
 
   return bad.length === 0
-    ? { name: "L6", ok: true, detail: `binding, codegen-template, parse-recognition, lint-policy, and end-to-end UI-data-path mutations each changed engine behaviour with no src/ change` }
+    ? {
+      name: "L6",
+      ok: true,
+      detail:
+        `binding, codegen-template, parse-recognition, lint-policy, and end-to-end UI-data-path mutations each changed engine behaviour with no src/ change`,
+    }
     : { name: "L6", ok: false, detail: bad.join("\n") };
 }
 
@@ -529,8 +781,11 @@ async function gateL4(): Promise<GateResult> {
       continue;
     }
     const expected = await readMaybe(goldenPath);
-    if (expected === null) bad.push(`lint/${name}: no golden (run --update-goldens)`);
-    else if (expected !== actual) bad.push(`lint/${name}: differs from golden`);
+    if (expected === null) {
+      bad.push(`lint/${name}: no golden (run --update-goldens)`);
+    } else if (expected !== actual) {
+      bad.push(`lint/${name}: differs from golden`);
+    }
   }
   if (update) {
     return bad.length === 0
@@ -538,7 +793,11 @@ async function gateL4(): Promise<GateResult> {
       : { name: "L4", ok: false, detail: bad.join("\n") };
   }
   return bad.length === 0
-    ? { name: "L4", ok: true, detail: `${LINT_FIXTURES.length} lint golden(s) match` }
+    ? {
+      name: "L4",
+      ok: true,
+      detail: `${LINT_FIXTURES.length} lint golden(s) match`,
+    }
     : { name: "L4", ok: false, detail: bad.join("\n") };
 }
 
@@ -568,9 +827,27 @@ async function main() {
     ["corpus", gateCorpus],
     ["l1", gateL1],
     ["l0", gateL0],
-    ["l2", () => gateGolden("L2", "parse", (p) => stableJson(parse(Deno.readTextFileSync(p))))],
-    ["l3", () => gateGolden("L3", "manifest", (p) =>
-      stableJson(planManifest(`corpus/valid/${stem(p)}.rune`, Deno.readTextFileSync(p), new Set())))],
+    [
+      "l2",
+      () =>
+        gateGolden(
+          "L2",
+          "parse",
+          (p) => stableJson(parse(Deno.readTextFileSync(p))),
+        ),
+    ],
+    [
+      "l3",
+      () =>
+        gateGolden("L3", "manifest", (p) =>
+          stableJson(
+            planManifest(
+              `corpus/valid/${stem(p)}.rune`,
+              Deno.readTextFileSync(p),
+              new Set(),
+            ),
+          )),
+    ],
     ["l4", gateL4],
     ["l5", gateL5],
     ["l6", gateL6],
@@ -580,10 +857,16 @@ async function main() {
   ];
 
   const selected = gateArg
-    ? all.filter(([k]) => k === gateArg || k === `l${gateArg.replace(/^l/, "")}`)
+    ? all.filter(([k]) =>
+      k === gateArg || k === `l${gateArg.replace(/^l/, "")}`
+    )
     : all;
   if (gateArg && selected.length === 0) {
-    console.error(`unknown gate: ${gateArg} (have: ${all.map(([k]) => k).join(", ")}, drift)`);
+    console.error(
+      `unknown gate: ${gateArg} (have: ${
+        all.map(([k]) => k).join(", ")
+      }, drift)`,
+    );
     Deno.exit(2);
   }
 
@@ -597,8 +880,14 @@ async function main() {
       failed++;
     }
   }
-  if (update) console.log("\ngoldens updated — review the diff before committing.");
-  console.log(failed === 0 ? "\nverify: GREEN" : `\nverify: RED (${failed} gate(s) failed)`);
+  if (update) {
+    console.log("\ngoldens updated — review the diff before committing.");
+  }
+  console.log(
+    failed === 0
+      ? "\nverify: GREEN"
+      : `\nverify: RED (${failed} gate(s) failed)`,
+  );
   Deno.exit(failed === 0 ? 0 : 1);
 }
 

@@ -136,11 +136,13 @@ export function renderImpl(
   // PLUS a default-constructed constructor field — the field keeps the import
   // used (deno lint) and hands the dev the client to implement against.
   const serviceNames = opts.async
-    ? [...new Set(
-      methods
-        .map((m) => m.service)
-        .filter((s): s is string => !!s && !!opts.sharedSrvNames?.has(s)),
-    )].sort()
+    ? [
+      ...new Set(
+        methods
+          .map((m) => m.service)
+          .filter((s): s is string => !!s && !!opts.sharedSrvNames?.has(s)),
+      ),
+    ].sort()
     : [];
   const camelName = (n: string): string => {
     const p = toPascal(n);
@@ -168,13 +170,17 @@ export function renderImpl(
       if (d) doc.push(`@param ${ident} ${d}`);
     }
     const rd = descFor(m.output);
-    if (rd && m.output !== "void" && m.output !== noun) doc.push(`@returns ${rd}`);
+    if (rd && m.output !== "void" && m.output !== noun) {
+      doc.push(`@returns ${rd}`);
+    }
     // Backing-service metadata for an adapter method (E20): which [SRV] it calls,
     // its transport, and the env vars to wire — the context the dev was missing.
     if (opts.async && m.service) {
       const srv = opts.srvByName?.get(m.service);
       if (srv) {
-        const env = srv.envVars.length ? ` — env: ${srv.envVars.join(", ")}` : "";
+        const env = srv.envVars.length
+          ? ` — env: ${srv.envVars.join(", ")}`
+          : "";
         doc.push(`service: ${srv.name} (transport ${srv.transport})${env}`);
         if (srv.description) doc.push(srv.description);
         if (srv.docsLink) doc.push(`@see ${srv.docsLink}`);
@@ -189,7 +195,9 @@ export function renderImpl(
       body.push("   */");
     }
     const kw = isStaticKw ? "static " : "";
-    body.push(`  ${kw}${m.verb}(${renderParams(m.params, resolve)}): ${ret(m)} {`);
+    body.push(
+      `  ${kw}${m.verb}(${renderParams(m.params, resolve)}): ${ret(m)} {`,
+    );
     body.push(`    throw new Error("not implemented");`);
     body.push("  }");
   };
@@ -206,7 +214,9 @@ export function renderImpl(
   body.push(`export class ${pascal} {`);
   if (serviceNames.length > 0) {
     const params = serviceNames
-      .map((n) => `private readonly ${camelName(n)} = new ${toPascal(n)}Service()`)
+      .map((n) =>
+        `private readonly ${camelName(n)} = new ${toPascal(n)}Service()`
+      )
       .join(", ");
     body.push(`  constructor(${params}) {}`);
   }

@@ -231,7 +231,9 @@ let targetDir = findProjectRoot(startDir);
   })();
   if (!hasOwnSrc) {
     try {
-      if (Deno.statSync(join(targetDir, "server", "bootstrap", "mod.ts")).isFile) {
+      if (
+        Deno.statSync(join(targetDir, "server", "bootstrap", "mod.ts")).isFile
+      ) {
         targetDir = join(targetDir, "server");
       }
     } catch { /* no server/ backend — lint targetDir as-is */ }

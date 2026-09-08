@@ -108,7 +108,10 @@ Deno.test("loadCoreSrvs — finds the core spec in the canonical spec/runes/ sta
   await withRoot(
     { "spec/runes/core.rune": CORE, "spec/runes/tasks.rune": "[MOD] tasks" },
     async (root) => {
-      const srvs = await loadCoreSrvs(root, join(root, "spec/runes/tasks.rune"));
+      const srvs = await loadCoreSrvs(
+        root,
+        join(root, "spec/runes/tasks.rune"),
+      );
       assert(srvs !== undefined);
       assertEquals([...srvs!.keys()].sort(), ["db", "ex"]);
     },

@@ -1,4 +1,10 @@
-const LAYERS = new Set(["business", "data", "coordinators", "entrypoints", "dto"]);
+const LAYERS = new Set([
+  "business",
+  "data",
+  "coordinators",
+  "entrypoints",
+  "dto",
+]);
 
 export interface Classification {
   module: string | null;
@@ -13,7 +19,13 @@ export function classifyFile(path: string): Classification {
   const baseName = segs[segs.length - 1].replace(/\.[^.]+$/, "");
 
   if (segs[0] !== "src") {
-    return { module: null, layer: "unknown", isModRoot: false, isPolyMod: false, isBootstrap: false };
+    return {
+      module: null,
+      layer: "unknown",
+      isModRoot: false,
+      isPolyMod: false,
+      isBootstrap: false,
+    };
   }
 
   const isModRoot = baseName === "mod-root";
@@ -21,7 +33,13 @@ export function classifyFile(path: string): Classification {
   const isBootstrap = segs[1] === "bootstrap";
 
   if (isBootstrap) {
-    return { module: "bootstrap", layer: "bootstrap", isModRoot, isPolyMod, isBootstrap };
+    return {
+      module: "bootstrap",
+      layer: "bootstrap",
+      isModRoot,
+      isPolyMod,
+      isBootstrap,
+    };
   }
 
   const module = segs[1] ?? null;

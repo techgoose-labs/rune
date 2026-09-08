@@ -1,5 +1,9 @@
-import { classifyFile, getModuleFromPath, isModRootImport } from "@core/business/classify/mod.ts";
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import {
+  classifyFile,
+  getModuleFromPath,
+  isModRootImport,
+} from "@core/business/classify/mod.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
 
@@ -25,12 +29,18 @@ export async function check(
   for (const imp of imports) {
     if (!imp.startsWith("src/")) continue;
     const targetModule = getModuleFromPath(imp);
-    if (!targetModule || targetModule === source.module || targetModule === "core") continue;
+    if (
+      !targetModule || targetModule === source.module || targetModule === "core"
+    ) continue;
 
     if (source.isBootstrap && !isModRootImport(imp)) {
-      violations.push(`Bootstrap imports "${targetModule}" but not through its mod-root — use the mod-root public API instead (${imp})`);
+      violations.push(
+        `Bootstrap imports "${targetModule}" but not through its mod-root — use the mod-root public API instead (${imp})`,
+      );
     } else if (!source.isBootstrap) {
-      violations.push(`Cross-module import from "${source.module}" into "${targetModule}" is forbidden — extract shared code to core/ instead (${imp})`);
+      violations.push(
+        `Cross-module import from "${source.module}" into "${targetModule}" is forbidden — extract shared code to core/ instead (${imp})`,
+      );
     }
   }
 
@@ -39,10 +49,17 @@ export async function check(
     for (const imp of imports) {
       if (!imp.startsWith("src/")) continue;
       const apparentModule = getModuleFromPath(imp);
-      if (!apparentModule || apparentModule === source.module || apparentModule === "core") continue;
+      if (
+        !apparentModule || apparentModule === source.module ||
+        apparentModule === "core"
+      ) continue;
 
       let exports;
-      try { exports = await ctx.lsp.getExportTypes(imp); } catch { continue; }
+      try {
+        exports = await ctx.lsp.getExportTypes(imp);
+      } catch {
+        continue;
+      }
 
       for (const exp of exports) {
         const defs = await ctx.lsp.findSymbolDefinition(imp, exp.name);
@@ -50,15 +67,20 @@ export async function check(
           const resolvedPath = uriToRelPath(def.uri, ctx.targetDir);
           if (!resolvedPath) continue;
           const resolvedModule = getModuleFromPath(resolvedPath);
-          if (!resolvedModule || resolvedModule === source.module || resolvedModule === "core") continue;
+          if (
+            !resolvedModule || resolvedModule === source.module ||
+            resolvedModule === "core"
+          ) continue;
 
           if (source.isBootstrap && !isModRootImport(resolvedPath)) {
-            const v = `Bootstrap imports "${resolvedModule}" but not through its mod-root — re-export "${exp.name}" resolves to ${resolvedPath}`;
+            const v =
+              `Bootstrap imports "${resolvedModule}" but not through its mod-root — re-export "${exp.name}" resolves to ${resolvedPath}`;
             if (!violations.some((e) => e.includes(resolvedPath))) {
               violations.push(v);
             }
           } else if (!source.isBootstrap) {
-            const v = `Hidden cross-module leak: "${exp.name}" from ${imp} actually comes from "${resolvedModule}" (${resolvedPath})`;
+            const v =
+              `Hidden cross-module leak: "${exp.name}" from ${imp} actually comes from "${resolvedModule}" (${resolvedPath})`;
             if (!violations.some((e) => e.includes(resolvedPath))) {
               violations.push(v);
             }
@@ -71,7 +93,8 @@ export async function check(
   return violations.length > 0 ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing module isolation in a hexagonal architecture.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing module isolation in a hexagonal architecture.
 
 Rules:
 - Modules can only import from themselves or core/

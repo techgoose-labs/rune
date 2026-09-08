@@ -1,5 +1,5 @@
 import { classifyFile } from "@core/business/classify/mod.ts";
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 const SOURCE_EXTS = new Set(["ts", "tsx"]);
 // A blind compile-time cast to a DTO class: `... as OrderDto`. Coordinators
@@ -28,7 +28,8 @@ export async function check(
   return violations.length ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing validated seams in coordinators.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing validated seams in coordinators.
 
 Rule: Coordinators must not cast values to DTO classes with \`as XxxDto\` — a cast is a compile-time fiction that lets unvalidated data flow through the system. Every seam (adapter read, write argument, input, output) must go through \`assert(XxxDto, value, context)\` so the data is validated at runtime.
 

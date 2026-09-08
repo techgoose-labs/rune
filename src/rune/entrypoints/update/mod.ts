@@ -42,7 +42,9 @@ export function planUpdate(
     return { error: "no prebuilt release exists for Windows." };
   }
   const flag = args.find((a) => a.startsWith("--"));
-  if (flag) return { error: `unknown option '${flag}' — usage: rune update [tag]` };
+  if (flag) {
+    return { error: `unknown option '${flag}' — usage: rune update [tag]` };
+  }
   const positional = args.filter((a) => !a.startsWith("--"));
   if (positional.length > 1) {
     return { error: "too many arguments — usage: rune update [tag]" };

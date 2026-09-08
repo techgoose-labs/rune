@@ -2,7 +2,10 @@ import type { EntryResult } from "@core/dto/types.ts";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
-async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
+async function callOpenAI(
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<string> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) throw new Error("OPENAI_API_KEY not set");
 
@@ -36,7 +39,8 @@ export async function suggestForResults(
 ): Promise<void> {
   const needsLlm = results.filter(
     (r) =>
-      (r.rule === "structure" && r.violations.some((v) => v.includes("not allowed"))) ||
+      (r.rule === "structure" &&
+        r.violations.some((v) => v.includes("not allowed"))) ||
       r.rule === "module-fragmentation",
   );
 
@@ -48,7 +52,8 @@ export async function suggestForResults(
     if (!byPath.has(r.path)) byPath.set(r.path, r);
   }
 
-  const system = `You are a code architecture advisor. Given a file/folder that violates a project structure spec, suggest the EXACT path it should be moved to or the EXACT action to take.
+  const system =
+    `You are a code architecture advisor. Given a file/folder that violates a project structure spec, suggest the EXACT path it should be moved to or the EXACT action to take.
 
 Canonical structure spec:
 ${specJson}

@@ -33,23 +33,37 @@ async function run(cmd: string, args: string[], cwd: URL): Promise<void> {
     }).output();
   } catch (e) {
     if (e instanceof Deno.errors.NotFound) {
-      throw new Error(`'${cmd}' not found on PATH — install it before running build-grammar.ts`);
+      throw new Error(
+        `'${cmd}' not found on PATH — install it before running build-grammar.ts`,
+      );
     }
     throw e;
   }
-  if (!result.success) throw new Error(`${cmd} ${args.join(" ")} failed (exit ${result.code})`);
+  if (!result.success) {
+    throw new Error(`${cmd} ${args.join(" ")} failed (exit ${result.code})`);
+  }
 }
 
 // 1. registry -> lang/grammar/grammar.js + lang/queries/highlights.scm
-await run("deno", ["run", "--allow-read", "--allow-write", "generate.mjs"], HERE);
+await run(
+  "deno",
+  ["run", "--allow-read", "--allow-write", "generate.mjs"],
+  HERE,
+);
 // 2. grammar.js -> parser.c
 await run("tree-sitter", ["generate"], grammarDir);
 // 3. parser.c -> WASM
 await run("tree-sitter", ["build", "--wasm", "-o", "rune.wasm"], grammarDir);
 // 4. publish to the studio's static dir for the in-browser editor
 await Deno.mkdir(studioStatic, { recursive: true });
-await Deno.copyFile(new URL("rune.wasm", grammarDir), new URL("rune-tree-sitter.wasm", studioStatic));
-await Deno.copyFile(highlightsScm, new URL("rune-highlights.scm", studioStatic));
+await Deno.copyFile(
+  new URL("rune.wasm", grammarDir),
+  new URL("rune-tree-sitter.wasm", studioStatic),
+);
+await Deno.copyFile(
+  highlightsScm,
+  new URL("rune-highlights.scm", studioStatic),
+);
 
 console.log("grammar build complete:");
 console.log("  lang/grammar/rune.wasm");

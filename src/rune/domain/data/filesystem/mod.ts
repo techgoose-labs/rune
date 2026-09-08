@@ -1,4 +1,4 @@
-import { join, dirname, normalize } from "#std/path";
+import { dirname, join, normalize } from "#std/path";
 import type { PipelineContext } from "@core/dto/types.ts";
 
 const SKIP = new Set([".git", "node_modules"]);
@@ -24,7 +24,10 @@ async function walkDir(
   }
 }
 
-export async function buildContext(targetDir: string, ignored: Set<string>): Promise<PipelineContext> {
+export async function buildContext(
+  targetDir: string,
+  ignored: Set<string>,
+): Promise<PipelineContext> {
   const files: string[] = [];
   const dirs: string[] = [];
   await walkDir(targetDir, "", files, dirs, ignored);

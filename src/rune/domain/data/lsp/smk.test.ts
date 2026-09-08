@@ -110,9 +110,18 @@ Deno.test({
     // No initialize — all capabilities false
     assertEquals(lsp.capabilities.hover, false);
     assertEquals(await lsp.getSymbolType(TEST_FILE, "classifyFile"), null);
-    assertEquals((await lsp.findSymbolReferences(TEST_FILE, "classifyFile")).length, 0);
-    assertEquals((await lsp.findSymbolImplementations(TEST_FILE, "classifyFile")).length, 0);
-    assertEquals((await lsp.findSymbolDefinition(TEST_FILE, "classifyFile")).length, 0);
+    assertEquals(
+      (await lsp.findSymbolReferences(TEST_FILE, "classifyFile")).length,
+      0,
+    );
+    assertEquals(
+      (await lsp.findSymbolImplementations(TEST_FILE, "classifyFile")).length,
+      0,
+    );
+    assertEquals(
+      (await lsp.findSymbolDefinition(TEST_FILE, "classifyFile")).length,
+      0,
+    );
     assertEquals((await lsp.getDiagnostics(TEST_FILE)).length, 0);
   },
 });

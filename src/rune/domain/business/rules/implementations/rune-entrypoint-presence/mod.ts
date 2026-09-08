@@ -32,17 +32,26 @@ export async function check(
     const mod = `${dir}/mod.ts`;
     const e2e = `${dir}/e2e.test.ts`;
     if (!fileSet.has(mod)) {
-      violations.push(`Missing entrypoint file: ${mod} (for [ENT] ${ent.surface}.${ent.action} at line ${ent.line + 1})`);
+      violations.push(
+        `Missing entrypoint file: ${mod} (for [ENT] ${ent.surface}.${ent.action} at line ${
+          ent.line + 1
+        })`,
+      );
     }
     if (!fileSet.has(e2e)) {
-      violations.push(`Missing entrypoint e2e test: ${e2e} (for [ENT] ${ent.surface}.${ent.action} at line ${ent.line + 1})`);
+      violations.push(
+        `Missing entrypoint e2e test: ${e2e} (for [ENT] ${ent.surface}.${ent.action} at line ${
+          ent.line + 1
+        })`,
+      );
     }
   }
 
   return violations.length > 0 ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are enforcing the rune-entrypoint-presence rule.
+export const SYSTEM_PROMPT =
+  `You are enforcing the rune-entrypoint-presence rule.
 
 Every [ENT] in a rune file declares an inbound entrypoint. It requires:
   src/<module>/entrypoints/<surface>/mod.ts        (the entrypoint handler)

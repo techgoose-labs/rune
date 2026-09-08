@@ -15,7 +15,7 @@ function makeCtx(files: Record<string, string>): PipelineContext {
 
 Deno.test("flags npm: imports", async () => {
   const ctx = makeCtx({
-    "src/foo.ts": `import { z } from ${"\"npm"}:zod";`,
+    "src/foo.ts": `import { z } from ${'"npm'}:zod";`,
   });
   const result = await check("src/foo.ts", "ts", ctx);
   assertEquals(result !== null, true);
@@ -25,7 +25,7 @@ Deno.test("flags npm: imports", async () => {
 
 Deno.test("flags jsr: imports", async () => {
   const ctx = makeCtx({
-    "src/foo.ts": `import { join } from ${"\"jsr"}:@std/path";`,
+    "src/foo.ts": `import { join } from ${'"jsr'}:@std/path";`,
   });
   const result = await check("src/foo.ts", "ts", ctx);
   assertEquals(result !== null, true);

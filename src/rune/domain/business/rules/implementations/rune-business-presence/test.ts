@@ -2,7 +2,11 @@ import { assertEquals } from "#std/assert";
 import { check } from "./mod.ts";
 import type { PipelineContext } from "@core/dto/types.ts";
 
-function ctxWith(rune: string, files: string[], dirs: string[] = []): PipelineContext {
+function ctxWith(
+  rune: string,
+  files: string[],
+  dirs: string[] = [],
+): PipelineContext {
   return {
     targetDir: "/tmp",
     files,
@@ -117,7 +121,10 @@ Deno.test("check — collects nouns from inside [PLY] cases", async () => {
   const result = await check("specs/recording.rune", "rune", ctx);
   // helper is an untagged step inside a CSE → must have mod.ts + test.ts
   assertEquals(result?.length, 2);
-  assertEquals(result?.some((v) => v.includes("/business/helper/mod.ts")), true);
+  assertEquals(
+    result?.some((v) => v.includes("/business/helper/mod.ts")),
+    true,
+  );
 });
 
 Deno.test("check — boundary steps are not business features", async () => {

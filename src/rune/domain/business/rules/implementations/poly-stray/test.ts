@@ -10,7 +10,7 @@ const fileContents: Record<string, string> = {
   "src/mymod/domain/business/stray/mod.ts":
     'export async function check() {}\nexport const SYSTEM_PROMPT = "";\nexport function buildPrompt() {}',
   "src/mymod/domain/business/unrelated/mod.ts":
-    'export function doSomething() {}\nexport const VALUE = 42;',
+    "export function doSomething() {}\nexport const VALUE = 42;",
 };
 
 function makeCtx(files: string[], dirs: string[]): PipelineContext {

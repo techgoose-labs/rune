@@ -31,17 +31,26 @@ export async function check(
     const mod = `${dir}/mod.ts`;
     const test = `${dir}/int.test.ts`;
     if (!fileSet.has(mod)) {
-      violations.push(`Missing coordinator file: ${mod} (for [REQ] ${req.noun}.${req.verb} at line ${req.line + 1})`);
+      violations.push(
+        `Missing coordinator file: ${mod} (for [REQ] ${req.noun}.${req.verb} at line ${
+          req.line + 1
+        })`,
+      );
     }
     if (!fileSet.has(test)) {
-      violations.push(`Missing coordinator test: ${test} (for [REQ] ${req.noun}.${req.verb} at line ${req.line + 1})`);
+      violations.push(
+        `Missing coordinator test: ${test} (for [REQ] ${req.noun}.${req.verb} at line ${
+          req.line + 1
+        })`,
+      );
     }
   }
 
   return violations.length > 0 ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are enforcing the rune-coordinator-presence rule.
+export const SYSTEM_PROMPT =
+  `You are enforcing the rune-coordinator-presence rule.
 
 Each [REQ] in a .rune spec file must have a corresponding coordinator folder in the project at:
   src/<module>/domain/coordinators/<process>/

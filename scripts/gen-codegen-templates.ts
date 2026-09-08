@@ -38,4 +38,6 @@ for (const key of TPL_KEYS) {
 }
 reg.codegen = { ...reg.codegen, templates };
 await Deno.writeTextFile(p, JSON.stringify(reg, null, 2) + "\n");
-console.log(`wrote codegen.templates: ${TPL_KEYS.length} templates (policies untouched)`);
+console.log(
+  `wrote codegen.templates: ${TPL_KEYS.length} templates (policies untouched)`,
+);

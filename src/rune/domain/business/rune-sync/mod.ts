@@ -169,8 +169,9 @@ function walkSteps(
     } else if (step.kind === "boundary") {
       dirs.add(`src/${module}/domain/data/${applyCase(step.noun, "kebab")}`);
     } else if (step.kind === "ply") {
-      const featureDir =
-        `src/${module}/domain/business/${applyCase(step.noun, "kebab")}`;
+      const featureDir = `src/${module}/domain/business/${
+        applyCase(step.noun, "kebab")
+      }`;
       dirs.add(featureDir);
       for (const cse of step.cases) {
         // Predict each DECLARED variant folder so only a REMOVED [CSE] arm's
@@ -288,16 +289,23 @@ export interface GrowthResult {
 
 /** Paths whose create-once files can grow additively. Test files, coordinators
  * (whole-body semantics), [TYP] aliases, and core service clients are excluded. */
-function growKind(path: string): "adapter" | "business" | "entrypoint" | "dto" | null {
+function growKind(
+  path: string,
+): "adapter" | "business" | "entrypoint" | "dto" | null {
   if (/^src\/[^/]+\/domain\/data\/[^/]+\/mod\.ts$/.test(path)) return "adapter";
-  if (/^src\/[^/]+\/domain\/business\/[^/]+\/mod\.ts$/.test(path)) return "business";
-  if (/^src\/[^/]+\/entrypoints\/[^/]+\/mod\.ts$/.test(path)) return "entrypoint";
+  if (/^src\/[^/]+\/domain\/business\/[^/]+\/mod\.ts$/.test(path)) {
+    return "business";
+  }
+  if (/^src\/[^/]+\/entrypoints\/[^/]+\/mod\.ts$/.test(path)) {
+    return "entrypoint";
+  }
   if (/^src\/[^/]+\/dto\/[^/]+\.ts$/.test(path)) return "dto";
   return null;
 }
 
 const METHOD_HEAD = /^ {2}(?:static\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*\(/;
-const FIELD_HEAD = /^ {2}(?:static\s+)?(?:readonly\s+)?([A-Za-z_$][\w$]*)[?!]?\s*[:=]/;
+const FIELD_HEAD =
+  /^ {2}(?:static\s+)?(?:readonly\s+)?([A-Za-z_$][\w$]*)[?!]?\s*[:=]/;
 const LEAD_LINE = /^ {2,}(\/\/|\/\*\*|\*|\*\/|@)/;
 
 /** Parse FRESH generated content into its class name + member units. The fresh
@@ -308,7 +316,9 @@ function parseFreshClass(
   content: string,
 ): { className: string; units: ClassUnit[] } | null {
   const lines = content.split("\n");
-  const declIdx = lines.findIndex((l) => /^export (?:default )?class \w+/.test(l));
+  const declIdx = lines.findIndex((l) =>
+    /^export (?:default )?class \w+/.test(l)
+  );
   if (declIdx === -1) return null;
   const className = lines[declIdx].match(/class (\w+)/)![1];
   const units: ClassUnit[] = [];
@@ -406,7 +416,9 @@ function findClassClose(text: string, className: string): number | null {
       }
     } else if (mode === "s1" || mode === "s2") {
       if (c === "\\") i++;
-      else if ((mode === "s1" && c === "'") || (mode === "s2" && c === '"')) stack.pop();
+      else if ((mode === "s1" && c === "'") || (mode === "s2" && c === '"')) {
+        stack.pop();
+      }
     } else if (mode === "tpl") {
       if (c === "\\") i++;
       else if (c === "`") stack.pop();
@@ -461,7 +473,10 @@ function missingImportLines(
     new RegExp(`\\b${name.replace(/\$/g, "\\$")}\\b`).test(text);
   const out: string[] = [];
   for (const line of fresh.split("\n")) {
-    const named = /^import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+["'][^"']+["'];?\s*$/.exec(line);
+    const named =
+      /^import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+["'][^"']+["'];?\s*$/.exec(
+        line,
+      );
     if (named) {
       const names = named[1].split(",").map((s) => s.trim()).filter(Boolean);
       const missing = names.filter((n) => {
@@ -476,7 +491,10 @@ function missingImportLines(
       continue;
     }
     const side = /^import\s+["']([^"']+)["'];?\s*$/.exec(line);
-    if (side && !existing.includes(`"${side[1]}"`) && !existing.includes(`'${side[1]}'`)) {
+    if (
+      side && !existing.includes(`"${side[1]}"`) &&
+      !existing.includes(`'${side[1]}'`)
+    ) {
       out.push(line);
     }
   }
@@ -504,7 +522,9 @@ function importInsertLine(lines: string[]): number {
   if (last !== -1) return last + 1;
   // no imports: after the leading comment/blank header block
   let i = 0;
-  while (i < lines.length && (lines[i].startsWith("//") || lines[i].trim() === "")) i++;
+  while (
+    i < lines.length && (lines[i].startsWith("//") || lines[i].trim() === "")
+  ) i++;
   return i;
 }
 

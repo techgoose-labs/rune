@@ -711,6 +711,16 @@
       "description": "Routes an element to the shared kernel (src/core/\u2026) instead of the current module. Core elements are importable from any module; module elements are not. Allowed on [DTO] and [TYP]; not on [REQ]."
     },
     {
+      "id": "open-req",
+      "token": ":open",
+      "label": "Open",
+      "appliesTo": [
+        "req"
+      ],
+      "syntax": "[REQ:open]",
+      "description": "The OPENNESS MARKER: this endpoint is reachable WITHOUT a credential. Codegen emits it as `access: \"open\"` on the generated @Endpoint, which surfaces as `x-bedrock-auth` on the operation's OpenAPI \u2014 where the backend's policy table comes from. An unmarked [REQ] is authenticated (the backend slot's default), so openness is always STATED in the spec beside the endpoint, never inferred and never hand-applied to generated code. The only modifier [REQ] takes."
+    },
+    {
       "id": "ext",
       "token": ":ext",
       "label": "External",
@@ -1448,7 +1458,7 @@
       "$ignore": "*"
     },
     "app/": {
-      "$desc": "sprig UI app (frontend) \u2014 its own layout (src/pages, shell, islands) is owned and validated by sprig, not rune; rune hosts it via serve.ts (serveSprig). Ignored here like spec/ui",
+      "$desc": "sprig UI app (frontend) \u2014 its own layout (src/pages, shell, islands) is owned and validated by sprig, not rune; rune hosts it via serve.ts (Bedrock). Ignored here like spec/ui",
       "$ignore": "*"
     }
   }

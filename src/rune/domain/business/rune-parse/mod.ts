@@ -10,7 +10,13 @@ import {
 // parenthesized prefix: `[SRV] (SDK)stripe: KEY`. NATIVE is the in-process
 // runtime/std-lib boundary (filesystem, subprocess, crypto, clock) — neither a
 // network surface nor a co-located process; its faults are synchronous throws.
-export const SRV_TRANSPORTS = ["SDK", "HTTP", "WEBSOCKET", "SIDECAR", "NATIVE"] as const;
+export const SRV_TRANSPORTS = [
+  "SDK",
+  "HTTP",
+  "WEBSOCKET",
+  "SIDECAR",
+  "NATIVE",
+] as const;
 export type SrvTransport = typeof SRV_TRANSPORTS[number];
 
 // A [MOD] name becomes a `src/<module>/` directory AND is camel/pascal-cased
@@ -40,6 +46,9 @@ export interface ReqNode {
   input: string;
   output: string;
   steps: StepLike[];
+  /** `[REQ:open]` — the openness marker. True ⇒ this endpoint is reachable
+   *  without a credential, and codegen stamps `x-bedrock-auth` on it. */
+  isOpen: boolean;
   line: number;
 }
 
@@ -80,7 +89,12 @@ export interface EntNode {
   delegate?: { noun: string; verb: string };
 }
 
-export type StepLike = StepNode | BoundaryStepNode | PlyNode | CtrNode | RetNode;
+export type StepLike =
+  | StepNode
+  | BoundaryStepNode
+  | PlyNode
+  | CtrNode
+  | RetNode;
 
 export interface StepNode {
   kind: "step";
@@ -229,7 +243,12 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
   // lines are its topics — each becomes a kind:"ws" EntNode sharing this handshake path.
   // Closed by any dedent to column 0 (the next top-level tag) or end-of-file.
   let currentWsSocket:
-    | { surface: string; pathTemplate: string | null; line: number; topicCount: number }
+    | {
+      surface: string;
+      pathTemplate: string | null;
+      line: number;
+      topicCount: number;
+    }
     | null = null;
   // The [SRV] whose description block is currently open — routes an indented
   // `@docs <url>` line to its docsLink. Only "active" while descTarget === it.
@@ -352,7 +371,10 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
         });
         descTarget = null;
       } else if (ast.module !== null) {
-        ast.errors.push({ line: i, message: `duplicate [MOD]: already set to "${ast.module}"` });
+        ast.errors.push({
+          line: i,
+          message: `duplicate [MOD]: already set to "${ast.module}"`,
+        });
         descTarget = null;
       } else {
         ast.module = name;
@@ -365,11 +387,14 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     // [SRV] (TRANSPORT)<name>: <ENV, ENV2>  (the backing-service declaration).
     if (trimmed.startsWith("[SRV]")) {
       const rest = trimmed.slice("[SRV]".length).trim();
-      const m = rest.match(/^\(([A-Za-z]+)\)([A-Za-z_][A-Za-z0-9_-]*)(?::\s*(.*))?$/);
+      const m = rest.match(
+        /^\(([A-Za-z]+)\)([A-Za-z_][A-Za-z0-9_-]*)(?::\s*(.*))?$/,
+      );
       if (!m) {
         ast.errors.push({
           line: i,
-          message: "[SRV] malformed — expected [SRV] (TRANSPORT)<name>: <ENV,…>",
+          message:
+            "[SRV] malformed — expected [SRV] (TRANSPORT)<name>: <ENV,…>",
         });
         descTarget = null;
         continue;
@@ -383,9 +408,9 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
           }`,
         });
       }
-      const envVars = (envStr ?? "").split(",").map((s) => s.trim()).filter((s) =>
-        s !== ""
-      );
+      const envVars = (envStr ?? "").split(",").map((s) => s.trim()).filter((
+        s,
+      ) => s !== "");
       const node: SrvNode = {
         transport,
         name,
@@ -400,21 +425,37 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       continue;
     }
 
-    // [REQ] — takes no modifier at all (mirrors the Rust LSP, which rejects
-    // any [REQ:x]; the :core form keeps its long-standing specific message).
+    // [REQ] — takes exactly ONE modifier, `:open`, the OPENNESS MARKER. It
+    // declares that the endpoint is reachable without a credential; codegen
+    // emits it as `x-bedrock-auth: { access: "open" }` on the operation, and
+    // the backend derives its policy table from that. Unmarked means
+    // authenticated — the slot default. Openness is now something the spec
+    // STATES, in the same file as the endpoint, instead of a decorator
+    // hand-re-applied to generated controllers after every regeneration.
     const reqTag = rec.match(trimmed, "req");
     if (reqTag) {
+      const isOpen = reqTag.modifier === "open";
       if (reqTag.modifier === "core") {
-        ast.errors.push({ line: i, message: "[REQ:core] is invalid — coordinators are module-level" });
-      } else if (reqTag.modifier !== null) {
-        ast.errors.push({ line: i, message: "[REQ] does not take a modifier" });
+        ast.errors.push({
+          line: i,
+          message: "[REQ:core] is invalid — coordinators are module-level",
+        });
+      } else if (reqTag.modifier !== null && !isOpen) {
+        ast.errors.push({
+          line: i,
+          message:
+            `[REQ] unknown modifier "${reqTag.modifier}" — the only one is :open`,
+        });
       }
       const sig = parseReqSignature(reqTag.rest);
       if (!sig) {
-        ast.errors.push({ line: i, message: "[REQ] missing or malformed signature" });
+        ast.errors.push({
+          line: i,
+          message: "[REQ] missing or malformed signature",
+        });
         currentReq = null;
       } else {
-        currentReq = { ...sig, steps: [], line: i };
+        currentReq = { ...sig, steps: [], isOpen, line: i };
         ast.reqs.push(currentReq);
       }
       currentPly = null;
@@ -435,7 +476,8 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
         if (!header) {
           ast.errors.push({
             line: i,
-            message: '[ENT:ws] malformed — expected "[ENT:ws] <surface> @ /path"',
+            message:
+              '[ENT:ws] malformed — expected "[ENT:ws] <surface> @ /path"',
           });
           currentWsSocket = null;
         } else {
@@ -456,7 +498,10 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       }
       const sig = parseReqSignature(entTag.rest);
       if (!sig) {
-        ast.errors.push({ line: i, message: "[ENT] missing or malformed signature" });
+        ast.errors.push({
+          line: i,
+          message: "[ENT] missing or malformed signature",
+        });
       } else {
         // An explicit `@ METHOD` must name a real HTTP verb.
         if (sig.method && !ENT_METHODS.has(sig.method)) {
@@ -514,7 +559,14 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
           .split(",")
           .map((p) => p.trim())
           .filter((p) => p.length > 0);
-        const node: DtoNode = { name, properties: props, description: "", isCore, isOpen, line: i };
+        const node: DtoNode = {
+          name,
+          properties: props,
+          description: "",
+          isCore,
+          isOpen,
+          line: i,
+        };
         ast.dtos.push(node);
         descTarget = node;
       }
@@ -594,7 +646,10 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     if (plyTag) {
       const sig = parseStepSignature(plyTag.rest);
       if (!sig) {
-        ast.errors.push({ line: i, message: "[PLY] missing or malformed signature" });
+        ast.errors.push({
+          line: i,
+          message: "[PLY] missing or malformed signature",
+        });
       } else {
         const node: PlyNode = { kind: "ply", ...sig, cases: [], line: i };
         if (currentReq) currentReq.steps.push(node);
@@ -633,7 +688,14 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
         ast.errors.push({ line: i, message: "[CTR] missing class name" });
       } else {
         const node: CtrNode = { kind: "ctr", className, line: i };
-        appendStepToCurrentScope(node, currentReq, currentPly, currentCse, ast, i);
+        appendStepToCurrentScope(
+          node,
+          currentReq,
+          currentPly,
+          currentCse,
+          ast,
+          i,
+        );
       }
       lastStep = null;
       descTarget = null;
@@ -648,7 +710,14 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
         ast.errors.push({ line: i, message: "[RET] missing value" });
       } else {
         const node: RetNode = { kind: "ret", value, line: i };
-        appendStepToCurrentScope(node, currentReq, currentPly, currentCse, ast, i);
+        appendStepToCurrentScope(
+          node,
+          currentReq,
+          currentPly,
+          currentCse,
+          ast,
+          i,
+        );
       }
       lastStep = null;
       descTarget = null;
@@ -660,7 +729,10 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     if (boundary) {
       const sig = parseStepSignature(boundary.rest);
       if (!sig) {
-        ast.errors.push({ line: i, message: `${boundary.service}: malformed signature` });
+        ast.errors.push({
+          line: i,
+          message: `${boundary.service}: malformed signature`,
+        });
       } else {
         const node: BoundaryStepNode = {
           kind: "boundary",
@@ -669,7 +741,14 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
           faults: [],
           line: i,
         };
-        appendStepToCurrentScope(node, currentReq, currentPly, currentCse, ast, i);
+        appendStepToCurrentScope(
+          node,
+          currentReq,
+          currentPly,
+          currentCse,
+          ast,
+          i,
+        );
         lastStep = node;
       }
       descTarget = null;
@@ -726,11 +805,20 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     }
 
     // Plain step: noun.verb(...) or Noun::verb(...)
-    if ((trimmed.includes(".") || trimmed.includes("::")) && trimmed.includes("(")) {
+    if (
+      (trimmed.includes(".") || trimmed.includes("::")) && trimmed.includes("(")
+    ) {
       const sig = parseStepSignature(trimmed);
       if (sig) {
         const node: StepNode = { kind: "step", ...sig, faults: [], line: i };
-        appendStepToCurrentScope(node, currentReq, currentPly, currentCse, ast, i);
+        appendStepToCurrentScope(
+          node,
+          currentReq,
+          currentPly,
+          currentCse,
+          ast,
+          i,
+        );
         lastStep = node;
         descTarget = null;
         continue;
@@ -877,7 +965,9 @@ const MODIFIER_AWARE = new Set(["req", "ent", "dto", "typ", "non"]);
 class TagRecognizer {
   private literals = new Map<string, string[]>();
   constructor(specs: ParseTagSpec[]) {
-    for (const s of specs) this.literals.set(s.id, [s.tag, ...(s.synonyms ?? [])]);
+    for (const s of specs) {
+      this.literals.set(s.id, [s.tag, ...(s.synonyms ?? [])]);
+    }
   }
   /** Match the line as tag `id`, returning the modifier + trimmed remainder, or null. */
   match(trimmed: string, id: string): TagMatch | null {
@@ -924,7 +1014,9 @@ function parseStepSignature(s: string): StepSig | null {
   const trimmed = s.trim();
   const parenOpen = trimmed.indexOf("(");
   const parenClose = trimmed.lastIndexOf(")");
-  if (parenOpen === -1 || parenClose === -1 || parenClose < parenOpen) return null;
+  if (parenOpen === -1 || parenClose === -1 || parenClose < parenOpen) {
+    return null;
+  }
 
   const namePart = trimmed.slice(0, parenOpen);
   let sepPos: number;
@@ -980,7 +1072,9 @@ function parseReqSignature(s: string): ReqSig | null {
   const trimmed = s.trim();
   const parenOpen = trimmed.indexOf("(");
   const parenClose = trimmed.lastIndexOf(")");
-  if (parenOpen === -1 || parenClose === -1 || parenClose < parenOpen) return null;
+  if (parenOpen === -1 || parenClose === -1 || parenClose < parenOpen) {
+    return null;
+  }
 
   // Output is after the LAST colon (so input may contain colons inside `{}`).
   const afterParen = trimmed.slice(parenClose + 1);
@@ -1078,7 +1172,9 @@ function parseWsTopicSignature(
   const trimmed = s.trim();
   const parenOpen = trimmed.indexOf("(");
   const parenClose = trimmed.lastIndexOf(")");
-  if (parenOpen === -1 || parenClose === -1 || parenClose < parenOpen) return null;
+  if (parenOpen === -1 || parenClose === -1 || parenClose < parenOpen) {
+    return null;
+  }
   const verb = trimmed.slice(0, parenOpen).trim();
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(verb)) return null;
   const afterParen = trimmed.slice(parenClose + 1);
@@ -1111,7 +1207,10 @@ function appendStepToCurrentScope(
 ): void {
   if (currentCse) {
     if (step.kind === "ply") {
-      ast.errors.push({ line, message: "nested [PLY] inside [CSE] not supported" });
+      ast.errors.push({
+        line,
+        message: "nested [PLY] inside [CSE] not supported",
+      });
       return;
     }
     currentCse.steps.push(step);

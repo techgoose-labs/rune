@@ -13,7 +13,11 @@ export async function runPipeline(
   const t0 = performance.now();
   const ctx = await buildContext(targetDir, ignored);
   const tCtx = performance.now();
-  console.error(`  [profile] buildContext: ${(tCtx - t0).toFixed(0)}ms (${ctx.files.length} files, ${ctx.dirs.length} dirs)`);
+  console.error(
+    `  [profile] buildContext: ${
+      (tCtx - t0).toFixed(0)
+    }ms (${ctx.files.length} files, ${ctx.dirs.length} dirs)`,
+  );
 
   // SHAPE_NO_LSP forces the LSP-free path so results don't depend on whether
   // the Rust LSP binary is installed in this environment — required for
@@ -30,7 +34,11 @@ export async function runPipeline(
     }
   }
   const tLsp = performance.now();
-  console.error(`  [profile] LSP init: ${(tLsp - tCtx).toFixed(0)}ms (${ctx.lsp ? "connected" : "disabled"})`);
+  console.error(
+    `  [profile] LSP init: ${(tLsp - tCtx).toFixed(0)}ms (${
+      ctx.lsp ? "connected" : "disabled"
+    })`,
+  );
 
   const entries = [
     ...ctx.dirs.map((p) => ({ path: p, target: "folder" as const })),
@@ -48,7 +56,10 @@ export async function runPipeline(
       for (const rule of rules) {
         const rStart = performance.now();
         const violations = await rule.check(entry.path, entry.target, ctx);
-        ruleTimes.set(rule.name, (ruleTimes.get(rule.name) ?? 0) + (performance.now() - rStart));
+        ruleTimes.set(
+          rule.name,
+          (ruleTimes.get(rule.name) ?? 0) + (performance.now() - rStart),
+        );
         if (violations !== null) {
           results.push({
             path: entry.path,
@@ -63,9 +74,13 @@ export async function runPipeline(
     const tShutStart = performance.now();
     if (lsp) await lsp.shutdown();
     const tEnd = performance.now();
-    console.error(`  [profile] LSP shutdown: ${(tEnd - tShutStart).toFixed(0)}ms`);
+    console.error(
+      `  [profile] LSP shutdown: ${(tEnd - tShutStart).toFixed(0)}ms`,
+    );
     console.error(`  [profile] Rules (${entries.length} entries):`);
-    for (const [name, ms] of [...ruleTimes.entries()].sort((a, b) => b[1] - a[1])) {
+    for (
+      const [name, ms] of [...ruleTimes.entries()].sort((a, b) => b[1] - a[1])
+    ) {
       console.error(`    ${name}: ${ms.toFixed(0)}ms`);
     }
     console.error(`  [profile] Total: ${(tEnd - t0).toFixed(0)}ms`);

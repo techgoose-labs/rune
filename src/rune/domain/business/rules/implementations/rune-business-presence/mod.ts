@@ -1,7 +1,7 @@
 import type { EntryTarget, PipelineContext } from "@/core/dto/types.ts";
 import {
-  parse,
   type CseNode,
+  parse,
   type ReqNode,
   type StepLike,
 } from "@rune/domain/business/rune-parse/mod.ts";
@@ -48,7 +48,11 @@ export async function check(
 
     if (info.isPoly) {
       if (!dirSet.has(dir)) {
-        violations.push(`Missing business feature folder: ${dir}/ (for [PLY] ${noun} at line ${info.line + 1})`);
+        violations.push(
+          `Missing business feature folder: ${dir}/ (for [PLY] ${noun} at line ${
+            info.line + 1
+          })`,
+        );
       }
       continue;
     }
@@ -56,10 +60,18 @@ export async function check(
     const mod = `${dir}/mod.ts`;
     const test = `${dir}/test.ts`;
     if (!fileSet.has(mod)) {
-      violations.push(`Missing business file: ${mod} (for step noun "${noun}" at line ${info.line + 1})`);
+      violations.push(
+        `Missing business file: ${mod} (for step noun "${noun}" at line ${
+          info.line + 1
+        })`,
+      );
     }
     if (!fileSet.has(test)) {
-      violations.push(`Missing business test: ${test} (for step noun "${noun}" at line ${info.line + 1})`);
+      violations.push(
+        `Missing business test: ${test} (for step noun "${noun}" at line ${
+          info.line + 1
+        })`,
+      );
     }
   }
 

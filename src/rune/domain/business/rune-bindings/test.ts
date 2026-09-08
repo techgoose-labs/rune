@@ -74,7 +74,10 @@ Deno.test("transformName — no-op when suffix doesn't match", () => {
 Deno.test("processName — kebabs noun-verb", () => {
   assertEquals(processName("recording", "set"), "recording-set");
   assertEquals(processName("recording", "get"), "recording-get");
-  assertEquals(processName("recordingMetadata", "set"), "recording-metadata-set");
+  assertEquals(
+    processName("recordingMetadata", "set"),
+    "recording-metadata-set",
+  );
 });
 
 Deno.test("bindings — every placeholder maps to at least one rune source", () => {
@@ -99,12 +102,17 @@ Deno.test("bindings — every placeholder under src/ has a binding", () => {
   assertEquals(
     missing,
     [],
-    `canonical-paths.json src/ has placeholders without bindings: ${missing.join(", ")}`,
+    `canonical-paths.json src/ has placeholders without bindings: ${
+      missing.join(", ")
+    }`,
   );
 });
 
 // Walk a canonical-paths subtree and collect every "<...>" placeholder seen as a key.
-function collectPlaceholders(node: unknown, out = new Set<string>()): Set<string> {
+function collectPlaceholders(
+  node: unknown,
+  out = new Set<string>(),
+): Set<string> {
   if (Array.isArray(node)) {
     for (const v of node) collectPlaceholders(v, out);
     return out;

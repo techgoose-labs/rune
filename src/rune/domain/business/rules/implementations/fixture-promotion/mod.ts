@@ -1,4 +1,4 @@
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
 
@@ -26,14 +26,21 @@ export async function check(
   const fixtureStem = stripExtension(path);
 
   const candidates = ctx.files.filter(
-    (f) => SOURCE_EXTS.has(f.split(".").pop() ?? "") && (isModFile(f) || isBootstrapFile(f)),
+    (f) =>
+      SOURCE_EXTS.has(f.split(".").pop() ?? "") &&
+      (isModFile(f) || isBootstrapFile(f)),
   );
 
   for (const file of candidates) {
     const imports = await ctx.getImports(file);
     for (const imp of imports) {
-      if (imp === path || imp === fixtureStem || stripExtension(imp) === fixtureStem) {
-        return ["This fixture is imported by production code — move it to assets/ instead"];
+      if (
+        imp === path || imp === fixtureStem ||
+        stripExtension(imp) === fixtureStem
+      ) {
+        return [
+          "This fixture is imported by production code — move it to assets/ instead",
+        ];
       }
     }
   }
@@ -41,7 +48,8 @@ export async function check(
   return null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing fixture/asset separation.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing fixture/asset separation.
 
 Rule: Files under fixtures/ are for test data only. If a fixture is imported by production code (mod.ts files or bootstrap files), it should live in assets/ instead.
 

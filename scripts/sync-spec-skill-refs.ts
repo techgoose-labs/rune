@@ -49,7 +49,9 @@ for (const [src, dest] of PAIRS) {
 if (check) {
   if (drift.length) {
     console.error(
-      `rune:spec references drifted from their sources:\n  ${drift.join("\n  ")}\n` +
+      `rune:spec references drifted from their sources:\n  ${
+        drift.join("\n  ")
+      }\n` +
         `  → run: deno run -A scripts/sync-spec-skill-refs.ts`,
     );
     Deno.exit(1);

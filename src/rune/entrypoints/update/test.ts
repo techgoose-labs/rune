@@ -19,7 +19,10 @@ Deno.test("planUpdate — positional tag becomes RUNE_VERSION", () => {
 });
 
 Deno.test("planUpdate — explicit RUNE_INSTALL wins over the binary's dir", () => {
-  const plan = planUpdate([], { ...COMPILED, env: { RUNE_INSTALL: "/opt/bin" } });
+  const plan = planUpdate([], {
+    ...COMPILED,
+    env: { RUNE_INSTALL: "/opt/bin" },
+  });
   assertEquals(plan.bindir, undefined);
 });
 
@@ -37,7 +40,10 @@ Deno.test("planUpdate — rejects extra arguments", () => {
 });
 
 Deno.test("planUpdate — rejects Windows", () => {
-  assertEquals(typeof planUpdate([], { ...COMPILED, os: "windows" }).error, "string");
+  assertEquals(
+    typeof planUpdate([], { ...COMPILED, os: "windows" }).error,
+    "string",
+  );
 });
 
 Deno.test("installerUrls — the target release's asset first, raw main as fallback", () => {

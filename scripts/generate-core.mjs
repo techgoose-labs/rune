@@ -14,22 +14,22 @@ function lineRuleBody(tag) {
   switch (tag.follows) {
     case "signature":
     case "poly": // a polymorphic opener has the same line shape as a signature
-      // noun.verb(args): returnType  (optionally a camelCase function name).
-      // When a camelCase form is allowed, both forms must begin with the same
-      // token type (identifier) — otherwise the lexer commits to function_name
-      // before the parser can see the "." of the dotted form, producing a spurious
-      // ERROR. So inline the rule: identifier, optional ".verb", then parameters.
-      {
-        const sigForm = tag.allowFunctionName
-          ? `seq(${t}, field("noun", $.identifier), optional(seq(choice(".", "::"), field("verb", $.method_name))), optional($.http_route), $.parameters, ":", $.return_type)`
-          : `seq(${t}, $.signature, ":", $.return_type)`;
-        // [ENT:ws] additionally accepts a socket header "[ENT:ws] <surface> @ /path" (no
-        // signature); its indented "verb(In): Out" topics parse as ordinary step_lines.
-        if (tag.id === "ent") {
-          return `choice(${sigForm}, seq(${t}, field("ws_surface", $.identifier), optional($.ws_route)))`;
-        }
-        return sigForm;
+    // noun.verb(args): returnType  (optionally a camelCase function name).
+    // When a camelCase form is allowed, both forms must begin with the same
+    // token type (identifier) — otherwise the lexer commits to function_name
+    // before the parser can see the "." of the dotted form, producing a spurious
+    // ERROR. So inline the rule: identifier, optional ".verb", then parameters.
+    {
+      const sigForm = tag.allowFunctionName
+        ? `seq(${t}, field("noun", $.identifier), optional(seq(choice(".", "::"), field("verb", $.method_name))), optional($.http_route), $.parameters, ":", $.return_type)`
+        : `seq(${t}, $.signature, ":", $.return_type)`;
+      // [ENT:ws] additionally accepts a socket header "[ENT:ws] <surface> @ /path" (no
+      // signature); its indented "verb(In): Out" topics parse as ordinary step_lines.
+      if (tag.id === "ent") {
+        return `choice(${sigForm}, seq(${t}, field("ws_surface", $.identifier), optional($.ws_route)))`;
       }
+      return sigForm;
+    }
     case "typedef":
       return `seq(${t}, $.typ_name, ":", $.typ_type)`;
     case "dtodef":
@@ -46,7 +46,9 @@ function lineRuleBody(tag) {
     case "none":
       return `${t}`;
     default:
-      throw new Error(`Unknown "follows" kind: ${tag.follows} (tag ${tag.tag})`);
+      throw new Error(
+        `Unknown "follows" kind: ${tag.follows} (tag ${tag.tag})`,
+      );
   }
 }
 
@@ -80,7 +82,9 @@ const MODIFIER_PATTERN_TAGS = new Set(["ent", "dto", "typ", "non"]);
 /** A `[TAG]`/`[TAG:mods]` token pattern: [TYP] -> token(seq("[TYP", …, "]")). */
 function tagTokenPattern(literal) {
   const head = literal.replace(/\]$/, "");
-  return `token(seq(${JSON.stringify(head)}, optional(seq(":", /[^\\]\\s]+/)), "]"))`;
+  return `token(seq(${
+    JSON.stringify(head)
+  }, optional(seq(":", /[^\\]\\s]+/)), "]"))`;
 }
 
 /** Build the contents of grammar.js from the registry. */

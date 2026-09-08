@@ -51,7 +51,9 @@ Deno.test("planSync preserves existing files and prunes orphans", () => {
 
   // cart is predicted → skipped (preserved), never pruned
   assert(
-    plan.toSkip.some((f) => f.path === "src/orders/domain/business/cart/mod.ts"),
+    plan.toSkip.some((f) =>
+      f.path === "src/orders/domain/business/cart/mod.ts"
+    ),
   );
   assert(!plan.toPrune.includes("src/orders/domain/business/cart"));
 
@@ -128,7 +130,10 @@ Deno.test("planSync — a removed [CSE] arm's implementations/<case>/ is a dev-o
 
   const legacy = `${base}/implementations/legacy`;
   // The removed arm is pruned — and dev-owned, so the entrypoint holds it back until --force.
-  assert(plan.toPrune.includes(legacy), "removed [CSE] folder must be an orphan");
+  assert(
+    plan.toPrune.includes(legacy),
+    "removed [CSE] folder must be an orphan",
+  );
   assert(
     plan.toPruneOwned.includes(legacy),
     "removed [CSE] folder is dev-owned (--force gated)",
@@ -139,18 +144,24 @@ Deno.test("planSync — a removed [CSE] arm's implementations/<case>/ is a dev-o
   assert(!plan.toPrune.includes(`${base}/implementations/five-nine`));
   assert(!plan.toPrune.includes(base), "the [PLY] feature dir itself is kept");
   assert(
-    !plan.toPrune.some((p) => p === `${base}/base` || p.endsWith("/poly-mod.ts")),
+    !plan.toPrune.some((p) =>
+      p === `${base}/base` || p.endsWith("/poly-mod.ts")
+    ),
     "base/ and the poly-mod barrel are not swept",
   );
 });
 
 Deno.test("parseBarrelTarget — reads the generated re-export, null on hand-rewrites", () => {
   assertEquals(
-    parseBarrelTarget('export { default } from "./implementations/wyn/mod.ts";'),
+    parseBarrelTarget(
+      'export { default } from "./implementations/wyn/mod.ts";',
+    ),
     "wyn",
   );
   assertEquals(
-    parseBarrelTarget("export { default } from './implementations/five-nine/mod.ts'"),
+    parseBarrelTarget(
+      "export { default } from './implementations/five-nine/mod.ts'",
+    ),
     "five-nine",
   );
   // A hand-rewritten runtime-switch barrel can't be read statically — skip, don't guess.
@@ -284,7 +295,10 @@ Deno.test("growth — appends the new audit method to the preserved adapter (stu
   const { content, added } = result.grown;
   // the phase-1 method is untouched, the phase-2 method is appended as a stub
   assertStringIncludes(content, "widgetDefined(");
-  assertStringIncludes(content, "widgetPartAttached(widgetDto: WidgetDto): Promise<void>");
+  assertStringIncludes(
+    content,
+    "widgetPartAttached(widgetDto: WidgetDto): Promise<void>",
+  );
   assertStringIncludes(content, 'throw new Error("not implemented");');
   assertEquals(added.includes("method widgetPartAttached"), true);
   // still exactly one class, closed once
@@ -298,7 +312,10 @@ Deno.test("growth — appends new kv methods the new coordinator calls (get, add
   assert(result && "grown" in result, "widget adapter must grow");
   const { content, added } = result.grown;
   assertStringIncludes(content, "get(widgetId: string): Promise<WidgetDto>");
-  assertStringIncludes(content, "addPart(widgetId: string, partId: string): Promise<WidgetDto>");
+  assertStringIncludes(
+    content,
+    "addPart(widgetId: string, partId: string): Promise<WidgetDto>",
+  );
   // set() exists from phase 1 — not duplicated
   assertEquals(content.match(/\n {2}set\(/g)!.length, 1);
   assertEquals(added.includes("method get"), true);
@@ -313,15 +330,24 @@ Deno.test("growth — appends the new @Endpoint delegator + its coordinator impo
   const { content, added } = result.grown;
   // the new endpoint method, decorated, delegating to the new coordinator
   assertStringIncludes(content, "@Endpoint({");
-  assertStringIncludes(content, "widgetAttach(body: WidgetPartDto): Promise<WidgetDto>");
+  assertStringIncludes(
+    content,
+    "widgetAttach(body: WidgetPartDto): Promise<WidgetDto>",
+  );
   assertStringIncludes(
     content,
     'import { attach as widgetAttach } from "@/src/widgets/domain/coordinators/widget-attach/mod.ts";',
   );
-  assertStringIncludes(content, 'import { WidgetPartDto } from "@/src/widgets/dto/widget-part.ts";');
+  assertStringIncludes(
+    content,
+    'import { WidgetPartDto } from "@/src/widgets/dto/widget-part.ts";',
+  );
   assertEquals(added.includes("@Endpoint widgetAttach"), true);
   // the phase-1 endpoint is untouched and not duplicated
-  assertEquals(content.match(/widgetDefine\(body: DefineWidgetDto\)/g)!.length, 1);
+  assertEquals(
+    content.match(/widgetDefine\(body: DefineWidgetDto\)/g)!.length,
+    1,
+  );
 });
 
 Deno.test("growth — appends the new DTO field with its decorator stack", () => {
@@ -345,7 +371,10 @@ Deno.test("growth — hand-filled bodies survive; nothing to add returns null", 
   );
   const result = planCreateOnceGrowth(path, filled, v2.get(path)!);
   assert(result && "grown" in result);
-  assertStringIncludes(result.grown.content, "await this.log.write(widgetDto); return;");
+  assertStringIncludes(
+    result.grown.content,
+    "await this.log.write(widgetDto); return;",
+  );
   // identical spec → nothing missing → null
   assertEquals(planCreateOnceGrowth(path, v1.get(path)!, v1.get(path)!), null);
   // non-growable roles (tests, coordinators) are never touched
@@ -383,16 +412,36 @@ import { isRuneGenerated } from "./mod.ts";
 
 Deno.test("isRuneGenerated — rune banners prove ownership; anything else is foreign", () => {
   // every banner rune's generators emit
-  assert(isRuneGenerated("// Generated by rune manifest from src/apps/apps.rune.\nexport class A {}\n"));
-  assert(isRuneGenerated("// Generated by rune manifest from ../spec/runes/apps.rune:382.\n"));
-  assert(isRuneGenerated("// Generated by rune manifest — DO NOT EDIT (regenerated on every `rune sync`).\n"));
+  assert(
+    isRuneGenerated(
+      "// Generated by rune manifest from src/apps/apps.rune.\nexport class A {}\n",
+    ),
+  );
+  assert(
+    isRuneGenerated(
+      "// Generated by rune manifest from ../spec/runes/apps.rune:382.\n",
+    ),
+  );
+  assert(
+    isRuneGenerated(
+      "// Generated by rune manifest — DO NOT EDIT (regenerated on every `rune sync`).\n",
+    ),
+  );
   assert(isRuneGenerated("// Generated by rune sync — DO NOT EDIT.\n"));
   // hand-authored files — including the exact infra header — are foreign
-  assert(!isRuneGenerated("// Hand-authored (not rune-generated): input to `apps/ship`.\nexport class ShipDto {}\n"));
+  assert(
+    !isRuneGenerated(
+      "// Hand-authored (not rune-generated): input to `apps/ship`.\nexport class ShipDto {}\n",
+    ),
+  );
   assert(!isRuneGenerated("export class ShipDto {}\n"));
   assert(!isRuneGenerated(""));
   // the phrase buried deep in a hand-written file does not hand rune ownership
-  assert(!isRuneGenerated("// mine\n\n\n\n\n// Generated by rune manifest from x.rune.\n"));
+  assert(
+    !isRuneGenerated(
+      "// mine\n\n\n\n\n// Generated by rune manifest from x.rune.\n",
+    ),
+  );
 });
 
 // ---- growth never retrofits inferred infrastructure (bug report 2026-09-03,
@@ -476,14 +525,18 @@ function accessFresh(spec: string): Map<string, string> {
   const srvs = new Map(parse(ACCESS_CORE).srvs.map((s) => [s.name, s]));
   const p = planManifest("src/access/access.rune", spec, new Set(), {}, srvs);
   assertEquals(p.errors, []);
-  return new Map([...p.toCreate, ...p.toRegenerate].map((f) => [f.path, f.content]));
+  return new Map(
+    [...p.toCreate, ...p.toRegenerate].map((f) => [f.path, f.content]),
+  );
 }
 
 /** The dev-owned on-disk state of the infra bug: the claims adapter exists with
  * its methods filled, but WITHOUT the service constructor or its import (the
  * dev rewrote the bodies against another store). */
 function devClaims(fresh: string): string {
-  return fresh.split("\n").filter((l) => !l.includes("FirebaseService")).join("\n");
+  return fresh.split("\n").filter((l) => !l.includes("FirebaseService")).join(
+    "\n",
+  );
 }
 
 Deno.test("growth — never appends a constructor no newly appended member references (infra 2026-09-03)", () => {
@@ -497,23 +550,42 @@ Deno.test("growth — never appends a constructor no newly appended member refer
   const existing = devClaims(v1.get(CLAIMS_PATH)!);
   // The grown spec owes claims NOTHING (its new REQ never touches the boundary):
   // growth must be a no-op — not a retrofitted constructor + import.
-  assertEquals(planCreateOnceGrowth(CLAIMS_PATH, existing, v2.get(CLAIMS_PATH)!), null);
+  assertEquals(
+    planCreateOnceGrowth(CLAIMS_PATH, existing, v2.get(CLAIMS_PATH)!),
+    null,
+  );
 });
 
 Deno.test("growth — a new boundary method appends WITHOUT dragging the inferred constructor in", () => {
   const v1 = accessFresh(ACCESS_V1);
   const v3 = accessFresh(ACCESS_V3);
   const existing = devClaims(v1.get(CLAIMS_PATH)!);
-  const result = planCreateOnceGrowth(CLAIMS_PATH, existing, v3.get(CLAIMS_PATH)!);
-  assert(result && "grown" in result, "the new claims.deny method must be appended");
+  const result = planCreateOnceGrowth(
+    CLAIMS_PATH,
+    existing,
+    v3.get(CLAIMS_PATH)!,
+  );
+  assert(
+    result && "grown" in result,
+    "the new claims.deny method must be appended",
+  );
   const { content, added } = result.grown;
   // The spec-driven member lands…
-  assertStringIncludes(content, "deny(claimKeyDto: ClaimKeyDto): Promise<void>");
+  assertStringIncludes(
+    content,
+    "deny(claimKeyDto: ClaimKeyDto): Promise<void>",
+  );
   assertEquals(added, ["method deny"]);
   // …the inferred infrastructure does not: no member of this class references
   // the service, and its zero-arg default may not even compile.
-  assert(!content.includes("constructor("), "no constructor may be retrofitted");
-  assert(!content.includes("FirebaseService"), "no unused service import may be added");
+  assert(
+    !content.includes("constructor("),
+    "no constructor may be retrofitted",
+  );
+  assert(
+    !content.includes("FirebaseService"),
+    "no unused service import may be added",
+  );
 });
 
 Deno.test("growth — braces inside strings/templates/comments don't break the class scan", () => {

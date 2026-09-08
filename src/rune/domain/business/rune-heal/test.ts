@@ -81,14 +81,20 @@ const ORPHAN_REQ = `[MOD] orphan
     o`;
 
 Deno.test("planHealRules — collects endpoint-attributed slugs, drops timeout", () => {
-  const plan = planHealRules([{ path: "src/tables/tables.rune", text: TABLES }]);
+  const plan = planHealRules([{
+    path: "src/tables/tables.rune",
+    text: TABLES,
+  }]);
   // `timeout` is keep's reserved generic → excluded; the rest are kept.
   assertEquals(plan.slugs, ["not-enabled", "quota-exceeded"]);
   assertEquals(plan.raisedBy["not-enabled"], ["write"]);
 });
 
 Deno.test("planHealRules — `not-enabled` pre-fills a run-step matching the enable endpoint", () => {
-  const plan = planHealRules([{ path: "src/tables/tables.rune", text: TABLES }]);
+  const plan = planHealRules([{
+    path: "src/tables/tables.rune",
+    text: TABLES,
+  }]);
   const sugg = plan.scaffold["not-enabled"];
   assertEquals(sugg.length, 1);
   assertEquals(sugg[0].kind, "run-step");
@@ -97,7 +103,10 @@ Deno.test("planHealRules — `not-enabled` pre-fills a run-step matching the ena
 });
 
 Deno.test("planHealRules — no signal falls back to a TODO note", () => {
-  const plan = planHealRules([{ path: "src/tables/tables.rune", text: TABLES }]);
+  const plan = planHealRules([{
+    path: "src/tables/tables.rune",
+    text: TABLES,
+  }]);
   const sugg = plan.scaffold["quota-exceeded"];
   assertEquals(sugg.length, 1);
   assertEquals(sugg[0].kind, "note");
@@ -105,7 +114,10 @@ Deno.test("planHealRules — no signal falls back to a TODO note", () => {
 });
 
 Deno.test("planHealRules — faults on a REQ no endpoint reaches are excluded", () => {
-  const plan = planHealRules([{ path: "src/orphan/orphan.rune", text: ORPHAN_REQ }]);
+  const plan = planHealRules([{
+    path: "src/orphan/orphan.rune",
+    text: ORPHAN_REQ,
+  }]);
   assertEquals(plan.slugs, []);
 });
 
@@ -212,7 +224,10 @@ Deno.test("todoSlugs — only slugs with a todo:true suggestion, sorted", () => 
       "zeta-fault": [{ kind: "note", todo: true }],
       "enriched": [{ kind: "run-step", match: "/x/i", why: "real" }],
       "alpha-fault": [{ kind: "run-step", match: "/y/i", todo: true }],
-      "mixed": [{ kind: "run-step", why: "real" }, { kind: "note", todo: true }],
+      "mixed": [{ kind: "run-step", why: "real" }, {
+        kind: "note",
+        todo: true,
+      }],
     },
   };
   assertEquals(todoSlugs(rules), ["alpha-fault", "mixed", "zeta-fault"]);

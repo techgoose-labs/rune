@@ -1,4 +1,4 @@
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
 
@@ -58,8 +58,12 @@ export async function check(
   // No regex match — use LSP to check if file only exports types (which is OK)
   if (ctx.lsp) {
     let exports;
-    try { exports = await ctx.lsp.getExportTypes(path); } catch {
-      return ["DTO file is missing runtime validation — add class-validator decorators or equivalent runtime checks"];
+    try {
+      exports = await ctx.lsp.getExportTypes(path);
+    } catch {
+      return [
+        "DTO file is missing runtime validation — add class-validator decorators or equivalent runtime checks",
+      ];
     }
 
     if (exports.length === 0) return null;
@@ -77,10 +81,13 @@ export async function check(
     if (allTypeOnly) return null;
   }
 
-  return ["DTO file is missing runtime validation — add class-validator decorators or equivalent runtime checks"];
+  return [
+    "DTO file is missing runtime validation — add class-validator decorators or equivalent runtime checks",
+  ];
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing DTO validation rules.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor enforcing DTO validation rules.
 
 Rule: Every DTO file must contain runtime validation logic — a schema (zod, valibot, typebox), a parse/validate call, or a throw on invalid input. Type-only DTOs are not enough because they disappear at runtime.
 

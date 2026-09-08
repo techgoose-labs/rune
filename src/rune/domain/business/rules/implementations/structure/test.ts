@@ -1,5 +1,5 @@
 import { assertEquals } from "#std/assert";
-import { resolveNode, getRequiredFiles, getExpectedAt, check } from "./mod.ts";
+import { check, getExpectedAt, getRequiredFiles, resolveNode } from "./mod.ts";
 import type { PipelineContext } from "@/core/dto/types.ts";
 
 function makeCtx(files: string[], dirs: string[]): PipelineContext {
@@ -107,7 +107,17 @@ Deno.test("check — the spec/ staging layout: runes/ holds specs, misc/ + ui/ a
       "spec/contract/client/dtos.ts",
       "spec/orders.rune", // legacy flat — still allowed
     ],
-    ["spec", "spec/runes", "spec/misc", "spec/misc/scenarios", "spec/ui", "spec/ui/pages", "spec/product", "spec/contract", "spec/contract/client"],
+    [
+      "spec",
+      "spec/runes",
+      "spec/misc",
+      "spec/misc/scenarios",
+      "spec/ui",
+      "spec/ui/pages",
+      "spec/product",
+      "spec/contract",
+      "spec/contract/client",
+    ],
   );
   // The three staging folders are recognized.
   assertEquals(await check("spec/runes", "folder", ctx), null);
@@ -121,7 +131,10 @@ Deno.test("check — the spec/ staging layout: runes/ holds specs, misc/ + ui/ a
   assertEquals(await check("spec/misc/data.json", "json", ctx), null);
   assertEquals(await check("spec/misc/data.review.html", "html", ctx), null);
   assertEquals(await check("spec/misc/cake.json", "json", ctx), null);
-  assertEquals(await check("spec/misc/scenarios/happy.json", "json", ctx), null);
+  assertEquals(
+    await check("spec/misc/scenarios/happy.json", "json", ctx),
+    null,
+  );
   assertEquals(await check("spec/ui/index.html", "html", ctx), null);
   assertEquals(await check("spec/ui/pages/queue.tsx", "tsx", ctx), null);
   // spec/product/ holds the founding docs (rune:scope output) — an ignore bucket.
@@ -155,19 +168,33 @@ Deno.test("check — assets file with any extension passes", async () => {
 
 Deno.test("check — optional file present passes", async () => {
   const ctx = makeCtx(
-    ["src/mymod/entrypoints/home/mod.ts", "src/mymod/entrypoints/home/template.html"],
+    [
+      "src/mymod/entrypoints/home/mod.ts",
+      "src/mymod/entrypoints/home/template.html",
+    ],
     ["src", "src/mymod", "src/mymod/entrypoints", "src/mymod/entrypoints/home"],
   );
-  const result = await check("src/mymod/entrypoints/home/template.html", "html", ctx);
+  const result = await check(
+    "src/mymod/entrypoints/home/template.html",
+    "html",
+    ctx,
+  );
   assertEquals(result, null);
 });
 
 Deno.test("check — optional file with wrong extension is flagged", async () => {
   const ctx = makeCtx(
-    ["src/mymod/entrypoints/home/mod.ts", "src/mymod/entrypoints/home/template.ts"],
+    [
+      "src/mymod/entrypoints/home/mod.ts",
+      "src/mymod/entrypoints/home/template.ts",
+    ],
     ["src", "src/mymod", "src/mymod/entrypoints", "src/mymod/entrypoints/home"],
   );
-  const result = await check("src/mymod/entrypoints/home/template.ts", "ts", ctx);
+  const result = await check(
+    "src/mymod/entrypoints/home/template.ts",
+    "ts",
+    ctx,
+  );
   assertEquals(result !== null, true);
   assertEquals(result![0].includes("Wrong extension"), true);
 });
@@ -184,13 +211,19 @@ Deno.test("check — feature folder with only mod.ts (no test.ts) should be flag
     ],
   );
   const result = await check("src/mymod/domain/business/myfeat", "folder", ctx);
-  assertEquals(result !== null, true, "feature folder with only mod.ts should be flagged");
+  assertEquals(
+    result !== null,
+    true,
+    "feature folder with only mod.ts should be flagged",
+  );
 });
 
 // A resolvable [PLY] feature folder (base/ + implementations/ + poly-mod.ts),
 // the shape a non-trivial dispatcher lives in.
 const POLY_DIRS = [
-  "src/orders", "src/orders/domain", "src/orders/domain/business",
+  "src/orders",
+  "src/orders/domain",
+  "src/orders/domain/business",
   "src/orders/domain/business/channel",
   "src/orders/domain/business/channel/base",
   "src/orders/domain/business/channel/implementations",
@@ -209,7 +242,11 @@ Deno.test("check — leading-underscore helper is allowed in a recognized [PLY] 
     [...POLY_FILES, "src/orders/domain/business/channel/_dispatch.ts"],
     POLY_DIRS,
   );
-  const result = await check("src/orders/domain/business/channel/_dispatch.ts", "ts", ctx);
+  const result = await check(
+    "src/orders/domain/business/channel/_dispatch.ts",
+    "ts",
+    ctx,
+  );
   assertEquals(result, null);
 });
 
@@ -220,7 +257,11 @@ Deno.test("check — underscore helper with a loose word is still flagged", asyn
     [...POLY_FILES, "src/orders/domain/business/channel/_helpers.ts"],
     POLY_DIRS,
   );
-  const result = await check("src/orders/domain/business/channel/_helpers.ts", "ts", ctx);
+  const result = await check(
+    "src/orders/domain/business/channel/_helpers.ts",
+    "ts",
+    ctx,
+  );
   assertEquals(result !== null, true);
   assertEquals(result!.some((v) => v.includes("loose/vague")), true);
 });
@@ -233,7 +274,10 @@ Deno.test("check — underscore helper with a loose word is still flagged", asyn
 // A descriptor <feature> folder accepts arbitrary user-named modules; a file
 // living in it is rejected ONLY by the loose-name guard, so this isolates it.
 const FEATURE_DIRS = [
-  "src", "src/orders", "src/orders/domain", "src/orders/domain/business",
+  "src",
+  "src/orders",
+  "src/orders/domain",
+  "src/orders/domain/business",
 ];
 function featureFile(name: string): string {
   return `src/orders/domain/business/${name}.ts`;
@@ -260,7 +304,9 @@ Deno.test("check — names that ARE a loose word/segment are still flagged (L2)"
     assertEquals(
       result !== null && result.some((v) => v.includes("loose/vague")),
       true,
-      `"${name}" must still be flagged as loose; got: ${JSON.stringify(result)}`,
+      `"${name}" must still be flagged as loose; got: ${
+        JSON.stringify(result)
+      }`,
     );
   }
 });
@@ -271,7 +317,11 @@ Deno.test("check — [PLY] dispatcher mod.ts is allowed alongside base/implement
     [...POLY_FILES, "src/orders/domain/business/channel/mod.ts"],
     POLY_DIRS,
   );
-  const result = await check("src/orders/domain/business/channel/mod.ts", "ts", ctx);
+  const result = await check(
+    "src/orders/domain/business/channel/mod.ts",
+    "ts",
+    ctx,
+  );
   assertEquals(result, null);
 });
 
@@ -301,7 +351,8 @@ Deno.test("check — S12: a grandchild mod.ts does not satisfy a coordinator's r
     ctx,
   );
   assertEquals(
-    result !== null && result.some((v) => v.includes('Missing required file "mod"')),
+    result !== null &&
+      result.some((v) => v.includes('Missing required file "mod"')),
     true,
     `grandchild mod.ts must not satisfy the required direct-child mod; got: ${
       JSON.stringify(result)
@@ -328,5 +379,9 @@ Deno.test("check — S12: a direct-child mod.ts + int.test.ts still passes", asy
     "folder",
     ctx,
   );
-  assertEquals(result, null, `direct children must satisfy: ${JSON.stringify(result)}`);
+  assertEquals(
+    result,
+    null,
+    `direct children must satisfy: ${JSON.stringify(result)}`,
+  );
 });

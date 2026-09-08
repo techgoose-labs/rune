@@ -1,7 +1,7 @@
 import type { EntryTarget, PipelineContext } from "@/core/dto/types.ts";
 import {
-  parse,
   type CseNode,
+  parse,
   type StepLike,
 } from "@rune/domain/business/rune-parse/mod.ts";
 import {
@@ -42,10 +42,18 @@ export async function check(
     const mod = `${dir}/mod.ts`;
     const smk = `${dir}/smk.test.ts`;
     if (!fileSet.has(mod)) {
-      violations.push(`Missing adapter file: ${mod} (for boundary ${info.service}:${noun} at line ${info.line + 1})`);
+      violations.push(
+        `Missing adapter file: ${mod} (for boundary ${info.service}:${noun} at line ${
+          info.line + 1
+        })`,
+      );
     }
     if (!fileSet.has(smk)) {
-      violations.push(`Missing adapter smoke test: ${smk} (for boundary ${info.service}:${noun} at line ${info.line + 1})`);
+      violations.push(
+        `Missing adapter smoke test: ${smk} (for boundary ${info.service}:${noun} at line ${
+          info.line + 1
+        })`,
+      );
     }
   }
 

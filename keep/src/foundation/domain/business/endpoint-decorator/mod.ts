@@ -100,6 +100,21 @@ export interface EndpointOptions {
    * segments are provided by `path`; this map tells the binder where to read each field.
    */
   sources?: Record<string, FieldSource>;
+  /**
+   * The OPENNESS MARKER (D-3): who may reach this endpoint. `"open"` means no
+   * credential is required. Omitted means the slot default — `authenticated`
+   * under the `backend` slot — so openness is always something the spec STATES
+   * rather than something a reader infers.
+   *
+   * It travels to the composition root as `x-bedrock-auth` on the operation's
+   * OpenAPI, which is where keep's policy table comes from. keep never enforces
+   * it; bedrock resolves the merged table and answers.
+   *
+   * rune's codegen emits this from `[REQ:open]` in the spec — which is what
+   * retires the hand-applied guard decorator that had to be re-added to every
+   * generated controller after every regeneration.
+   */
+  access?: "open" | "authenticated" | { grants: string[] };
 }
 
 /** Normalized process metadata attached to each `@Endpoint` handler. */
@@ -116,6 +131,8 @@ export interface ProcessMetadata {
   /** Per-field input source. Present only when at least one field is non-body, so endpoints
    * without field-source binding keep their existing x-keep-process shape. */
   sources?: Record<string, FieldSource>;
+  /** The openness marker, when the endpoint declared one. */
+  access?: "open" | "authenticated" | { grants: string[] };
 }
 
 const MAPPING: Record<EndpointMethod, (endpoint?: string) => MethodDecorator> =
@@ -219,6 +236,9 @@ export function Endpoint(opts: EndpointOptions = {}): MethodDecorator {
       path,
       // Carry field sources only when present, so non-bound endpoints keep their exact metadata.
       ...(hasSources ? { sources } : {}),
+      // Likewise the openness marker: absent means "the slot default", which is
+      // a different statement from "explicitly authenticated".
+      ...(opts.access === undefined ? {} : { access: opts.access }),
     };
     Reflect.defineMetadata(PROCESS_METADATA_KEY, meta, target, propertyKey);
   };

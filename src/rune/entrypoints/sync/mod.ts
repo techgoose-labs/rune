@@ -12,7 +12,11 @@ import {
 } from "@rune/domain/business/rune-manifest/mod.ts";
 import { loadArtifact } from "@rune/domain/business/artifact/mod.ts";
 import { checkArtifactVersion } from "@rune/entrypoints/init/artifact.ts";
-import { applyCase, isInProgSpec, isProjectSpec } from "@rune/domain/business/rune-bindings/mod.ts";
+import {
+  applyCase,
+  isInProgSpec,
+  isProjectSpec,
+} from "@rune/domain/business/rune-bindings/mod.ts";
 import {
   type CseNode,
   parse,
@@ -134,7 +138,10 @@ function errMessage(e: unknown): string {
 // `written` (optional) collects the ABSOLUTE path of every file this run actually
 // wrote, deleted, or moved (both sides of the spec move) — byte-identical skips
 // are NOT recorded. `rune dev` uses it to ignore the FS events sync itself causes.
-export async function runSync(args: string[], written?: string[]): Promise<number> {
+export async function runSync(
+  args: string[],
+  written?: string[],
+): Promise<number> {
   const parsed = parseSyncArgs(args);
   if (!parsed) {
     console.error(
@@ -147,7 +154,9 @@ export async function runSync(args: string[], written?: string[]): Promise<numbe
   }
 
   const absRune = resolve(parsed.runePath);
-  const root = parsed.root !== null ? resolve(parsed.root) : resolveRoot(absRune);
+  const root = parsed.root !== null
+    ? resolve(parsed.root)
+    : resolveRoot(absRune);
   const relRune = relative(root, absRune);
 
   // Artifact version handshake: when a spec/manifest.json is present (at the
@@ -369,7 +378,9 @@ export async function runSync(args: string[], written?: string[]): Promise<numbe
         await Deno.rename(absRune, specTarget);
         written?.push(absRune, resolve(specTarget));
         console.log(
-          `\n  ${CYAN}normalized spec name → ${relative(root, specTarget)}${RESET}`,
+          `\n  ${CYAN}normalized spec name → ${
+            relative(root, specTarget)
+          }${RESET}`,
         );
       } catch (e) {
         ioErrors.push(`move spec: ${errMessage(e)}`);
@@ -458,9 +469,10 @@ async function ensurePolyBarrels(
     if (barrel === null) continue;
     const target = parseBarrelTarget(barrel);
     if (target === null) continue; // hand-rewritten barrel — can't statically check
-    const exists =
-      (await readMaybe(join(root, f.dir, "implementations", target, "mod.ts"))) !==
-        null;
+    const exists = (await readMaybe(
+      join(root, f.dir, "implementations", target, "mod.ts"),
+    )) !==
+      null;
     const note = polyBarrelNote(f.dir, target, f.cases, exists);
     if (note) notes.push(note);
   }
@@ -491,10 +503,14 @@ const REQUIRED_IMPORTS: Record<string, string> = {
   // class-transformer copy — the single-copy invariant assert relies on. A
   // sprig-overlaid project (rune init) inherits its main pin from sprig, so
   // sprig's @mrg-keystone/rune major must match this one too.
-  "@mrg-keystone/rune": "jsr:@mrg-keystone/rune@^6",
+  "@mrg-keystone/rune": "jsr:@mrg-keystone/rune@^7",
+  // The foundation: the composition root, the runtime, the one in-process
+  // client, the observability boundary. `bootstrap/mod.ts` composes with it,
+  // and the generated e2e tests serve through it.
+  "@mrg-keystone/bedrock": "jsr:@mrg-keystone/bedrock@^1",
   // Generated coordinators validate their seams via keep's assert runtime,
   // published as the @mrg-keystone/rune/assert subpath (same major as above).
-  "#assert": "jsr:@mrg-keystone/rune@^6/assert",
+  "#assert": "jsr:@mrg-keystone/rune@^7/assert",
   // DTO [TYP:example=…] fields emit @ApiProperty({ example }) — the swagger
   // decorator keep's runner/cake read example values from. Same range keep
   // itself maps #danet/swagger to.
@@ -545,7 +561,9 @@ export async function ensureImportMap(
     }
   }
   const imports: Record<string, string> =
-    (config.imports && typeof config.imports === "object") ? config.imports : {};
+    (config.imports && typeof config.imports === "object")
+      ? config.imports
+      : {};
   const added: string[] = [];
   for (const [k, v] of Object.entries(REQUIRED_IMPORTS)) {
     if (!(k in imports)) {
@@ -731,19 +749,25 @@ export function renderMain(appName: string): string {
     "// App bootstrap (dev-owned): created once by rune sync, never overwritten —",
     "// tune the app name, port, or keep options freely. The module registry",
     "// (bootstrap/modules.ts) is regenerated as runes are added and removed.",
+    "//",
+    "// `api` is a bedrock UNIT: the backend half of the app. The composition",
+    "// root is the git root's serve.ts — `Bedrock({ ui, backend: api, auth })`",
+    "// — which is where a UI or an auth unit joins it. The block below is the",
+    "// standalone shape, for running the backend on its own.",
     "",
     'import { bootstrapServer } from "@mrg-keystone/rune";',
+    'import { Bedrock } from "@mrg-keystone/bedrock";',
     'import { config } from "@/bootstrap/config.ts";',
     'import { modules } from "@/bootstrap/modules.ts";',
     "",
     `export const api = await bootstrapServer("${appName}", modules, { port: config.port });`,
     "",
     "if (import.meta.main) {",
-    "  // listen() walks to the next free port if config.port is busy; the",
-    "  // runtime logs the actual bound port (\"Listening on <port>\").",
-    "  await api.listen();",
+    "  // One socket serves the whole composed app; PORT is fail-loud, so a busy",
+    "  // port is an error you see rather than a silent bind somewhere else.",
+    "  const { port } = await Bedrock({ backend: api }).listen();",
     "  console.log(",
-    `    \`${appName} on http://localhost:\${config.port} — emulator at /docs/<module>\`,`,
+    `    \`${appName} on http://localhost:\${port} — emulator at /api/docs/<module>\`,`,
     "  );",
     "}",
     "",
@@ -804,7 +828,9 @@ export async function ensureBootstrap(
       await Deno.writeTextFile(registryPath, registry);
       written?.push(registryPath);
       notes.push(
-        `${existing === null ? "created" : "updated"} bootstrap/modules.ts (module registry: ${surfaces.length} surface module(s))`,
+        `${
+          existing === null ? "created" : "updated"
+        } bootstrap/modules.ts (module registry: ${surfaces.length} surface module(s))`,
       );
     } catch (e) {
       ioErrors.push(`bootstrap/modules.ts: ${errMessage(e)}`);
@@ -976,7 +1002,9 @@ export async function ensureHealRules(
 
   const { result, added, stale, changed } = mergeHealRules(existing, scaffold);
   const staleNote = stale.length > 0
-    ? `${dir}/heal-rules.json: ${stale.length} slug(s) no longer declared by any endpoint (kept — prune by hand): ${stale.join(", ")}`
+    ? `${dir}/heal-rules.json: ${stale.length} slug(s) no longer declared by any endpoint (kept — prune by hand): ${
+      stale.join(", ")
+    }`
     : null;
   // The enrichment nudge is emitted on EVERY sync while un-enriched (todo:true)
   // entries remain — not just the sync that created them. CLI output lands in an
@@ -1001,7 +1029,9 @@ export async function ensureHealRules(
     notes.push(
       existingRaw === null
         ? `created ${dir}/heal-rules.json (${slugs.length} slug scaffold(s) — enrich each entry's actions/why for keep's cake healer)`
-        : `updated ${dir}/heal-rules.json (added ${added.length} new slug(s): ${added.join(", ")})`,
+        : `updated ${dir}/heal-rules.json (added ${added.length} new slug(s): ${
+          added.join(", ")
+        })`,
     );
     if (staleNote) notes.push(staleNote);
     if (enrichNote) notes.push(enrichNote);
@@ -1103,7 +1133,9 @@ export function formatRunAllVerdict(
       }
     }
     L.push(
-      `    ${RED}${f.module}:${f.id}  ${f.status ?? "?"} ${text}${hint}${RESET}`,
+      `    ${RED}${f.module}:${f.id}  ${
+        f.status ?? "?"
+      } ${text}${hint}${RESET}`,
     );
   }
   for (const c of cycles) {
@@ -1159,7 +1191,9 @@ async function runAllGate(
         "try {",
         '  const keepMod = await import("@mrg-keystone/rune");',
         '  if (typeof keepMod.emitContractOpenApi === "function") {',
-        `    const c = await keepMod.emitContractOpenApi(${JSON.stringify(specDir)}, api.docs, ${JSON.stringify(appLabel)});`,
+        `    const c = await keepMod.emitContractOpenApi(${
+          JSON.stringify(specDir)
+        }, api.docs, ${JSON.stringify(appLabel)});`,
         '    if (c.wrote) console.error("contract: wrote spec/contract/openapi.json (x-spec-hash " + c.hash.slice(0, 12) + "…)");',
         "  }",
         "} catch (e) {",
@@ -1221,7 +1255,9 @@ async function runAllGate(
     try {
       report = JSON.parse(marker.slice(GATE_MARKER.length));
     } catch {
-      return [`  ${YELLOW}run-all: unreadable walk report — re-run manually.${RESET}`];
+      return [
+        `  ${YELLOW}run-all: unreadable walk report — re-run manually.${RESET}`,
+      ];
     }
     const heal = await loadProjectHealRules(root);
     return formatRunAllVerdict(report, heal);

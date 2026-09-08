@@ -1,4 +1,5 @@
-import { basename, dirname, join } from "#std/path";
+import { basename, join } from "#std/path";
+import { specRootOf } from "@mrg-keystone/bedrock/artifact";
 
 // ── shared dev-process registry (~/.rune/dev.json) ───────────────────────────
 // ONE `rune dev` per git repo. The first run is the OWNER: it runs the watch loop + the app child
@@ -30,18 +31,24 @@ export function devLockPath(): string {
   return join(runeStateRoot(), "dev.json");
 }
 
-/** Nearest `.git` ancestor of `startAbs` (a clone has a `.git` dir, a worktree a `.git` file — test
- *  existence, not type), or null outside any repo. */
+/** Nearest `.git` ancestor of `startAbs` (a clone has a `.git` dir, a worktree a
+ *  `.git` file — existence, not type), or null outside any repo.
+ *
+ *  The walk itself is the artifact format's ONE implementation (D-9): this file
+ *  used to carry a copy, and a copy that drifts keys the dev registry to a
+ *  different repo than the one `spec/` resolves under. `specRootOf` returns the
+ *  start unchanged when there is no `.git` ancestor, which is the "outside a
+ *  repo" case this signature reports as null. */
 export function gitRepoRoot(startAbs: string): string | null {
-  let d = startAbs;
-  for (;;) {
-    try {
-      Deno.statSync(join(d, ".git"));
-      return d;
-    } catch { /* keep walking up */ }
-    const parent = dirname(d);
-    if (parent === d) return null;
-    d = parent;
+  const root = specRootOf(startAbs);
+  if (root !== startAbs) return root;
+  // The walk returned the start: either the start IS the repo root, or there is
+  // no repo at all. One lstat tells them apart.
+  try {
+    Deno.lstatSync(join(startAbs, ".git"));
+    return startAbs;
+  } catch {
+    return null;
   }
 }
 

@@ -1,5 +1,5 @@
 import { getModuleFromPath } from "@core/business/classify/mod.ts";
-import type { PipelineContext, EntryTarget } from "@core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@core/dto/types.ts";
 
 const EXCLUDED_MODULES = new Set(["core", "bootstrap"]);
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
@@ -43,7 +43,9 @@ export async function check(
   // Signal 1: Small module
   const isSmall = sourceFiles.length < MIN_SOURCE_FILES;
   if (isSmall) {
-    violations.push(`Module only has ${sourceFiles.length} source files — consider merging it into a related module`);
+    violations.push(
+      `Module only has ${sourceFiles.length} source files — consider merging it into a related module`,
+    );
   }
 
   // Signal 3 (computed early — it corroborates the single-feature signal below):
@@ -75,12 +77,20 @@ export async function check(
     (isSmall || isUnderutilized)
   ) {
     const names = businessFeatures.map((d) => d.split("/").pop());
-    violations.push(`Module has only one business feature (${names.join(", ")}) — it may not need its own module`);
+    violations.push(
+      `Module has only one business feature (${
+        names.join(", ")
+      }) — it may not need its own module`,
+    );
   }
 
   if (isUnderutilized) {
-    const layerList = activeLayers.length > 0 ? activeLayers.join(", ") : "none";
-    violations.push(`Module only uses ${activeLayers.length} layer(s) (${layerList}) — consider merging into a module that uses more of the architecture`);
+    const layerList = activeLayers.length > 0
+      ? activeLayers.join(", ")
+      : "none";
+    violations.push(
+      `Module only uses ${activeLayers.length} layer(s) (${layerList}) — consider merging into a module that uses more of the architecture`,
+    );
   }
 
   // Signal 4: High coupling (only for already-flagged modules)
@@ -114,7 +124,8 @@ export async function check(
   return violations.length > 0 ? violations : null;
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor detecting fragmented modules that should be consolidated.
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor detecting fragmented modules that should be consolidated.
 
 Signals of fragmentation:
 - Very few source files (module is too small to justify its own namespace)
@@ -133,14 +144,30 @@ export function buildPrompt(
   const parts: string[] = [];
 
   for (const v of violations) {
-    if (v.startsWith("small-module:"))
-      parts.push(`Module "${moduleName}" has very few source files (${v.split(":")[1]})`);
-    if (v.startsWith("single-feature:"))
-      parts.push(`Module "${moduleName}" contains only one business feature: ${v.split(":")[1]}`);
-    if (v.startsWith("underutilized-layers:"))
-      parts.push(`Module "${moduleName}" only uses layers: ${v.split(":")[1] || "none"}`);
-    if (v.startsWith("high-coupling:"))
-      parts.push(`Module "${moduleName}" is heavily coupled: ${v.split(":").slice(1).join(":")}`);
+    if (v.startsWith("small-module:")) {
+      parts.push(
+        `Module "${moduleName}" has very few source files (${v.split(":")[1]})`,
+      );
+    }
+    if (v.startsWith("single-feature:")) {
+      parts.push(
+        `Module "${moduleName}" contains only one business feature: ${
+          v.split(":")[1]
+        }`,
+      );
+    }
+    if (v.startsWith("underutilized-layers:")) {
+      parts.push(
+        `Module "${moduleName}" only uses layers: ${v.split(":")[1] || "none"}`,
+      );
+    }
+    if (v.startsWith("high-coupling:")) {
+      parts.push(
+        `Module "${moduleName}" is heavily coupled: ${
+          v.split(":").slice(1).join(":")
+        }`,
+      );
+    }
   }
 
   return `Module path: ${path}

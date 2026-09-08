@@ -17,7 +17,10 @@ const baseline: LintRule[] = [
 ];
 
 Deno.test("a spec author cannot disable a locked rule", () => {
-  const { rules, rejected } = applyOverlay(baseline, [{ id: "layer-restrictions", enabled: false }], "dev@team");
+  const { rules, rejected } = applyOverlay(baseline, [{
+    id: "layer-restrictions",
+    enabled: false,
+  }], "dev@team");
   assertEquals(rules.find((r) => r.id === "layer-restrictions")?.enabled, true);
   assertEquals(rejected.length, 1);
   assert(rejected[0].reason.includes("disable"));
@@ -25,24 +28,49 @@ Deno.test("a spec author cannot disable a locked rule", () => {
 });
 
 Deno.test("a spec author cannot downgrade a locked rule's severity", () => {
-  const { rules, rejected } = applyOverlay(baseline, [{ id: "layer-restrictions", severity: "warning" }]);
-  assertEquals(rules.find((r) => r.id === "layer-restrictions")?.severity, "error");
+  const { rules, rejected } = applyOverlay(baseline, [{
+    id: "layer-restrictions",
+    severity: "warning",
+  }]);
+  assertEquals(
+    rules.find((r) => r.id === "layer-restrictions")?.severity,
+    "error",
+  );
   assertEquals(rejected.length, 1);
 });
 
 Deno.test("tightening a locked rule is allowed", () => {
   const base = [rule({ id: "x", locked: true, severity: "warning" })];
-  const { rules, rejected } = applyOverlay(base, [{ id: "x", severity: "error" }]);
+  const { rules, rejected } = applyOverlay(base, [{
+    id: "x",
+    severity: "error",
+  }]);
   assertEquals(rules[0].severity, "error");
   assertEquals(rejected.length, 0);
 });
 
 Deno.test("non-locked rules take the overlay as-is", () => {
-  const { rules } = applyOverlay(baseline, [{ id: "module-fragmentation", enabled: false }]);
-  assertEquals(rules.find((r) => r.id === "module-fragmentation")?.enabled, false);
+  const { rules } = applyOverlay(baseline, [{
+    id: "module-fragmentation",
+    enabled: false,
+  }]);
+  assertEquals(
+    rules.find((r) => r.id === "module-fragmentation")?.enabled,
+    false,
+  );
 });
 
 Deno.test("overlayIsCompliant flags a weakening overlay", () => {
-  assert(!overlayIsCompliant(baseline, [{ id: "layer-restrictions", enabled: false }]));
-  assert(overlayIsCompliant(baseline, [{ id: "module-fragmentation", enabled: false }]));
+  assert(
+    !overlayIsCompliant(baseline, [{
+      id: "layer-restrictions",
+      enabled: false,
+    }]),
+  );
+  assert(
+    overlayIsCompliant(baseline, [{
+      id: "module-fragmentation",
+      enabled: false,
+    }]),
+  );
 });

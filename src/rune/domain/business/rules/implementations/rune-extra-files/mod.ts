@@ -1,7 +1,7 @@
 import type { EntryTarget, PipelineContext } from "@/core/dto/types.ts";
 import {
-  parse,
   type CseNode,
+  parse,
   type StepLike,
 } from "@rune/domain/business/rune-parse/mod.ts";
 import {
@@ -43,11 +43,15 @@ export async function check(
 
   if (slotInfo.kind === "dir") {
     if (!predictions.dirs.has(path)) {
-      return [`Orphan ${slotInfo.slot} folder: ${path} — no rune element declares it`];
+      return [
+        `Orphan ${slotInfo.slot} folder: ${path} — no rune element declares it`,
+      ];
     }
   } else {
     if (!predictions.files.has(path)) {
-      return [`Orphan ${slotInfo.slot} file: ${path} — no rune element declares it`];
+      return [
+        `Orphan ${slotInfo.slot} file: ${path} — no rune element declares it`,
+      ];
     }
   }
 
@@ -68,15 +72,24 @@ function classifyPath(path: string, target: EntryTarget): SlotInfo | null {
   const module = parts[0];
 
   // src/<module>/domain/coordinators/<process>
-  if (parts[1] === "domain" && parts[2] === "coordinators" && parts.length === 4 && target === "folder") {
+  if (
+    parts[1] === "domain" && parts[2] === "coordinators" &&
+    parts.length === 4 && target === "folder"
+  ) {
     return { module, slot: "coordinator", kind: "dir" };
   }
   // src/<module>/domain/business/<feature>
-  if (parts[1] === "domain" && parts[2] === "business" && parts.length === 4 && target === "folder") {
+  if (
+    parts[1] === "domain" && parts[2] === "business" && parts.length === 4 &&
+    target === "folder"
+  ) {
     return { module, slot: "business-feature", kind: "dir" };
   }
   // src/<module>/domain/data/<service>
-  if (parts[1] === "domain" && parts[2] === "data" && parts.length === 4 && target === "folder") {
+  if (
+    parts[1] === "domain" && parts[2] === "data" && parts.length === 4 &&
+    target === "folder"
+  ) {
     return { module, slot: "adapter", kind: "dir" };
   }
   // src/<module>/entrypoints/<surface>
@@ -99,7 +112,9 @@ async function getPredictions(ctx: PipelineContext): Promise<Predictions> {
   const modules = new Set<string>();
   const dtoBinding = bindings["<name>"];
 
-  const runeFiles = ctx.files.filter((f) => f.endsWith(".rune") && isProjectSpec(f));
+  const runeFiles = ctx.files.filter((f) =>
+    f.endsWith(".rune") && isProjectSpec(f)
+  );
   for (const path of runeFiles) {
     const text = await ctx.getFileContent(path);
     const ast = parse(text);
@@ -108,7 +123,11 @@ async function getPredictions(ctx: PipelineContext): Promise<Predictions> {
     modules.add(moduleName);
 
     for (const req of ast.reqs) {
-      dirs.add(`src/${moduleName}/domain/coordinators/${processName(req.noun, req.verb)}`);
+      dirs.add(
+        `src/${moduleName}/domain/coordinators/${
+          processName(req.noun, req.verb)
+        }`,
+      );
       walkSteps(req.steps, moduleName, dirs);
     }
 
@@ -142,14 +161,24 @@ async function getPredictions(ctx: PipelineContext): Promise<Predictions> {
   return result;
 }
 
-function walkSteps(steps: StepLike[] | CseNode["steps"], moduleName: string, dirs: Set<string>): void {
+function walkSteps(
+  steps: StepLike[] | CseNode["steps"],
+  moduleName: string,
+  dirs: Set<string>,
+): void {
   for (const step of steps) {
     if (step.kind === "step") {
-      dirs.add(`src/${moduleName}/domain/business/${applyCase(step.noun, "kebab")}`);
+      dirs.add(
+        `src/${moduleName}/domain/business/${applyCase(step.noun, "kebab")}`,
+      );
     } else if (step.kind === "boundary") {
-      dirs.add(`src/${moduleName}/domain/data/${applyCase(step.noun, "kebab")}`);
+      dirs.add(
+        `src/${moduleName}/domain/data/${applyCase(step.noun, "kebab")}`,
+      );
     } else if (step.kind === "ply") {
-      dirs.add(`src/${moduleName}/domain/business/${applyCase(step.noun, "kebab")}`);
+      dirs.add(
+        `src/${moduleName}/domain/business/${applyCase(step.noun, "kebab")}`,
+      );
       for (const cse of step.cases) {
         walkSteps(cse.steps, moduleName, dirs);
       }

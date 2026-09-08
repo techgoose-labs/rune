@@ -75,8 +75,7 @@ function collectServices(
   }
 }
 
-export const SYSTEM_PROMPT =
-  `You are enforcing the rune-service-presence rule.
+export const SYSTEM_PROMPT = `You are enforcing the rune-service-presence rule.
 
 Every boundary call uses a declared service prefix: \`service:noun.verb(...)\`.
 Services are SHARED: declare each one ONCE in src/core/core.rune:

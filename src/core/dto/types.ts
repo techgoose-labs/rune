@@ -44,9 +44,18 @@ export interface LspContext {
     featureDirs: string[],
   ): Promise<Map<string, ExportInfo[]>>;
   getSymbolType(relPath: string, symbolName: string): Promise<string | null>;
-  findSymbolReferences(relPath: string, symbolName: string): Promise<Location[]>;
-  findSymbolImplementations(relPath: string, symbolName: string): Promise<Location[]>;
-  findSymbolDefinition(relPath: string, symbolName: string): Promise<Location[]>;
+  findSymbolReferences(
+    relPath: string,
+    symbolName: string,
+  ): Promise<Location[]>;
+  findSymbolImplementations(
+    relPath: string,
+    symbolName: string,
+  ): Promise<Location[]>;
+  findSymbolDefinition(
+    relPath: string,
+    symbolName: string,
+  ): Promise<Location[]>;
   getDiagnostics(relPath: string): Promise<Diagnostic[]>;
 }
 
@@ -84,7 +93,11 @@ export interface EntryResult {
 export interface RuleDefinition {
   name: string;
   description: string;
-  check(path: string, target: EntryTarget, ctx: PipelineContext): Promise<string[] | null>;
+  check(
+    path: string,
+    target: EntryTarget,
+    ctx: PipelineContext,
+  ): Promise<string[] | null>;
   systemPrompt: string;
   buildPrompt(violations: string[], path: string, target: EntryTarget): string;
 }

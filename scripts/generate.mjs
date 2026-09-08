@@ -47,4 +47,6 @@ console.log(
 );
 console.log("  lang/grammar/grammar.js");
 console.log("  lang/queries/highlights.scm");
-if (!outOnly) console.log("(tree-sitter parser: run `tree-sitter generate` in rune/)");
+if (!outOnly) {
+  console.log("(tree-sitter parser: run `tree-sitter generate` in rune/)");
+}

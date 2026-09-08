@@ -1,7 +1,7 @@
 import type { EntryTarget, PipelineContext } from "@/core/dto/types.ts";
 import {
-  parse,
   type CseNode,
+  parse,
   type ReqNode,
   type StepLike,
 } from "@rune/domain/business/rune-parse/mod.ts";
@@ -40,7 +40,9 @@ export async function check(
   const expected = new Map<string, Set<string>>();
 
   for (const req of ast.reqs) {
-    const intPath = `src/${moduleName}/domain/coordinators/${processName(req.noun, req.verb)}/int.test.ts`;
+    const intPath = `src/${moduleName}/domain/coordinators/${
+      processName(req.noun, req.verb)
+    }/int.test.ts`;
     const reqFaults = collectAllFaults(req);
 
     if (reqFaults.size > 0) {
@@ -69,7 +71,10 @@ function collectAllFaults(req: ReqNode): Set<string> {
   return out;
 }
 
-function collectFromSteps(steps: StepLike[] | CseNode["steps"], out: Set<string>): void {
+function collectFromSteps(
+  steps: StepLike[] | CseNode["steps"],
+  out: Set<string>,
+): void {
   for (const step of steps) {
     if (step.kind === "step" || step.kind === "boundary") {
       for (const f of step.faults) out.add(f);

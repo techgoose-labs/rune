@@ -1,6 +1,10 @@
 import { assertEquals } from "#std/assert";
 import { areSignaturesCompatible, check, getArity } from "./mod.ts";
-import type { PipelineContext, LspContext, LspCapabilities } from "@core/dto/types.ts";
+import type {
+  LspCapabilities,
+  LspContext,
+  PipelineContext,
+} from "@core/dto/types.ts";
 
 const nullLspCtx: PipelineContext = {
   targetDir: "/tmp",
@@ -12,13 +16,20 @@ const nullLspCtx: PipelineContext = {
 };
 
 function mockLsp(
-  exportsByDir: Record<string, Array<{ name: string; kind: string; type: string }>>,
+  exportsByDir: Record<
+    string,
+    Array<{ name: string; kind: string; type: string }>
+  >,
   typesBySymbol: Record<string, string> = {},
 ): LspContext {
   return {
     capabilities: {
-      documentSymbol: true, hover: true, references: true,
-      implementation: true, definition: true, diagnostics: false,
+      documentSymbol: true,
+      hover: true,
+      references: true,
+      implementation: true,
+      definition: true,
+      diagnostics: false,
     } as LspCapabilities,
     getExportTypes: async (relPath: string) => {
       const dir = relPath.split("/").slice(-2, -1)[0];
@@ -31,7 +42,8 @@ function mockLsp(
       }
       return result;
     },
-    getSymbolType: async (_relPath, symbolName) => typesBySymbol[symbolName] ?? null,
+    getSymbolType: async (_relPath, symbolName) =>
+      typesBySymbol[symbolName] ?? null,
     findSymbolReferences: async () => [],
     findSymbolImplementations: async () => [],
     findSymbolDefinition: async () => [],
@@ -88,8 +100,15 @@ Deno.test("check — flags 3+ siblings with same exports and compatible types", 
       "src/orders/domain/business/feat-c",
     ],
     lsp: mockLsp(
-      { "feat-a": sharedExports, "feat-b": sharedExports, "feat-c": sharedExports },
-      { check: "(path: string) => Promise<string[] | null>", buildPrompt: "(v: string[]) => string" },
+      {
+        "feat-a": sharedExports,
+        "feat-b": sharedExports,
+        "feat-c": sharedExports,
+      },
+      {
+        check: "(path: string) => Promise<string[] | null>",
+        buildPrompt: "(v: string[]) => string",
+      },
     ),
   };
   const result = await check("src/orders/domain/business", "folder", ctx);

@@ -18,7 +18,9 @@ export async function runValidate(args: string[]): Promise<number> {
   try {
     raw = await Deno.readTextFile(resolve(path));
   } catch (e) {
-    console.error(`error: cannot read ${path}: ${e instanceof Error ? e.message : e}`);
+    console.error(
+      `error: cannot read ${path}: ${e instanceof Error ? e.message : e}`,
+    );
     return 2;
   }
 
@@ -26,17 +28,23 @@ export async function runValidate(args: string[]): Promise<number> {
   try {
     parsed = JSON.parse(raw);
   } catch (e) {
-    console.error(`error: ${path} is not valid JSON: ${e instanceof Error ? e.message : e}`);
+    console.error(
+      `error: ${path} is not valid JSON: ${e instanceof Error ? e.message : e}`,
+    );
     return 2;
   }
 
   const result = validateArtifact(parsed);
   if (json) {
-    console.log(JSON.stringify({ ok: result.ok, errors: result.errors }, null, 2));
+    console.log(
+      JSON.stringify({ ok: result.ok, errors: result.errors }, null, 2),
+    );
   } else if (result.ok) {
     console.log(`\x1b[32m${path}: valid artifact\x1b[0m`);
   } else {
-    console.error(`\x1b[31m${path}: invalid artifact (${result.errors.length} error(s)):\x1b[0m`);
+    console.error(
+      `\x1b[31m${path}: invalid artifact (${result.errors.length} error(s)):\x1b[0m`,
+    );
     for (const e of result.errors) console.error(`  [${e.path}] ${e.message}`);
   }
   return result.ok ? 0 : 1;

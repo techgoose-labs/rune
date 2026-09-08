@@ -11,7 +11,11 @@ Deno.test("check — skips non-dto files", async () => {
     getImports: async () => [],
     lsp: null,
   };
-  const result = await check("src/orders/domain/business/foo/mod.ts", "ts", ctx);
+  const result = await check(
+    "src/orders/domain/business/foo/mod.ts",
+    "ts",
+    ctx,
+  );
   assertEquals(result, null);
 });
 

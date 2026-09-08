@@ -1,10 +1,11 @@
 import { canonicalPaths as SHAPE } from "@rune/domain/business/artifact/canonical-paths.ts";
-import type { PipelineContext, EntryTarget } from "@/core/dto/types.ts";
+import type { EntryTarget, PipelineContext } from "@/core/dto/types.ts";
 
 const FORBIDDEN_DIRS = new Set(
   (SHAPE as Record<string, unknown>)["$forbiddenDirNames"] as string[],
 );
-const LOOSE_NAMES = (SHAPE as Record<string, unknown>)["$looseFileNames"] as string[];
+const LOOSE_NAMES =
+  (SHAPE as Record<string, unknown>)["$looseFileNames"] as string[];
 
 /** Split a name into its word tokens across camelCase, kebab- and snake_case
  * boundaries (e.g. `myUtils` → [my, utils], `my-utils` → [my, utils],
@@ -133,7 +134,11 @@ export function resolveNode(
       current = node[folderKey];
       if (isVariantArray(current)) {
         if (!ctx) return null;
-        current = resolveArrayVariant(current as unknown[], [...pathSoFar, seg].join("/"), ctx);
+        current = resolveArrayVariant(
+          current as unknown[],
+          [...pathSoFar, seg].join("/"),
+          ctx,
+        );
         if (!current) return null;
       }
       pathSoFar.push(seg);
@@ -151,7 +156,11 @@ export function resolveNode(
       current = node[descriptorKey];
       if (isVariantArray(current)) {
         if (!ctx) return null;
-        current = resolveArrayVariant(current as unknown[], [...pathSoFar, seg].join("/"), ctx);
+        current = resolveArrayVariant(
+          current as unknown[],
+          [...pathSoFar, seg].join("/"),
+          ctx,
+        );
         if (!current) return null;
       }
       pathSoFar.push(seg);
@@ -226,7 +235,9 @@ function formatExpected(node: ShapeNode): string {
     }
   }
 
-  if (folders.length) parts.push("  Folders: " + folders.map(f => f.trim()).join(", "));
+  if (folders.length) {
+    parts.push("  Folders: " + folders.map((f) => f.trim()).join(", "));
+  }
   if (files.length) parts.push(...files);
 
   return parts.length > 0 ? "\n\nExpected structure:\n" + parts.join("\n") : "";
@@ -259,14 +270,29 @@ export async function check(
 
     if (node === null) {
       const parentSegs = segments.slice(0, -1);
-      const parentNode = parentSegs.length > 0 ? resolveNode(parentSegs, ctx) : null;
-      violations.push(`This folder is not allowed by the project structure spec${expectedHint(parentNode)}`);
+      const parentNode = parentSegs.length > 0
+        ? resolveNode(parentSegs, ctx)
+        : null;
+      violations.push(
+        `This folder is not allowed by the project structure spec${
+          expectedHint(parentNode)
+        }`,
+      );
     }
-    if (FORBIDDEN_DIRS.has(name)) violations.push(`"${name}" is a forbidden directory name — use a more specific name`);
-    if (name === "core" && path !== "src/core")
-      violations.push("Only src/core can be named \"core\" — rename this folder");
+    if (FORBIDDEN_DIRS.has(name)) {
+      violations.push(
+        `"${name}" is a forbidden directory name — use a more specific name`,
+      );
+    }
+    if (name === "core" && path !== "src/core") {
+      violations.push('Only src/core can be named "core" — rename this folder');
+    }
     const looseFolderMatch = containsLooseName(name);
-    if (looseFolderMatch) violations.push(`"${name}" contains loose/vague word "${looseFolderMatch}" — use a more specific name`);
+    if (looseFolderMatch) {
+      violations.push(
+        `"${name}" contains loose/vague word "${looseFolderMatch}" — use a more specific name`,
+      );
+    }
 
     if (node !== null) {
       const required = getRequiredFiles(node);
@@ -314,10 +340,20 @@ export async function check(
 
   const parentSegs = segments.slice(0, -1);
   const parentNode = resolveNode(parentSegs, ctx);
-  if (parentNode === null) return [`This file is not allowed here — parent folder is not in the spec${expectedHint(null)}`];
+  if (parentNode === null) {
+    return [
+      `This file is not allowed here — parent folder is not in the spec${
+        expectedHint(null)
+      }`,
+    ];
+  }
 
   const looseFileMatch = containsLooseName(baseName);
-  if (looseFileMatch) return [`"${baseName}" contains loose/vague word "${looseFileMatch}" — use a more specific name`];
+  if (looseFileMatch) {
+    return [
+      `"${baseName}" contains loose/vague word "${looseFileMatch}" — use a more specific name`,
+    ];
+  }
 
   // Co-located private helpers: a leading-underscore file (e.g. `_dispatch.ts`,
   // `_leaf.ts`) is an intentional internal split of the folder it lives in — the
@@ -334,7 +370,11 @@ export async function check(
     if (k === baseName) {
       const spec = toFileSpec(v);
       if (spec.ext && spec.ext.length > 0 && !spec.ext.includes(ext)) {
-        return [`Wrong extension "${ext}" — expected ${spec.ext.join(" or ")} (${spec.desc ?? k})`];
+        return [
+          `Wrong extension "${ext}" — expected ${spec.ext.join(" or ")} (${
+            spec.desc ?? k
+          })`,
+        ];
       }
       return null;
     }
@@ -347,7 +387,11 @@ export async function check(
     if (k.startsWith("<") && k.endsWith(">")) {
       const spec = toFileSpec(v);
       if (spec.ext && spec.ext.length > 0 && !spec.ext.includes(ext)) {
-        return [`Wrong extension "${ext}" — expected ${spec.ext.join(" or ")} (${spec.desc ?? k})`];
+        return [
+          `Wrong extension "${ext}" — expected ${spec.ext.join(" or ")} (${
+            spec.desc ?? k
+          })`,
+        ];
       }
       return null;
     }
@@ -356,7 +400,8 @@ export async function check(
   return [`This file is not allowed here${expectedHint(parentNode)}`];
 }
 
-export const SYSTEM_PROMPT = `You are a code architecture advisor. The project follows a hexagonal/modular architecture defined in a canonical-paths.json spec. Given structural violations for a file or folder, produce a concise, actionable fix suggestion (2-3 sentences max). Reference the spec's expected structure when relevant.`;
+export const SYSTEM_PROMPT =
+  `You are a code architecture advisor. The project follows a hexagonal/modular architecture defined in a canonical-paths.json spec. Given structural violations for a file or folder, produce a concise, actionable fix suggestion (2-3 sentences max). Reference the spec's expected structure when relevant.`;
 
 export function buildPrompt(
   violations: string[],
@@ -366,13 +411,15 @@ export function buildPrompt(
   return `Path: ${path} (${target})
 Violations: ${JSON.stringify(violations)}
 
-Parent expected structure: ${JSON.stringify(
-    (() => {
-      const parentSegs = path.split("/").slice(0, -1);
-      const parentNode = resolveNode(parentSegs);
-      return parentNode ? getExpectedAt(parentNode) : "unknown parent";
-    })(),
-  )}
+Parent expected structure: ${
+    JSON.stringify(
+      (() => {
+        const parentSegs = path.split("/").slice(0, -1);
+        const parentNode = resolveNode(parentSegs);
+        return parentNode ? getExpectedAt(parentNode) : "unknown parent";
+      })(),
+    )
+  }
 
 What should the developer do to fix these violations?`;
 }

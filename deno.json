@@ -1,5 +1,10 @@
 {
-  "workspace": ["./keep", "./e2e/cake", "./e2e/checkout", "./examples/in-process-client"],
+  "workspace": [
+    "./keep",
+    "./e2e/cake",
+    "./e2e/checkout",
+    "./examples/in-process-client"
+  ],
   "tasks": {
     "hooks": "git config core.hooksPath .githooks",
     "setup": "deno run --allow-read --allow-run --allow-write src/bootstrap/config.ts && deno run --allow-read --allow-write scripts/gen-shape-docs.ts && deno run --allow-read --allow-run --allow-write --allow-env scripts/gen-version.ts",
@@ -38,8 +43,8 @@
     "class-transformer": "npm:class-transformer@^0.5",
     "reflect-metadata": "npm:reflect-metadata@0.1.13",
     "#assert": "./keep/src/assert/mod.ts",
-    "@mrg-keystone/bedrock": "../../bedrock/mod.ts",
-    "@mrg-keystone/bedrock/artifact": "../../bedrock/src/artifact/mod.ts",
+    "@mrg-keystone/bedrock": "jsr:@mrg-keystone/bedrock@^1",
+    "@mrg-keystone/bedrock/artifact": "jsr:@mrg-keystone/bedrock@^1/artifact",
     "#api-doc": "jsr:@danet/swagger@^2.1.1/decorators"
   },
   "compilerOptions": {

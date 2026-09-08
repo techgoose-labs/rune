@@ -31,7 +31,7 @@ generate identically (D-18 — same bytes whichever `init` ran first):
 // serve.ts  (git root — GENERATED, carries BEDROCK_SERVE_MARKER)
 import { Bedrock } from "@mrg-keystone/bedrock";
 import { Frontend } from "@mrg-keystone/sprig/bedrock";
-import { Infra } from "@mrg-keystone/infra-auth";
+import { Infra } from "@mrg-keystone/infra";
 import { api } from "./server/bootstrap/mod.ts";
 export default Bedrock({ ui: Frontend(), backend: api, auth: Infra() });
 ```

@@ -1,90 +1,46 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@danet/core@2": "2.11.0",
-    "jsr:@danet/core@^2.5.1": "2.11.0",
-    "jsr:@danet/swagger@^2.1.1": "2.3.2",
-    "jsr:@danet/validatte@0.7.4": "0.7.4",
-    "jsr:@danet/zod@0.0.7": "0.0.7",
-    "jsr:@dx/reflect@0.2.14": "0.2.14",
-    "jsr:@hono/hono@4.6.3": "4.6.3",
+    "jsr:@mrg-keystone/bedrock@1": "1.0.0",
+    "jsr:@mrg-keystone/bedrock@1.0.0": "1.0.0",
     "jsr:@std/assert@*": "1.0.19",
-    "jsr:@std/fmt@0.223.0": "0.223.0",
     "jsr:@std/internal@^1.0.12": "1.0.14",
-    "jsr:@std/path@*": "1.0.6",
-    "jsr:@std/path@1": "1.0.6",
-    "jsr:@std/path@1.0.6": "1.0.6",
+    "jsr:@std/internal@^1.0.14": "1.0.14",
+    "jsr:@std/path@*": "1.1.6",
+    "jsr:@std/path@1": "1.1.6",
     "jsr:@std/semver@1": "1.0.8",
     "jsr:@std/yaml@*": "1.0.12",
     "jsr:@std/yaml@1": "1.0.12",
-    "npm:@anatine/zod-openapi@2.2.6": "2.2.6_openapi3-ts@4.5.0_zod@3.23.8",
-    "npm:awesome-phonenumber@7.1.0": "7.1.0",
     "npm:class-transformer@0.5": "0.5.1",
     "npm:class-validator@0.14": "0.14.4",
     "npm:handlebars@^4.7.8": "4.7.9",
     "npm:jose@5": "5.10.0",
     "npm:openapi3-ts@4.5.0": "4.5.0",
-    "npm:path-to-regexp@6.2.1": "6.2.1",
     "npm:playwright@^1.49.0": "1.60.0",
     "npm:reflect-metadata@0.1.13": "0.1.13",
-    "npm:zod@*": "3.23.8",
-    "npm:zod@3": "3.23.8",
-    "npm:zod@3.23.8": "3.23.8"
+    "npm:zod@*": "4.5.4"
   },
   "jsr": {
-    "@danet/core@2.11.0": {
-      "integrity": "667ad239c8b48a7b388aa8cfea99dcc399456e257bce6f02c59cdf9f472b670a",
+    "@mrg-keystone/bedrock@1.0.0": {
+      "integrity": "31f5120ccf677e26d29dce70d304de15f6aed5268355aebbf63bd4925912f18a",
       "dependencies": [
-        "jsr:@danet/validatte",
-        "jsr:@dx/reflect",
-        "jsr:@hono/hono",
-        "jsr:@std/fmt"
+        "jsr:@std/path@1"
       ]
-    },
-    "@danet/swagger@2.3.2": {
-      "integrity": "3c6dbc0eff37ce9fa9bf338f1876e607264d895efcc41ac8726da417f26e9658",
-      "dependencies": [
-        "jsr:@danet/core@2",
-        "jsr:@danet/zod",
-        "jsr:@std/path@1.0.6",
-        "npm:@anatine/zod-openapi",
-        "npm:path-to-regexp",
-        "npm:zod@3.23.8"
-      ]
-    },
-    "@danet/validatte@0.7.4": {
-      "integrity": "338bca670a5af1dd42214fcde0912de37d9a9d3ce1415cd2abdb6b1c27c46f89",
-      "dependencies": [
-        "npm:awesome-phonenumber"
-      ]
-    },
-    "@danet/zod@0.0.7": {
-      "integrity": "1ce7c696b69bff6bbbd788bd4a5955cd24e8c5a8cb117c57dabb03e31968bbee",
-      "dependencies": [
-        "jsr:@danet/core@^2.5.1",
-        "npm:zod@3.23.8"
-      ]
-    },
-    "@dx/reflect@0.2.14": {
-      "integrity": "53e1cb54e25170f43d90966679fcd7d6e0d27e23f4f1c869330d339576f446be"
-    },
-    "@hono/hono@4.6.3": {
-      "integrity": "a1f5a18cd12a0db54755b0461dd5a4e2d93a6f85403073eb710103eacc42daf3"
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
       "dependencies": [
-        "jsr:@std/internal"
+        "jsr:@std/internal@^1.0.12"
       ]
-    },
-    "@std/fmt@0.223.0": {
-      "integrity": "6deb37794127dfc7d7bded2586b9fc6f5d50e62a8134846608baf71ffc1a5208"
     },
     "@std/internal@1.0.14": {
       "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
     },
-    "@std/path@1.0.6": {
-      "integrity": "ab2c55f902b380cf28e0eec501b4906e4c1960d13f00e11cfbcd21de15f18fed"
+    "@std/path@1.1.6": {
+      "integrity": "c68485c2a4dfbb5ae3cc74fae4e8c4e5d874cf8a8ed12927917235c758b46cbe",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.14"
+      ]
     },
     "@std/semver@1.0.8": {
       "integrity": "dc830e8b8b6a380c895d53fbfd1258dc253704ca57bbe1629ac65fd7830179b7"
@@ -94,19 +50,8 @@
     }
   },
   "npm": {
-    "@anatine/zod-openapi@2.2.6_openapi3-ts@4.5.0_zod@3.23.8": {
-      "integrity": "sha512-Z5sr2Nq2xifEpPbPdUcvyl776LY652oR3VHMV++WFSmRrRL8RDP2XTkbuGn+vgfVNOD7UrndYwCWnxaiw7IZog==",
-      "dependencies": [
-        "openapi3-ts",
-        "ts-deepmerge",
-        "zod"
-      ]
-    },
     "@types/validator@13.15.10": {
       "integrity": "sha512-T8L6i7wCuyoK8A/ZeLYt1+q0ty3Zb9+qbSSvrIVitzT3YjZqkTZ40IbRsPanlB4h1QB3JVL1SYCdR6ngtFYcuA=="
-    },
-    "awesome-phonenumber@7.1.0": {
-      "integrity": "sha512-i/pC5xvaNVrduufGtnw8O+abLWq70wd6YutiPYR2NqrnwtjBMk7rG/vJTktnAivSok+ZqlkFZzuVICgObpQi4w=="
     },
     "class-transformer@0.5.1": {
       "integrity": "sha512-SQa1Ws6hUbfC98vKGxZH3KFY0Y1lm5Zm0SY8XX9zbK7FJCyVEac3ATW0RIpwzW+oOfmHE5PMPufDG9hCfoEOMw=="
@@ -155,9 +100,6 @@
         "yaml"
       ]
     },
-    "path-to-regexp@6.2.1": {
-      "integrity": "sha512-JLyh7xT1kizaEvcaXOQwOc2/Yhw6KZOvPf1S8401UyLk86CU79LN3vl7ztXGm/pZ+YjoyAJ4rxmHwbkBXJX+yw=="
-    },
     "playwright-core@1.60.0": {
       "integrity": "sha512-9bW6zvX/m0lEbgTKJ6YppOKx8H3VOPBMOCFh2irXFOT4BbHgrx5hPjwJYLT40Lu+4qtD36qKc/Hn56StUW57IA==",
       "bin": true
@@ -178,9 +120,6 @@
     "source-map@0.6.1": {
       "integrity": "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g=="
     },
-    "ts-deepmerge@6.2.1": {
-      "integrity": "sha512-8CYSLazCyj0DJDpPIxOFzJG46r93uh6EynYjuey+bxcLltBeqZL7DMfaE5ZPzZNFlav7wx+2TDa/mBl8gkTYzw=="
-    },
     "uglify-js@3.19.3": {
       "integrity": "sha512-v3Xu+yuwBXisp6QYTcH4UbH+xYJXqnq2m/LtQVWKWzYc1iehYnLixoQDN9FH6/j9/oybfd6W9Ghwkl8+UMKTKQ==",
       "bin": true
@@ -195,8 +134,8 @@
       "integrity": "sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==",
       "bin": true
     },
-    "zod@3.23.8": {
-      "integrity": "sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g=="
+    "zod@4.5.4": {
+      "integrity": "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="
     }
   },
   "redirects": {
@@ -286,6 +225,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@danet/swagger@^2.1.1",
+      "jsr:@mrg-keystone/bedrock@1",
       "jsr:@std/assert@*",
       "jsr:@std/path@*",
       "npm:class-transformer@0.5",
@@ -339,6 +279,7 @@
           "jsr:@danet/core@2",
           "jsr:@danet/swagger@^2.1.1",
           "jsr:@hono/hono@4.6.3",
+          "jsr:@mrg-keystone/bedrock@1",
           "jsr:@std/assert@*",
           "npm:class-transformer@0.5",
           "npm:class-validator@0.14",
@@ -346,14 +287,6 @@
           "npm:playwright@^1.49.0",
           "npm:reflect-metadata@0.1.13",
           "npm:zod@3"
-        ]
-      }
-    },
-    "links": {
-      "jsr:@mrg-keystone/bedrock@1.0.0": {
-        "dependencies": [
-          "jsr:@std/assert@1",
-          "jsr:@std/path@1"
         ]
       }
     }

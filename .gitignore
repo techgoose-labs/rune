@@ -18,3 +18,6 @@ claude/skills/*-workspace/
 .env
 .env*
 *.log
+
+# box shell aliases rm→trash and drops these next to the cwd
+.Trash-*/

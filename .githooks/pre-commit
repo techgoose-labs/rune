@@ -1,0 +1,43 @@
+#!/bin/sh
+# branch-model: managed — regenerate with `branch-model ensure`
+#
+# The deploy lane takes no direct commits.
+#
+#   /worktree ──▶ feature ──/worktree-merge──▶ develop ──promote──▶ main
+#
+# Work happens on a feature worktree cut from `develop` and lands on `develop`.
+# The deploy lane records only what has shipped: one squashed commit per
+# feature, written exclusively by `promote`.
+#
+# `promote` is not exempted by an env var. It commits on a DETACHED head in a
+# temporary worktree and moves the branch with `update-ref`, so it never takes
+# this path — there is no door here to leave unlocked.
+
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0  # detached (rebase/bisect/promote): allow
+
+# One switch turns the model off for a repo, hooks installed or not:
+#   git config branch-model.enabled false
+[ "$(git config --get branch-model.enabled 2>/dev/null)" = "false" ] && exit 0
+
+deploy=$(git config --get branch-model.deploy-branch 2>/dev/null)
+[ -n "$deploy" ] || deploy=main
+
+[ "$branch" = "$deploy" ] || exit 0
+
+exec >&2
+echo
+echo "  ✗ '$deploy' is the deploy lane — it takes no direct commits."
+echo
+echo "  Your staged changes are untouched. Land them on a feature worktree:"
+echo
+echo "      /worktree <what you are doing>     # cut from develop, session locked to it"
+echo "      …work, commit as you go…"
+echo "      /worktree-merge                    # lands it on develop"
+echo
+echo "  Then, once it is proven stable, ship that one feature to $deploy:"
+echo
+echo "      promote <feature-branch>           # one squashed commit on $deploy"
+echo
+echo "  Already have commits here? Move them off:  git switch -c <branch-name>"
+echo
+exit 1

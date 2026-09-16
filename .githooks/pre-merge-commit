@@ -1,0 +1,41 @@
+#!/bin/sh
+# branch-model: managed — regenerate with `branch-model ensure`
+#
+# The deploy lane takes no MERGE commits either — see pre-commit for the model.
+#
+# This hook exists because its absence is a silent hole: git runs `pre-commit`
+# for `git commit` but `pre-merge-commit` for a merge that creates a commit, so
+# a guard written only as `pre-commit` is bypassed entirely by
+# `git merge --no-ff` — which is what /worktree-merge does. Guarding one without
+# the other guards nothing; that gap put 138 commits on this repo's main.
+#
+# A fast-forward merge creates no commit and runs no hook; that is fine, because
+# `promote` only ever fast-forwards the deploy lane and nothing else may write
+# to it (/worktree-merge refuses the deploy lane by name).
+
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0  # detached: allow
+
+# Same single opt-out switch as pre-commit.
+[ "$(git config --get branch-model.enabled 2>/dev/null)" = "false" ] && exit 0
+
+deploy=$(git config --get branch-model.deploy-branch 2>/dev/null)
+[ -n "$deploy" ] || deploy=main
+
+[ "$branch" = "$deploy" ] || exit 0
+
+exec >&2
+echo
+echo "  ✗ '$deploy' is the deploy lane — it takes no merge commits."
+echo
+echo "  Merging a branch (or develop) into $deploy would put many features in one"
+echo "  commit. $deploy records ONE squashed commit per feature, and the only"
+echo "  thing that writes it is:"
+echo
+echo "      promote <feature-branch>"
+echo
+echo "  which lands exactly that feature's change — so you can promote out of"
+echo "  order and skip anything that is not ready."
+echo
+echo "  The merge has been refused; nothing was committed."
+echo
+exit 1

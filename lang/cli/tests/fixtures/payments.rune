@@ -1,0 +1,51 @@
+// payments — card tokenisation through the NMI gateway
+[MOD] payments
+
+// the gateway is reachable without a credential
+[REQ:open] health.check({}): HealthDto
+    ex:nmi.ping(): HealthDto
+      timeout
+
+// open (tokenise) a card
+[REQ] card.open(OpenCardDto): CardDto
+    ex:nmi.tokenise(pan): cardId
+      // the issuer said no
+      declined
+    // shape the response
+    card::toDto(cardId): CardDto
+// charge a stored card; the brand picks the gateway call
+[REQ] card.charge(ChargeDto): ReceiptDto
+    [PLY] brand.sale(ChargeDto): ReceiptDto
+        [CSE] visa
+        ex:nmi.sale(ChargeDto): ReceiptDto
+          declined
+        [CSE] amex
+        // amex wants the 4-digit code on every sale
+        ex:nmi.saleAmex(ChargeDto): ReceiptDto
+          declined
+
+[TYP] ok: boolean
+    whether the gateway answered
+// the gateway mints this; we never generate it
+[TYP:ext,uuid] cardId: string
+    the gateway's token for a stored card
+[TYP:example=4111111111111111] pan: string
+    the primary account number
+[TYP:min=1] amount: number
+    the charge amount in cents
+
+[DTO:core] HealthDto: ok
+    the gateway's health answer
+[DTO] OpenCardDto: pan
+    a card to tokenise
+[DTO] CardDto: cardId
+    the stored card
+[DTO] ChargeDto: cardId, amount
+    a charge against a stored card
+[DTO] ReceiptDto: cardId, amount
+    the gateway's receipt
+
+[NON] card
+    a tokenised payment card
+[NON] brand
+    the card network, which decides the gateway call

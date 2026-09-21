@@ -23,6 +23,7 @@ Run tasks **sequentially in numeric order**. The only safe parallelization is `0
 | 05 | `rune dev` — the live loop | keep then rune | 02 |
 | 06 | System map at `/docs/_map` | keep | 02 (04 helps verification) |
 | 07 | Docs, skill, cross-repo sweep, release order | both | all of the above |
+| 08 | `rune check`: signature consistency + step-arg resolution | rune | — (standalone) |
 
 Do **not** parallelize 03 with 05 (both edit rune `src/rune/entrypoints/sync/mod.ts`) or any of
 04/05/06 with each other (all edit keep `emulator-ui/` and/or `bootstrap-server/`).

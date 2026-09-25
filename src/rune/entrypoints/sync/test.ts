@@ -1,7 +1,8 @@
 import { assert, assertEquals, assertStringIncludes } from "#std/assert";
-import { join } from "#std/path";
+import { dirname, join } from "#std/path";
 import {
   ensureBootstrap,
+  ensureGateTasks,
   ensureHealRules,
   ensureImportMap,
   parseSyncArgs,
@@ -275,7 +276,7 @@ Deno.test("ensureBootstrap — REQ-006: the generated registry gates the stubs o
       join(root, "bootstrap", "modules.ts"),
     );
     const gate = stubsGateOf(registry);
-    assertStringIncludes(gate, 'Deno.env.get("DENO_DEPLOY")');
+    assertStringIncludes(gate, 'Deno.env.get("DENO_DEPLOY") === "true"');
     // Still honoured off Deploy — a VPS with DENO_ENV=production.
     assertStringIncludes(gate, 'Deno.env.get("DENO_ENV") === "production"');
   } finally {
@@ -318,8 +319,13 @@ Deno.test("ensureBootstrap — REQ-006: the generated stubs gate excludes stubs 
       assertEquals(out.code, 0, new TextDecoder().decode(out.stderr));
       return JSON.parse(new TextDecoder().decode(out.stdout).trim());
     };
-    // Every Deno Deploy revision: the platform sets DENO_DEPLOY=true.
+    // Every Deno Deploy revision (and env/prod): DENO_DEPLOY=true.
     assertEquals(await evalGate({ DENO_DEPLOY: "true", DENO_ENV: "" }), []);
+    // env/dev carries the key as `false` (REQ-282) — the VALUE is the signal,
+    // never the key's presence: a dev box keeps its stubs.
+    assertEquals(await evalGate({ DENO_DEPLOY: "false", DENO_ENV: "" }), [
+      "stub",
+    ]);
     // Off Deploy, DENO_ENV=production still excludes the stubs.
     assertEquals(
       await evalGate({ DENO_DEPLOY: "", DENO_ENV: "production" }),
@@ -1198,6 +1204,199 @@ Deno.test("runSync — REQ-004: syncing a workspace member leaves its deno.json 
     assertEquals(root.imports[BEDROCK], "jsr:@techgoose-labs/bedrock@^1");
   } finally {
     console.log = origLog;
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+// ---- REQ-007: the four merge-gate tasks, additively, where the gate reads them ----
+// coms #rune 20260925T020327Z-w8-947540: worktree-merge's gate (wt-gate) refuses a
+// repo missing any of test:unit / test:int / test:e2e / serve.
+const GATE_NAMES = ["test:unit", "test:int", "test:e2e", "serve"];
+
+Deno.test("ensureGateTasks — REQ-007: writes the four gate tasks into the workspace root, never the member", async () => {
+  const { tmp, server } = await makeWorkspace({
+    [BEDROCK]: "jsr:@techgoose-labs/bedrock@^1",
+  });
+  try {
+    await Deno.writeTextFile(join(tmp, "serve.ts"), "export default {};\n");
+    const ioErrors: string[] = [];
+    const written: string[] = [];
+    const note = await ensureGateTasks(server, ioErrors, written);
+    assertEquals(ioErrors, []);
+    const root = JSON.parse(await Deno.readTextFile(join(tmp, "deno.json")));
+    for (const n of GATE_NAMES) assert(n in root.tasks, `root has ${n}`);
+    assertEquals(
+      root.tasks["test:unit"],
+      'deno test -A --unstable-kv --parallel --permit-no-files --ignore="**/int.test.ts,**/smk.test.ts,**/e2e.test.ts,e2e/" .',
+    );
+    assertEquals(
+      root.tasks["test:int"],
+      'deno test -A --unstable-kv --parallel --permit-no-files "**/int.test.ts" "**/smk.test.ts" "**/e2e.test.ts"',
+    );
+    assertEquals(root.tasks["test:e2e"], "shots run");
+    assertEquals(
+      root.tasks.serve,
+      'deno serve -A --unstable-kv --port "$PORT" serve.ts',
+    );
+    // The root's own keys survive; the member gets no tasks.
+    assertEquals(root.workspace, ["./ui", "./server"]);
+    assertEquals(root.imports[BEDROCK], "jsr:@techgoose-labs/bedrock@^1");
+    const member = JSON.parse(
+      await Deno.readTextFile(join(server, "deno.json")),
+    );
+    assertEquals(member.tasks, undefined);
+    assertEquals(written, [join(tmp, "deno.json")]);
+    assert(note !== null && note.includes("test:unit"), `note: ${note}`);
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("ensureGateTasks — REQ-007: additive — a task the user already has is never overwritten", async () => {
+  const { tmp, server } = await makeWorkspace({});
+  try {
+    await Deno.writeTextFile(join(tmp, "serve.ts"), "export default {};\n");
+    const cfgPath = join(tmp, "deno.json");
+    const cfg = JSON.parse(await Deno.readTextFile(cfgPath));
+    cfg.tasks = {
+      "test:unit": "deno test -A my/unit",
+      start: "deno serve -A serve.ts",
+    };
+    await Deno.writeTextFile(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
+    const ioErrors: string[] = [];
+    const note = await ensureGateTasks(server, ioErrors);
+    assertEquals(ioErrors, []);
+    const root = JSON.parse(await Deno.readTextFile(cfgPath));
+    assertEquals(
+      root.tasks["test:unit"],
+      "deno test -A my/unit",
+      "the user's task is theirs",
+    );
+    assertEquals(root.tasks.start, "deno serve -A serve.ts");
+    for (const n of ["test:int", "test:e2e", "serve"]) {
+      assert(n in root.tasks, `added ${n}`);
+    }
+    assert(
+      note !== null && !note.includes("test:unit"),
+      `note lists only what was added: ${note}`,
+    );
+    // A second call adds nothing and reports nothing.
+    const written: string[] = [];
+    assertEquals(await ensureGateTasks(server, ioErrors, written), null);
+    assertEquals(written, []);
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("ensureGateTasks — REQ-007: a standalone project gets the tasks in its own deno.json, serving its bootstrap", async () => {
+  const root = await Deno.makeTempDir({ prefix: "rune-req007-solo-" });
+  try {
+    await Deno.writeTextFile(
+      join(root, "deno.json"),
+      '{ "imports": { "@/": "./" } }\n',
+    );
+    const ioErrors: string[] = [];
+    await ensureGateTasks(root, ioErrors);
+    assertEquals(ioErrors, []);
+    const cfg = JSON.parse(await Deno.readTextFile(join(root, "deno.json")));
+    for (const n of GATE_NAMES) assert(n in cfg.tasks, `has ${n}`);
+    // No serve.ts here: the backend's own bootstrap serves (config reads PORT).
+    assertEquals(cfg.tasks.serve, "deno run -A --unstable-kv bootstrap/mod.ts");
+    assertEquals(cfg.imports["@/"], "./");
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("runSync — REQ-007: a sync writes the four tasks once and a re-sync leaves deno.json untouched", async () => {
+  const { tmp, server } = await makeWorkspace({
+    [BEDROCK]: "jsr:@techgoose-labs/bedrock@^1",
+  });
+  const logs: string[] = [];
+  const origLog = console.log;
+  console.log = (...a: unknown[]) => logs.push(a.map(String).join(" "));
+  try {
+    await Deno.writeTextFile(join(tmp, "serve.ts"), "export default {};\n");
+    await Deno.mkdir(join(tmp, "spec", "runes"), { recursive: true });
+    const runePath = join(tmp, "spec", "runes", "checkout.rune");
+    await Deno.writeTextFile(runePath, S10_SPEC);
+    const first: string[] = [];
+    assertEquals(
+      await runSync([runePath, "--root", server, "--no-run"], first),
+      0,
+    );
+    const rootPath = join(tmp, "deno.json");
+    assert(first.includes(rootPath), "the first sync wrote the root deno.json");
+    const after1 = await Deno.readTextFile(rootPath);
+    const root = JSON.parse(after1);
+    for (const n of GATE_NAMES) assert(n in root.tasks, `root has ${n}`);
+    assertEquals(
+      root.tasks.serve,
+      'deno serve -A --unstable-kv --port "$PORT" serve.ts',
+    );
+    const second: string[] = [];
+    assertEquals(
+      await runSync([runePath, "--root", server, "--no-run"], second),
+      0,
+    );
+    assertEquals(
+      second.includes(rootPath),
+      false,
+      "a re-sync does not rewrite the root deno.json",
+    );
+    assertEquals(await Deno.readTextFile(rootPath), after1);
+  } finally {
+    console.log = origLog;
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("REQ-007: the emitted test:unit and test:int commands run exactly their lanes under deno task", async () => {
+  const { tmp, server } = await makeWorkspace({});
+  try {
+    await Deno.writeTextFile(join(tmp, "serve.ts"), "export default {};\n");
+    // Marker tests of every kind rune generates or rune:build authors, plus an
+    // e2e/ story that must run in NEITHER lane (it needs BASE_URL from the gate).
+    const files: Record<string, string> = {
+      "server/src/m/domain/business/task/test.ts": "unit-business",
+      "server/src/m/domain/coordinators/open/int.test.ts": "int-coordinator",
+      "server/src/m/domain/data/store/smk.test.ts": "smk-adapter",
+      "server/src/m/entrypoints/http/e2e.test.ts": "e2e-in-process",
+      "ui/src/widget.test.ts": "unit-ui",
+      "e2e/checkout/checkout.e2e.test.ts": "story",
+    };
+    for (const [rel, name] of Object.entries(files)) {
+      await Deno.mkdir(dirname(join(tmp, rel)), { recursive: true });
+      await Deno.writeTextFile(
+        join(tmp, rel),
+        `Deno.test("${name}", () => {});\n`,
+      );
+    }
+    await Deno.writeTextFile(join(tmp, "ui", "deno.json"), "{}\n");
+    const ioErrors: string[] = [];
+    await ensureGateTasks(server, ioErrors);
+    assertEquals(ioErrors, []);
+    const ran = async (task: string): Promise<string[]> => {
+      const out = await new Deno.Command(Deno.execPath(), {
+        args: ["task", task],
+        cwd: tmp,
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      const text = new TextDecoder().decode(out.stdout) +
+        new TextDecoder().decode(out.stderr);
+      assertEquals(out.code, 0, text);
+      return Object.values(files).filter((n) => text.includes(`${n} ...`))
+        .sort();
+    };
+    assertEquals(await ran("test:unit"), ["unit-business", "unit-ui"]);
+    assertEquals(await ran("test:int"), [
+      "e2e-in-process",
+      "int-coordinator",
+      "smk-adapter",
+    ]);
+  } finally {
     await Deno.remove(tmp, { recursive: true });
   }
 });

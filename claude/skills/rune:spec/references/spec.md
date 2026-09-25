@@ -654,9 +654,10 @@ producers are built — the consumer's `$name` input auto-resolves from the stub
 capture.
 
 - **Production exclusion** — the generated `bootstrap/modules.ts` registry skips the
-  stub module on every Deno Deploy revision (the platform's own `DENO_DEPLOY`;
-  an app cannot set `DENO_*` there) and wherever `DENO_ENV=production` is set;
-  stubs can never ship.
+  stub module when `DENO_DEPLOY=true` (every Deno Deploy revision sets it, and so
+  does `env/prod`; `env/dev` carries it as `false` — the value is the signal, an
+  app cannot set `DENO_*` on Deploy) or `DENO_ENV=production` elsewhere; stubs can
+  never ship.
 - **Evaporation** — the moment a synced module's endpoint outputs the field (a real
   producer anywhere in the project), the input is fulfilled and the next `rune sync`
   removes the stub endpoint — and deletes `bootstrap/stubs.ts` entirely once every

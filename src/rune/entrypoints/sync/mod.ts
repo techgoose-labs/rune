@@ -342,6 +342,9 @@ export async function runSync(
     // the import aliases the generated code uses (@/, #zod, #std/*).
     const mapNote = await ensureImportMap(root, ioErrors, written);
     if (mapNote) console.log(`\n  ${CYAN}${mapNote}${RESET}`);
+    // And the merge gate's four tasks, where the gate reads them (REQ-007).
+    const gateNote = await ensureGateTasks(root, ioErrors, written);
+    if (gateNote) console.log(`  ${CYAN}${gateNote}${RESET}`);
 
     // The spec's home. `spec/runes/` (and the legacy staging layouts) is the
     // DURABLE CANONICAL HOME (D-durable-home): a spec authored there — draft or
@@ -660,6 +663,95 @@ export async function ensureImportMap(
   return hoistNote ? `${note}; ${hoistNote}` : note;
 }
 
+// The merge gate's four tasks (claude-tools REQ-278..283, coms #rune
+// 20260925T020327Z-w8-947540): `wt-gate` refuses a repo missing any of them,
+// runs each lane in parallel, starts `deno task serve` on a free $PORT and hands
+// BASE_URL to test:e2e — tests never start servers. The strings are REPO-WIDE
+// and tool-neutral on purpose: sprig can emit the identical ones, so whichever
+// toolchain writes first, the additive merge below never fights.
+//   test:unit — everything that is not an int/smk/e2e test and not an e2e/ story
+//   test:int  — rune's generated int.test.ts / smk.test.ts, plus its generated
+//               src/**/e2e.test.ts: those are IN-PROCESS bootstrapServer runs
+//               (no BASE_URL), so they are int-lane, not e2e-lane
+//   test:e2e  — `shots run`: the durable e2e/<name>/<name>.e2e.test.ts stories
+//   serve     — the git-root serve.ts on $PORT (deno's task shell does not
+//               expand ${PORT:-8000}; the gate always sets PORT, humans keep
+//               `deno task start`), or the backend's own bootstrap when there
+//               is no serve.ts (its config reads PORT)
+// `--permit-no-files`: a lane with nothing in it yet (a fresh project before
+// rune:build authors its unit tests) is green, not "No test modules found".
+export const GATE_TASKS: Readonly<Record<string, string>> = {
+  "test:unit":
+    'deno test -A --unstable-kv --parallel --permit-no-files --ignore="**/int.test.ts,**/smk.test.ts,**/e2e.test.ts,e2e/" .',
+  "test:int":
+    'deno test -A --unstable-kv --parallel --permit-no-files "**/int.test.ts" "**/smk.test.ts" "**/e2e.test.ts"',
+  "test:e2e": "shots run",
+};
+
+/** The `serve` task for the deno.json at `cfgDir`: the git-root serve.ts on
+ * $PORT when one sits beside it, else the backend's own bootstrap (`memberRel`
+ * is the codegen root relative to `cfgDir`, "" when they are the same dir). */
+export function serveTask(hasServeTs: boolean, memberRel: string): string {
+  if (hasServeTs) return 'deno serve -A --unstable-kv --port "$PORT" serve.ts';
+  const prefix = memberRel === "" || memberRel === "." ? "" : `${memberRel}/`;
+  return `deno run -A --unstable-kv ${prefix}bootstrap/mod.ts`;
+}
+
+/** Ensure the deno.json the merge gate reads — the workspace root when `root`
+ * is a member, else `root`'s own — carries the four gate tasks. ADDITIVE: only
+ * a missing task is added; a task the user already has is theirs. Returns a
+ * report note, or null when nothing was added (or on an error, reported). */
+export async function ensureGateTasks(
+  root: string,
+  ioErrors: string[],
+  written?: string[],
+): Promise<string | null> {
+  const wsRoot = await findWorkspaceRoot(root);
+  const cfgDir = wsRoot ?? resolve(root);
+  const path = join(cfgDir, "deno.json");
+  // deno-lint-ignore no-explicit-any
+  let cfg: Record<string, any>;
+  try {
+    cfg = JSON.parse((await Deno.readTextFile(path)).replace(/^\uFEFF/, ""));
+  } catch (e) {
+    ioErrors.push(
+      `${path}: cannot be read as JSON (${
+        errMessage(e)
+      }) — the gate tasks (test:unit, test:int, test:e2e, serve) were not written`,
+    );
+    return null;
+  }
+  const tasks: Record<string, string> =
+    (cfg.tasks && typeof cfg.tasks === "object") ? cfg.tasks : {};
+  let hasServeTs = false;
+  try {
+    hasServeTs = (await Deno.stat(join(cfgDir, "serve.ts"))).isFile;
+  } catch {
+    hasServeTs = false;
+  }
+  const wanted: Record<string, string> = {
+    ...GATE_TASKS,
+    serve: serveTask(hasServeTs, relative(cfgDir, resolve(root))),
+  };
+  const added: string[] = [];
+  for (const [name, command] of Object.entries(wanted)) {
+    if (name in tasks) continue;
+    tasks[name] = command;
+    added.push(name);
+  }
+  if (added.length === 0) return null;
+  cfg.tasks = tasks;
+  try {
+    await Deno.writeTextFile(path, JSON.stringify(cfg, null, 2) + "\n");
+    written?.push(path);
+  } catch (e) {
+    ioErrors.push(`${path}: ${errMessage(e)}`);
+    return null;
+  }
+  const where = wsRoot ? "workspace root " : "";
+  return `added the merge-gate task(s) ${added.join(", ")} to ${where}${path}`;
+}
+
 /** Add every HOIST_ONLY specifier the workspace root's deno.json lacks. Returns
  * the specifiers added (possibly none), or null on an I/O / parse error. */
 async function ensureHoistedImports(
@@ -838,10 +930,11 @@ export function renderAppRegistry(
   if (ghostStubs) {
     L.push(
       "  // Ghost stubs: minted stand-ins for [TYP:ext] inputs nothing produces yet.",
-      "  // Dev/test only — never in production: every Deno Deploy revision (the",
-      "  // platform sets DENO_DEPLOY itself; an app cannot set DENO_* there) or",
-      "  // DENO_ENV=production on any other host. Evaporates with a real producer.",
-      '  ...((Deno.env.get("DENO_DEPLOY") || Deno.env.get("DENO_ENV") === "production") ? [] : [stubsModule]),',
+      "  // Dev/test only — never in production: DENO_DEPLOY=true (every Deno Deploy",
+      "  // revision sets it; env/prod sets it; env/dev carries it as false — the",
+      "  // VALUE is the signal) or DENO_ENV=production on any other host.",
+      "  // Evaporates with a real producer.",
+      '  ...((Deno.env.get("DENO_DEPLOY") === "true" || Deno.env.get("DENO_ENV") === "production") ? [] : [stubsModule]),',
     );
   }
   L.push("];", "");

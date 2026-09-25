@@ -296,14 +296,25 @@ Deno.test("ensureBootstrap — REQ-006: the generated stubs gate excludes stubs 
     // module replaced by a marker — exactly the expression production runs.
     const expr = stubsGateOf(registry).replace("[stubsModule]", '["stub"]');
     const evalGate = async (env: Record<string, string>) => {
+      // `deno run --allow-env -`: the script on stdin, env access granted
+      // explicitly and no prompt — the subprocess can only read env or fail.
       const cmd = new Deno.Command(Deno.execPath(), {
-        args: ["eval", `console.log(JSON.stringify([...(${expr})]))`],
+        args: ["run", "--allow-env", "--no-prompt", "-"],
         env,
         clearEnv: false,
+        stdin: "piped",
         stdout: "piped",
         stderr: "piped",
       });
-      const out = await cmd.output();
+      const child = cmd.spawn();
+      const w = child.stdin.getWriter();
+      await w.write(
+        new TextEncoder().encode(
+          `console.log(JSON.stringify([...(${expr})]));\n`,
+        ),
+      );
+      await w.close();
+      const out = await child.output();
       assertEquals(out.code, 0, new TextDecoder().decode(out.stderr));
       return JSON.parse(new TextDecoder().decode(out.stdout).trim());
     };

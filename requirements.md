@@ -100,3 +100,30 @@ is not a member keeps the old behaviour.
   `runSync — REQ-004: syncing a workspace member leaves its deno.json without the bedrock import, twice`
 - e2e: n/a — `rune sync` is a direct dispatch to `runSync` (`src/bootstrap/mod.ts`);
   the CLI was driven by hand on a temp workspace (see the ticket thread).
+
+## REQ-006 — the generated stubs gate treats any Deno Deploy revision as production
+
+> rune sync's generated server/bootstrap/modules.ts gates the ghost-stubs module
+> on Deno.env.get('DENO_ENV') === 'production'. On Deno Deploy DENO_* env vars
+> are reserved and cannot be set by the app, so the stubs module ships to
+> production on every Deploy revision. Expected: use the platform's own
+> DENO_DEPLOY=true (set by Deno Deploy on every running revision) as the
+> production signal.
+> — coms #rune 20260925T001931Z-w5-11548 (box 5, infra)
+
+Verified against docs.deno.com/deploy/reference/env-vars-and-contexts: Deploy
+sets `DENO_DEPLOY=true` on every running revision, and user keys "cannot start
+with DENO_" — so `DENO_ENV=production` is unsettable there and the old gate never
+fired. Rule: the generated registry excludes `stubsModule` when `DENO_DEPLOY`
+is set (any non-empty value — the platform's, not a value we compare) OR when
+`DENO_ENV=production` (kept for hosts that are not Deploy). A plain dev run
+still mounts the stubs.
+
+- unit: `src/rune/entrypoints/sync/test.ts` —
+  `ensureBootstrap — REQ-006: the generated registry gates the stubs on DENO_DEPLOY, not on DENO_ENV alone`
+- integration: `src/rune/entrypoints/sync/test.ts` —
+  `ensureBootstrap — REQ-006: the generated stubs gate excludes stubs when DENO_DEPLOY is set (Deno Deploy), evaluated under the real runtime`
+  (the generated gate expression is run in a deno subprocess under
+  DENO_DEPLOY=true, DENO_ENV=production and no env)
+- e2e: n/a — needs a live Deno Deploy revision; the platform contract is
+  documented and the expression is evaluated under the real Deno runtime above.

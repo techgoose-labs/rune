@@ -246,10 +246,87 @@ Deno.test("ensureBootstrap — ghost stubs created for unfulfilled ext inputs, g
       registry,
       'import { stubsModule } from "@/bootstrap/stubs.ts";',
     );
-    assertStringIncludes(
-      registry,
-      '...(Deno.env.get("DENO_ENV") === "production" ? [] : [stubsModule]),',
+    // REQ-006: the gate is the Deno Deploy signal first — see the tests below.
+    assertStringIncludes(registry, "[] : [stubsModule]");
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+// ---- REQ-006: the stubs gate is DENO_DEPLOY (the platform's), not DENO_ENV alone ----
+// coms #rune 20260925T001931Z-w5-11548: on Deno Deploy an app cannot set any
+// DENO_* variable, so a DENO_ENV=production gate never fires there and the
+// stubs shipped on every revision. Deploy sets DENO_DEPLOY=true itself.
+function stubsGateOf(registry: string): string {
+  const line = registry.split("\n").find((l) =>
+    l.includes("[] : [stubsModule]")
+  );
+  assert(line !== undefined, "registry has the stubs gate line");
+  return line.trim().replace(/^\.\.\.\(/, "").replace(/\),?$/, "");
+}
+
+Deno.test("ensureBootstrap — REQ-006: the generated registry gates the stubs on DENO_DEPLOY, not on DENO_ENV alone", async () => {
+  const root = await tempProject();
+  try {
+    await addSurface(root, "checkout", "http");
+    await addSpec(root, "checkout", CHECKOUT_RUNE);
+    await ensureBootstrap(root, []);
+    const registry = await Deno.readTextFile(
+      join(root, "bootstrap", "modules.ts"),
     );
+    const gate = stubsGateOf(registry);
+    assertStringIncludes(gate, 'Deno.env.get("DENO_DEPLOY")');
+    // Still honoured off Deploy — a VPS with DENO_ENV=production.
+    assertStringIncludes(gate, 'Deno.env.get("DENO_ENV") === "production"');
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("ensureBootstrap — REQ-006: the generated stubs gate excludes stubs when DENO_DEPLOY is set (Deno Deploy), evaluated under the real runtime", async () => {
+  const root = await tempProject();
+  try {
+    await addSurface(root, "checkout", "http");
+    await addSpec(root, "checkout", CHECKOUT_RUNE);
+    await ensureBootstrap(root, []);
+    const registry = await Deno.readTextFile(
+      join(root, "bootstrap", "modules.ts"),
+    );
+    // The generated gate, evaluated by a real Deno process with the stub
+    // module replaced by a marker — exactly the expression production runs.
+    const expr = stubsGateOf(registry).replace("[stubsModule]", '["stub"]');
+    const evalGate = async (env: Record<string, string>) => {
+      // `deno run --allow-env -`: the script on stdin, env access granted
+      // explicitly and no prompt — the subprocess can only read env or fail.
+      const cmd = new Deno.Command(Deno.execPath(), {
+        args: ["run", "--allow-env", "--no-prompt", "-"],
+        env,
+        clearEnv: false,
+        stdin: "piped",
+        stdout: "piped",
+        stderr: "piped",
+      });
+      const child = cmd.spawn();
+      const w = child.stdin.getWriter();
+      await w.write(
+        new TextEncoder().encode(
+          `console.log(JSON.stringify([...(${expr})]));\n`,
+        ),
+      );
+      await w.close();
+      const out = await child.output();
+      assertEquals(out.code, 0, new TextDecoder().decode(out.stderr));
+      return JSON.parse(new TextDecoder().decode(out.stdout).trim());
+    };
+    // Every Deno Deploy revision: the platform sets DENO_DEPLOY=true.
+    assertEquals(await evalGate({ DENO_DEPLOY: "true", DENO_ENV: "" }), []);
+    // Off Deploy, DENO_ENV=production still excludes the stubs.
+    assertEquals(
+      await evalGate({ DENO_DEPLOY: "", DENO_ENV: "production" }),
+      [],
+    );
+    // A plain dev run keeps them.
+    assertEquals(await evalGate({ DENO_DEPLOY: "", DENO_ENV: "" }), ["stub"]);
   } finally {
     await Deno.remove(root, { recursive: true });
   }

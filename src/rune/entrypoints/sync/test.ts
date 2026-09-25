@@ -1000,3 +1000,127 @@ Deno.test("runSync — D-durable-home: a git-root spec/runes/ spec is read in pl
     await Deno.remove(tmp, { recursive: true });
   }
 });
+
+// ---- REQ-004: root-only imports (hoistOnly) never land in a workspace member ----
+// coms #rune 20260923T000559Z-w208-103513: in a sprig-composed workspace the
+// root deno.json pins @techgoose-labs/bedrock (hoistOnly); every `rune sync`
+// put it back into server/deno.json — two composition roots.
+const BEDROCK = "@techgoose-labs/bedrock";
+
+async function makeWorkspace(
+  rootImports: Record<string, string>,
+): Promise<{ tmp: string; server: string }> {
+  const tmp = await Deno.makeTempDir({ prefix: "rune-req004-" });
+  await Deno.mkdir(join(tmp, ".git"), { recursive: true });
+  await Deno.mkdir(join(tmp, "server"), { recursive: true });
+  await Deno.writeTextFile(
+    join(tmp, "deno.json"),
+    JSON.stringify(
+      { workspace: ["./ui", "./server"], imports: rootImports },
+      null,
+      2,
+    ) + "\n",
+  );
+  await Deno.writeTextFile(
+    join(tmp, "server", "deno.json"),
+    JSON.stringify({ imports: { "@/": "./" } }, null, 2) + "\n",
+  );
+  return { tmp, server: join(tmp, "server") };
+}
+
+Deno.test("ensureImportMap — REQ-004: a workspace member never receives the root-only bedrock import", async () => {
+  const { tmp, server } = await makeWorkspace({
+    [BEDROCK]: "jsr:@techgoose-labs/bedrock@^1",
+  });
+  try {
+    const ioErrors: string[] = [];
+    const note = await ensureImportMap(server, ioErrors);
+    assertEquals(ioErrors, []);
+    const member = JSON.parse(
+      await Deno.readTextFile(join(server, "deno.json")),
+    );
+    assertEquals(
+      BEDROCK in member.imports,
+      false,
+      "the member's import map must not carry the root-only pin",
+    );
+    // The rest of the required map still lands in the member.
+    assertEquals(
+      member.imports["@techgoose-labs/rune"],
+      "jsr:@techgoose-labs/rune@^7",
+    );
+    assert(note !== null && !note.includes(BEDROCK), `note: ${note}`);
+    // The root is untouched — it already pinned it.
+    const root = JSON.parse(await Deno.readTextFile(join(tmp, "deno.json")));
+    assertEquals(root.imports[BEDROCK], "jsr:@techgoose-labs/bedrock@^1");
+    assertEquals(root.workspace, ["./ui", "./server"]);
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("ensureImportMap — REQ-004: a workspace root missing the pin gets it there, the member still does not", async () => {
+  const { tmp, server } = await makeWorkspace({});
+  try {
+    const ioErrors: string[] = [];
+    const note = await ensureImportMap(server, ioErrors);
+    assertEquals(ioErrors, []);
+    const member = JSON.parse(
+      await Deno.readTextFile(join(server, "deno.json")),
+    );
+    assertEquals(BEDROCK in member.imports, false);
+    const root = JSON.parse(await Deno.readTextFile(join(tmp, "deno.json")));
+    assertEquals(root.imports[BEDROCK], "jsr:@techgoose-labs/bedrock@^1");
+    // Additive: the root's own keys survive.
+    assertEquals(root.workspace, ["./ui", "./server"]);
+    assert(
+      note !== null && note.includes("root"),
+      `note names the root: ${note}`,
+    );
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("ensureImportMap — REQ-004: a standalone project still pins bedrock in its own deno.json", async () => {
+  const root = await Deno.makeTempDir({ prefix: "rune-req004-solo-" });
+  try {
+    const ioErrors: string[] = [];
+    await ensureImportMap(root, ioErrors);
+    assertEquals(ioErrors, []);
+    const cfg = JSON.parse(await Deno.readTextFile(join(root, "deno.json")));
+    assertEquals(cfg.imports[BEDROCK], "jsr:@techgoose-labs/bedrock@^1");
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("runSync — REQ-004: syncing a workspace member leaves its deno.json without the bedrock import, twice", async () => {
+  const { tmp, server } = await makeWorkspace({
+    [BEDROCK]: "jsr:@techgoose-labs/bedrock@^1",
+  });
+  const logs: string[] = [];
+  const origLog = console.log;
+  console.log = (...a: unknown[]) => logs.push(a.map(String).join(" "));
+  try {
+    await Deno.mkdir(join(tmp, "spec", "runes"), { recursive: true });
+    const runePath = join(tmp, "spec", "runes", "checkout.rune");
+    await Deno.writeTextFile(runePath, S10_SPEC);
+    for (const pass of [1, 2]) {
+      assertEquals(await runSync([runePath, "--root", server, "--no-run"]), 0);
+      const member = JSON.parse(
+        await Deno.readTextFile(join(server, "deno.json")),
+      );
+      assertEquals(
+        BEDROCK in member.imports,
+        false,
+        `pass ${pass}: sync re-added the root-only bedrock pin to server/deno.json`,
+      );
+    }
+    const root = JSON.parse(await Deno.readTextFile(join(tmp, "deno.json")));
+    assertEquals(root.imports[BEDROCK], "jsr:@techgoose-labs/bedrock@^1");
+  } finally {
+    console.log = origLog;
+    await Deno.remove(tmp, { recursive: true });
+  }
+});

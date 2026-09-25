@@ -278,7 +278,10 @@ result trustworthy.
      gate check is yours, the fixing is the linter's. It returns `rune lint --strict`
      clean + the enriched heal-rules.
 5. **Exit gate** — the module is built when ALL hold: unit+int green under `deno test
-   <project>/server/src/<module>`; smoke tests pass individually (real connectivity); `rune
+   <project>/server/src/<module>` — and, since the merge gate reads them by name, under
+   the repo's `deno task test:unit` + `deno task test:int` (the four gate tasks `rune sync`
+   writes: `test:unit`, `test:int`, `test:e2e`, `serve` — `rune:framework`'s
+   `references/deployment.md`, "The four gate tasks"); smoke tests pass individually (real connectivity); `rune
    lint --strict` clean; the `rune sync`/`exerciseEndpoints` run-all verdict **green** —
    or `skipped (no [ENT] surface)` for a pure `[REQ]`-only module, which is NOT a walk
    verdict: if the module is meant to be served or cake-walked, that's a spec gap

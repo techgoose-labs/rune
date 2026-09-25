@@ -1,9 +1,11 @@
 import { basename, join, resolve } from "#std/path";
 import {
   ensureImportMap,
+  GATE_TASKS,
   renderAppRegistry,
   renderConfig,
   renderMain,
+  serveTask,
 } from "@rune/entrypoints/sync/mod.ts";
 import {
   checkArtifactVersion,
@@ -249,7 +251,13 @@ function backendOnlyServeTs(): string {
 async function ensureNeutralWorkspace(dir: string): Promise<void> {
   await ensureWorkspace(dir, {
     members: ["./server"],
-    tasks: { start: START_TASK },
+    // start + the merge gate's four lanes (REQ-007) — the same strings sync
+    // writes, so a later sync adds nothing.
+    tasks: {
+      start: START_TASK,
+      ...GATE_TASKS,
+      serve: serveTask(true, "server"),
+    },
     compilerOptions: {
       experimentalDecorators: true,
       emitDecoratorMetadata: true,

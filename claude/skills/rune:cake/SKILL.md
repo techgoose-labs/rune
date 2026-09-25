@@ -79,7 +79,9 @@ A subagent can't share the browser or talk to the user, so the interactive walk 
 ```text
 deno run -A server/bootstrap/mod.ts     # serve the backend directly (docs at bare /docs/*)
 open http://localhost:<port>/api/docs/<module>
-# — or, against the composed app (`deno task start`): the backend layer mounts
+# — or, against the composed app (`deno task start`; the merge gate uses `deno task serve`
+#   on its own $PORT and hands test:e2e a BASE_URL — see rune:framework deployment.md,
+#   "The four gate tasks"): the backend layer mounts
 #   everything under /api, so the same pages live at /api/docs/<module>
    ├─ Emulate process    # send the next step, read the response, capture its output
    └─ Run all in order   # walk the active flow top-to-bottom, stop at the first failure

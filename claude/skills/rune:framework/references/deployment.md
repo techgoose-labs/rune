@@ -122,6 +122,62 @@ lifetime). Configure observability as needed: `DD_API_KEY`,
 `POSTMARK_SERVER_TOKEN`/`POSTMARK_FROM` (+ optional `ALERT_RECIPIENTS`). Every
 one of those is read once, by bedrock, from its single env registry.
 
+## The four gate tasks (`test:unit`, `test:int`, `test:e2e`, `serve`)
+
+The merge gate (`worktree-merge` → `wt-gate`, claude-tools REQ-278..283) reads
+FOUR `deno.json` tasks by convention and **refuses a repo missing any of them,
+naming it**. `rune sync` writes them (REQ-007) into the deno.json the gate reads
+— the workspace root when `server/` is a member, else the project's own —
+adding only what is missing: a task you already have is yours. `rune init`
+writes the same four. Each lane's runner is parallel; a lane that truly does
+not apply is the literal string `n/a: <why>`.
+
+| task | what it runs | rune's default |
+|---|---|---|
+| `test:unit` | every test that is not int/smk/e2e and not an `e2e/` story | `deno test -A --unstable-kv --parallel --permit-no-files --ignore="**/int.test.ts,**/smk.test.ts,**/e2e.test.ts,e2e/" .` |
+| `test:int` | the generated `int.test.ts` / `smk.test.ts`, AND the generated `src/**/e2e.test.ts` — those are in-process `bootstrapServer` runs (no `BASE_URL`), so they are int-lane | `deno test -A --unstable-kv --parallel --permit-no-files "**/int.test.ts" "**/smk.test.ts" "**/e2e.test.ts"` |
+| `test:e2e` | the durable browser/HTTP stories under the top-level `e2e/<name>/<name>.e2e.test.ts` — `import { story, http } from "#shots"`, one screenshot per action, no raw Playwright. The gate has ALREADY started `serve` and hands the URL in as `BASE_URL`: **tests never start servers** | `shots run` (or `deno test -A --parallel e2e/` where shots is not wanted) |
+| `serve` | the composed app on `$PORT` — the gate picks a free port and sets it | `deno serve -A --unstable-kv --port "$PORT" serve.ts` (no `serve.ts`: `deno run -A --unstable-kv server/bootstrap/mod.ts`, whose config reads `PORT`). The gate waits for a TCP accept and then `GET /` non-5xx, 60 s |
+
+`serve` needs `PORT`: deno's task shell does not expand `${PORT:-8000}`, so it is
+not defaulted — the gate always sets it, and a human keeps `deno task start`
+(`deno serve -A serve.ts`, port 8000). `build` is optional and sprig's.
+
+**`env/`** (claude-tools REQ-282) — one dotenv file per environment at the git
+root: `env/dev`, `env/prod`, … all gitignored (`env/*`, `!env/example`);
+`env/example` is tracked and lists every key with an empty value. `/wt:new`
+copies the whole `env/` into the worktree and `/wt:merge` merges it per key.
+The gate loads `env/dev` before `build`, the lanes and `serve` — tasks never
+name an env file — and refuses to run if it says `DENO_DEPLOY=true`.
+`DENO_DEPLOY` is a required key in EVERY file: `true` only in `env/prod`,
+`false` in `env/dev`. Rune's generated `bootstrap/modules.ts` reads the VALUE —
+`DENO_DEPLOY=true` (or `DENO_ENV=production`) drops the ghost-stub module, so
+`/docs/stubs` stays on a dev box and can never ship (Deno Deploy sets
+`DENO_DEPLOY=true` itself and lets no app set a `DENO_*` key).
+
+**A story** (`e2e/<name>/<name>.e2e.test.ts`) — one `Deno.test` per REQ clause;
+its name (`REQ-NNN: …`) names the evidence folder `shots run` writes OUTSIDE the
+tree, beside the receipt, for a fresh model to review cold:
+
+```ts
+import { story } from "#shots";
+
+Deno.test("REQ-012: a member opens a card", (t) =>
+  story(t, async ({ page, expect, http, skip }) => {
+    await page.goto("/cards");                       // → 001-goto.png
+    await page.fill("#pan", "4111111111111111");     // → 002-fill.png
+    await page.click("#open");                       // → 003-click.png
+    await expect.see("card opened");                 // an assertion — counted
+    const r = await http("/api/cards");              // one request/response transcript
+    // skip("why") records a skipped story with its reason — never hidden
+  }));
+```
+
+A story that ends with zero assertions fails; a raw `chromium.launch()` under
+`e2e/` fails the lane; `shots run` with no `BASE_URL` starts `deno task serve`
+itself (a human running it) and generates the import map (`#shots` → the
+installed lib, the repo's imports made absolute).
+
 ## Logging
 
 Observability is bedrock's, at ONE boundary: a dispatch is captured once, on

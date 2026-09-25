@@ -56,3 +56,19 @@ they are transparent to its block/step tracking.
   `req_002_comment_lines_are_left_exactly_as_written` (plus the canonical fixture
   above, which carries column-0 and fault-level comments)
 - e2e: n/a — as REQ-001
+
+## REQ-003 — `deno.lock` is committed fully populated, so the gate never dirties the tree
+
+> (maintainer, m-rune-1, while merging REQ-001/002) `worktree-merge` refused the
+> approved content: the ready receipt was bound to a tree that included a
+> `deno.lock` rewritten by the gate's own `deno test -A`, and the clean tree did
+> not match.
+
+Cause: since 2d77e93 ("move to the @techgoose-labs scope") the committed
+`deno.lock` carried only the bedrock specifier, so every `deno` invocation —
+including the merge gate — repopulated it and left the worktree dirty. The lock
+`deno test -A` writes is deterministic (a further run leaves it byte-identical),
+so it is committed as-is; no dependency version changed.
+
+- no tests — lockfile content, no behaviour; proven by running `deno test -A`
+  then a second deno command and `cmp`-ing the lock (identical).

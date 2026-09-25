@@ -69,6 +69,17 @@ fn format_content(content: &str) -> String {
 
         consecutive_empty = 0;
 
+        // A comment line is emitted as written (trailing whitespace aside) and is
+        // invisible to every piece of state below. Both parsers skip `//` lines
+        // outright — `rune check` never reads their indent — so re-indenting one only
+        // rewrote the author's text, and letting it reset `after_step` demoted a fault
+        // written under a comment to prose (REQ-002). A column-0 comment is the
+        // author's section header; an indented one annotates whatever follows it.
+        if trimmed.starts_with("//") {
+            lines.push(line.trim_end().to_string());
+            continue;
+        }
+
         // [ENT] body dispatch. A `[REQ]` (regular `[ENT]`) or a `verb(In): Out` topic
         // (`[ENT:ws]`) line the author indented under the entrypoint header stays
         // indented 4 — it is the dispatch-target reference / ws topic, NOT a new
@@ -76,7 +87,7 @@ fn format_content(content: &str) -> String {
         // the block and falls through to the normal formatting below. Blank lines do
         // not close it (they may visually group ws topics), mirroring the parser.
         if in_ent {
-            let is_body_req = orig_indent > 0 && trimmed.starts_with("[REQ]");
+            let is_body_req = orig_indent > 0 && is_tag(trimmed, "REQ");
             let is_ws_topic = orig_indent > 0 && !trimmed.starts_with('[');
             if is_body_req || is_ws_topic {
                 lines.push(format!("    {}", trimmed));
@@ -86,14 +97,19 @@ fn format_content(content: &str) -> String {
             in_ent = false;
         }
 
-        // Normalize line based on content
-        if trimmed.starts_with("[REQ]") {
+        // Normalize line based on content. Tags are matched with `is_tag`, which
+        // accepts the `[TAG:modifier]` forms the parser does (`[REQ:open]`,
+        // `[DTO:core]`, `[TYP:ext,uuid]`, `[ENT:ws]`, …). A bare
+        // `starts_with("[REQ]")` let `[REQ:open]` fall through to the step heuristic
+        // and land at indent 4 — which the parser, trimming the line, then accepted
+        // without a word (REQ-001).
+        if is_tag(trimmed, "REQ") {
             // REQ at column 0
             lines.push(trimmed.to_string());
             in_block = true;
             after_step = false;
             in_poly = false;
-        } else if trimmed.starts_with("[ENT]") || trimmed.starts_with("[ENT:") {
+        } else if is_tag(trimmed, "ENT") {
             // [ENT]/[ENT:ws]/[ENT:card]/… entrypoint header at column 0; its body (the
             // dispatched [REQ], or [ENT:ws] topics) is indented 4 and consumed by the
             // in_ent block above. This branch MUST precede is_step_line(): the header
@@ -105,8 +121,10 @@ fn format_content(content: &str) -> String {
             after_step = false;
             in_poly = false;
             in_ent = true;
-        } else if trimmed.starts_with("[DTO]") || trimmed.starts_with("[TYP]") || trimmed.starts_with("[NON]") {
-            // Definitions at column 0
+        } else if DEFINITION_TAGS.iter().any(|tag| is_tag(trimmed, tag)) {
+            // Definitions at column 0 — [DTO]/[TYP]/[NON] and the file-level [MOD]/
+            // [SRV] declarations, with or without a modifier. Their indented prose
+            // (a description, a [SRV]'s `@docs` line) follows at 4.
             lines.push(trimmed.to_string());
             in_block = true;
             after_step = false;
@@ -148,8 +166,8 @@ fn format_content(content: &str) -> String {
             // re-indented to 6, fabricating fault names and changing meaning.
             let indent = if in_poly { 10 } else { 6 };
             lines.push(format!("{}{}", " ".repeat(indent), trimmed));
-        } else if in_block && (trimmed.starts_with("//") || !trimmed.contains(':')) {
-            // Description or comment lines at 4 spaces
+        } else if in_block && !trimmed.contains(':') {
+            // Description lines at 4 spaces (comments were emitted verbatim above)
             lines.push(format!("    {}", trimmed));
             after_step = false;
         } else {
@@ -171,6 +189,21 @@ fn format_content(content: &str) -> String {
     }
 
     result
+}
+
+/// The column-0 declarations besides [REQ]/[ENT]: data definitions plus the
+/// file-level module and service declarations.
+const DEFINITION_TAGS: [&str; 5] = ["DTO", "TYP", "NON", "MOD", "SRV"];
+
+/// Does `s` open with `[TAG]` or `[TAG:modifier…]`? Mirrors the parser's
+/// `match_tag` (lang/parser), which accepts a `:modifier` on every top-level tag —
+/// `[REQ:open]`, `[DTO:core]`, `[TYP:ext,uuid]`, `[TYP:example=…]`, `[ENT:ws]`.
+/// `[REQUIRE]` is not `[REQ]`: the tag must be closed by `]` or followed by `:`.
+fn is_tag(s: &str, tag: &str) -> bool {
+    match s.strip_prefix('[').and_then(|rest| rest.strip_prefix(tag)) {
+        Some(rest) => rest.starts_with(']') || rest.starts_with(':'),
+        None => false,
+    }
 }
 
 fn is_step_line(s: &str) -> bool {
@@ -352,5 +385,71 @@ mod tests {
         let input = "[DTO] FooDto: x\n    an alert to rafac@monsterrg.com e.g. WGS\n";
         let out = format_content(input);
         assert!(out.contains("rafac@monsterrg.com e.g. WGS"));
+    }
+
+    // ---- REQ-001: every top-level declaration sits at column 0, modifier or not ----
+
+    #[test]
+    fn req_001_req_open_stays_at_column_zero() {
+        // The reported corruption (coms 20260921T050158Z-w15-47057): `[REQ:open]` is
+        // not `[REQ]` by prefix, so fmt took it for a `surface.action(...)` step and
+        // indented it to 4 — silently, since the parser trims the line and `rune
+        // check` still accepted it.
+        let input = "[REQ:open] health.check({}): HealthDto\n    ex:nmi.ping(): HealthDto\n";
+        let out = format_content(input);
+        assert_eq!(out, input, "got:\n{out}");
+        let messy = "    [REQ:open] health.check({}): HealthDto\n    ex:nmi.ping(): HealthDto\n";
+        assert_eq!(format_content(messy), input, "a mis-indented [REQ:open] must come back to 0");
+    }
+
+    #[test]
+    fn req_001_modified_dto_typ_non_stay_at_column_zero() {
+        let input = "[DTO:core] HealthDto: ok\n    the answer\n[TYP:ext,uuid] cardId: string\n    a token\n[TYP:example=4111] pan: string\n    the pan\n[NON] clock\n    the clock\n";
+        assert_eq!(format_content(input), input);
+        let messy: String = input
+            .lines()
+            .map(|l| if l.starts_with('[') { format!("  {l}") } else { l.to_string() })
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        assert_eq!(format_content(&messy), input, "got:\n{}", format_content(&messy));
+    }
+
+    #[test]
+    fn req_001_mod_and_srv_stay_at_column_zero() {
+        let input = "[MOD] payments\n    the payments module\n\n[SRV] (HTTP)ex: EX_BASE_URL\n    the gateway\n    @docs https://docs.nmi.com/reference\n";
+        assert_eq!(format_content(input), input);
+        let messy = "  [MOD] payments\n    the payments module\n\n  [SRV] (HTTP)ex: EX_BASE_URL\n    the gateway\n    @docs https://docs.nmi.com/reference\n";
+        assert_eq!(format_content(messy), input, "got:\n{}", format_content(messy));
+    }
+
+    // ---- REQ-002: fmt never touches a comment line ----
+
+    #[test]
+    fn req_002_column_zero_comment_after_a_body_stays_at_column_zero() {
+        // The reported corruption: a `//` line the author put at column 0 right after
+        // a block body (no blank line between) was re-indented to 4 as if it were the
+        // block's description. The parser skips comment lines outright, so their
+        // indent is the author's — fmt has nothing to normalize.
+        let input = "[TYP] ok: boolean\n    whether it answered\n// the gateway mints this\n[TYP:ext,uuid] cardId: string\n    a token\n";
+        assert_eq!(format_content(input), input, "got:\n{}", format_content(input));
+        let input2 = "[REQ] card.open(OpenCardDto): CardDto\n    card::toDto(pan): CardDto\n// charge a stored card\n[REQ] card.charge(ChargeDto): ReceiptDto\n    card::charge(ChargeDto): ReceiptDto\n";
+        assert_eq!(format_content(input2), input2, "got:\n{}", format_content(input2));
+    }
+
+    #[test]
+    fn req_002_indented_comment_keeps_its_indent() {
+        let input = "[REQ] card.open(OpenCardDto): CardDto\n    ex:nmi.tokenise(pan): cardId\n      // the issuer said no\n      declined\n    // shape the response\n    card::toDto(cardId): CardDto\n";
+        assert_eq!(format_content(input), input, "got:\n{}", format_content(input));
+    }
+
+    #[test]
+    fn req_002_comment_between_step_and_fault_keeps_the_fault_a_fault() {
+        // A comment is invisible to the parser, so a fault after it still belongs to
+        // the step above. fmt must not let the comment reset its "after a step" state
+        // and demote the fault to prose (indent 4).
+        let input = "[REQ] card.open(OpenCardDto): CardDto\n    ex:nmi.tokenise(pan): cardId\n      // the issuer said no\n        declined\n";
+        let out = format_content(input);
+        assert!(out.contains("\n      declined\n"), "fault must normalize to 6, got:\n{out}");
     }
 }

@@ -517,6 +517,49 @@ const REQUIRED_IMPORTS: Record<string, string> = {
   "#api-doc": "jsr:@danet/swagger@^2.1.1/decorators",
 };
 
+// Root-only specifiers — bedrock's `hoistOnly`. The composed app resolves them
+// through the WORKSPACE ROOT; a member's own pin scopes its files to a second
+// copy = two composition roots, two envelopes. `rune init` and sprig both hoist
+// it there, so sync must never write it into a member (REQ-004, coms #rune
+// 20260923T000559Z-w208-103513). A project that is not a workspace member still
+// gets it in its own deno.json — there is no root to hoist to.
+const HOIST_ONLY: readonly string[] = ["@techgoose-labs/bedrock"];
+
+/** The nearest ancestor whose deno.json(c) lists `dir` as a workspace member,
+ * or null when `dir` is not a member of any workspace. */
+export async function findWorkspaceRoot(dir: string): Promise<string | null> {
+  let cur = resolve(dir);
+  while (true) {
+    const parent = dirname(cur);
+    if (parent === cur) return null;
+    for (const name of ["deno.json", "deno.jsonc"]) {
+      let text: string;
+      try {
+        text = await Deno.readTextFile(join(parent, name));
+      } catch {
+        continue;
+      }
+      // deno-lint-ignore no-explicit-any
+      let cfg: any;
+      try {
+        cfg = JSON.parse(text.replace(/^\uFEFF/, ""));
+      } catch {
+        continue; // unparseable (or a commented .jsonc) — not ours to judge here
+      }
+      const ws: unknown = Array.isArray(cfg?.workspace)
+        ? cfg.workspace
+        : Array.isArray(cfg?.workspace?.members)
+        ? cfg.workspace.members
+        : null;
+      if (
+        Array.isArray(ws) &&
+        ws.some((m) => typeof m === "string" && resolve(parent, m) === cur)
+      ) return parent;
+    }
+    cur = parent;
+  }
+}
+
 // Compiler options the generated code needs. class-validator / class-transformer
 // decorators require the legacy experimental-decorator semantics + metadata.
 const REQUIRED_COMPILER_OPTIONS: Record<string, unknown> = {
@@ -565,7 +608,11 @@ export async function ensureImportMap(
       ? config.imports
       : {};
   const added: string[] = [];
+  // A workspace member never takes a root-only specifier (REQ-004): it is
+  // skipped here and, when the root lacks it, pinned at the root below.
+  const wsRoot = await findWorkspaceRoot(root);
   for (const [k, v] of Object.entries(REQUIRED_IMPORTS)) {
+    if (wsRoot !== null && HOIST_ONLY.includes(k)) continue;
     if (!(k in imports)) {
       imports[k] = v;
       added.push(k);
@@ -585,7 +632,20 @@ export async function ensureImportMap(
   }
   config.compilerOptions = co;
 
-  if (existed && added.length === 0) return null;
+  // Hoist: the root-only pins this member must resolve through the workspace
+  // root go THERE when missing — additively, never touching the root's own keys.
+  let hoistNote: string | null = null;
+  if (wsRoot !== null) {
+    const hoisted = await ensureHoistedImports(wsRoot, ioErrors, written);
+    if (hoisted === null) return null;
+    if (hoisted.length > 0) {
+      hoistNote = `pinned ${hoisted.join(", ")} at the workspace root ${
+        join(wsRoot, "deno.json")
+      } (root-only: never in a member's deno.json)`;
+    }
+  }
+
+  if (existed && added.length === 0) return hoistNote;
   config.imports = imports;
   try {
     await Deno.writeTextFile(path, JSON.stringify(config, null, 2) + "\n");
@@ -594,9 +654,52 @@ export async function ensureImportMap(
     ioErrors.push(`deno.json: ${errMessage(e)}`);
     return null;
   }
-  return existed
+  const note = existed
     ? `updated deno.json import map (added ${added.join(", ")})`
     : "created deno.json with the import map (project is ready to type-check)";
+  return hoistNote ? `${note}; ${hoistNote}` : note;
+}
+
+/** Add every HOIST_ONLY specifier the workspace root's deno.json lacks. Returns
+ * the specifiers added (possibly none), or null on an I/O / parse error. */
+async function ensureHoistedImports(
+  wsRoot: string,
+  ioErrors: string[],
+  written?: string[],
+): Promise<string[] | null> {
+  const path = join(wsRoot, "deno.json");
+  // deno-lint-ignore no-explicit-any
+  let cfg: Record<string, any>;
+  try {
+    cfg = JSON.parse(
+      (await Deno.readTextFile(path)).replace(/^\uFEFF/, ""),
+    );
+  } catch (e) {
+    ioErrors.push(
+      `${path}: workspace root deno.json cannot be read as JSON (${
+        errMessage(e)
+      }) — the root-only imports were not pinned there`,
+    );
+    return null;
+  }
+  const imports: Record<string, string> =
+    (cfg.imports && typeof cfg.imports === "object") ? cfg.imports : {};
+  const added: string[] = [];
+  for (const k of HOIST_ONLY) {
+    if (!(k in REQUIRED_IMPORTS) || k in imports) continue;
+    imports[k] = REQUIRED_IMPORTS[k];
+    added.push(k);
+  }
+  if (added.length === 0) return [];
+  cfg.imports = imports;
+  try {
+    await Deno.writeTextFile(path, JSON.stringify(cfg, null, 2) + "\n");
+    written?.push(path);
+  } catch (e) {
+    ioErrors.push(`${path}: ${errMessage(e)}`);
+    return null;
+  }
+  return added;
 }
 
 // ---- app bootstrap (the canonical bootstrap/ composition root) ---------------

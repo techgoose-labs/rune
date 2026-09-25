@@ -838,8 +838,10 @@ export function renderAppRegistry(
   if (ghostStubs) {
     L.push(
       "  // Ghost stubs: minted stand-ins for [TYP:ext] inputs nothing produces yet.",
-      "  // Dev/test only — excluded in production; evaporates with a real producer.",
-      '  ...(Deno.env.get("DENO_ENV") === "production" ? [] : [stubsModule]),',
+      "  // Dev/test only — never in production: every Deno Deploy revision (the",
+      "  // platform sets DENO_DEPLOY itself; an app cannot set DENO_* there) or",
+      "  // DENO_ENV=production on any other host. Evaporates with a real producer.",
+      '  ...((Deno.env.get("DENO_DEPLOY") || Deno.env.get("DENO_ENV") === "production") ? [] : [stubsModule]),',
     );
   }
   L.push("];", "");

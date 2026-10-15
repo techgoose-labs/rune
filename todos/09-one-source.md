@@ -58,24 +58,24 @@ duplicate parser. Dispatch in that order.
 
 ## Phase 1 — One checker, one channel (no language change)
 
-- [ ] **1.1 `rune check --json`.** Stable output: `{ id, severity, line, col,
+- [x] **1.1 `rune check --json`.** (REQ-013) Stable output: `{ id, severity, line, col,
       message, fix }` per finding, ids = registry lint ids. Add `--stdin
       --path <file>` so a buffer can be checked with correct root/core
       resolution. Text output unchanged but prefixed with the id.
-- [ ] **1.2 LSP diagnostics come from the checker.** On didChange (debounced) the
+- [x] **1.2 LSP diagnostics come from the checker.** (REQ-015) On didChange (debounced) the
       LSP runs `rune check --json --stdin --path` and publishes the result.
       Delete `compute_diagnostics` and `check_sig` / `validate_typ_modifiers`
       ports in `lang/lsp/src/main.rs`. Hover/defs/completions keep the Rust parse
       for now (Phase 4 replaces it).
-- [ ] **1.3 Corpus sidecars + exact parity gate.** `fixtures/corpus/invalid/<name>.diag.json`
+- [x] **1.3 Corpus sidecars + exact parity gate.** (REQ-014) `fixtures/corpus/invalid/<name>.diag.json`
       lists expected `{id, line}`; valid fixtures assert empty. `scripts/verify.ts`
       gate diffs the exact list for engine, LSP (via the binary path), and studio.
       Fix `all-tags.rune` (or move it to invalid) once scope is enforced (2.3).
-- [ ] **1.4 Claude Code code-intelligence plugin.** `claude/plugin/.lsp.json`
+- [x] **1.4 Claude Code code-intelligence plugin.** (REQ-016) `claude/plugin/.lsp.json`
       mapping `.rune` → `rune-lsp`; `scripts/install.sh` / `rune update` install
       or register it (`--plugin-dir` or marketplace). Document: cloud sessions
       don't start plugin LSPs; boxes need `rune-lsp` on PATH.
-- [ ] **1.5 Agent loop rewrite.** `claude/agents/rune-spec-author.md`: write →
+- [x] **1.5 Agent loop rewrite.** (REQ-016) `claude/agents/rune-spec-author.md`: write →
       read pushed diagnostics → fix → `rune fmt` → final `rune check` gate.
       Remove prose rules that become lints (2.6).
 

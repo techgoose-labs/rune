@@ -1,0 +1,14 @@
+{
+  "name": "rune",
+  "description": "rune's Claude Code plugins — code intelligence for .rune specs",
+  "owner": {
+    "name": "techgoose-labs"
+  },
+  "plugins": [
+    {
+      "name": "rune-lsp",
+      "source": "./rune-lsp",
+      "description": "rune-lsp for .rune files: diagnostics after every edit (the same findings and rule ids as `rune check`), hover, definitions, references."
+    }
+  ]
+}

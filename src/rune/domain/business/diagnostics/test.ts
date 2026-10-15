@@ -69,3 +69,24 @@ Deno.test("REQ-014: an invalid fixture without a sidecar is a mismatch, and a wr
     await Deno.remove(dir, { recursive: true });
   }
 });
+
+// REQ-016 — the shipped Claude Code plugin marketplace (claude/plugin/) stays
+// coherent: the entry name is the manifest name (what `claude plugin install
+// rune-lsp@rune` resolves) and the server maps .rune to the rune-lsp binary.
+const PLUGIN_ROOT = fromFileUrl(new URL("../../../../../claude/plugin", import.meta.url));
+
+Deno.test("REQ-016: the rune-lsp plugin registers rune-lsp for .rune under the marketplace entry of the same name", async () => {
+  const market = JSON.parse(
+    await Deno.readTextFile(join(PLUGIN_ROOT, ".claude-plugin/marketplace.json")),
+  );
+  assertEquals(market.name, "rune");
+  const entry = market.plugins.find((p: { name: string }) => p.name === "rune-lsp");
+  assertEquals(entry.source, "./rune-lsp");
+  const manifest = JSON.parse(
+    await Deno.readTextFile(join(PLUGIN_ROOT, "rune-lsp/.claude-plugin/plugin.json")),
+  );
+  assertEquals(manifest.name, entry.name);
+  const lsp = JSON.parse(await Deno.readTextFile(join(PLUGIN_ROOT, "rune-lsp/.lsp.json")));
+  assertEquals(lsp.rune.command, "rune-lsp");
+  assertEquals(lsp.rune.extensionToLanguage, { ".rune": "rune" });
+});

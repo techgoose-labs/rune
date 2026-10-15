@@ -636,3 +636,11 @@ Deno.test("REQ-013: parse errors carry a stable id", () => {
   const stray = parse("[MOD] m\n        [CSE] email");
   assertEquals(stray.errors.map((e) => e.id), ["cse-outside-ply"]);
 });
+
+Deno.test("REQ-015: a line over 80 characters is a line-length finding", () => {
+  const long = `[TYP] ${"x".repeat(80)}: string`;
+  const ast = parse(`[MOD] m\n${long}\n    a long name`);
+  assertEquals(ast.errors.map((e) => [e.id, e.line]), [["line-length", 1]]);
+  // 80 exactly is fine; characters, not bytes (an em-dash is one column).
+  assertEquals(parse(`[MOD] m\n// ${"—".repeat(77)}`).errors, []);
+});

@@ -44,6 +44,7 @@ export const DIAGNOSTIC_IDS = [
   "boundary-signature",
   "step-outside-req",
   "unrecognized-line",
+  "line-length",
   // ---- manifest: cross-element rules ----
   "srv-outside-core",
   "core-spec-missing",

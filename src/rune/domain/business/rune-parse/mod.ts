@@ -228,6 +228,18 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
   };
 
   const lines = text.split(/\r?\n/);
+  // line-length (REQ-015): the registry rule the LSP used to enforce on its own;
+  // the engine owns it now that the LSP delegates to `rune check`.
+  lines.forEach((l, i) => {
+    const cols = [...l].length;
+    if (cols > 80) {
+      ast.errors.push({
+        id: "line-length",
+        line: i,
+        message: `line exceeds 80 characters (${cols})`,
+      });
+    }
+  });
 
   // Block-mode tracking for indented description lines. Any node with a
   // `description` field can be the target (DTO/TYP/NON/SRV + the module).

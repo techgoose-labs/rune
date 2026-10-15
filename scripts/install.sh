@@ -22,6 +22,7 @@
 #                       releases that predate those assets (default: main)
 #   CLAUDE_SKILLS_DIR   Claude Code skills dir (default: ~/.claude/skills)
 #   CLAUDE_AGENTS_DIR   Claude Code agents dir (default: ~/.claude/agents)
+#   CLAUDE_PLUGINS_DIR  Claude Code plugin marketplace dir (default: ~/.claude/rune-plugins)
 #
 # Prerequisite: `deno` on your PATH — the linter's type-aware rules spawn
 # `deno lsp`. Set SHAPE_NO_LSP=1 to skip them.
@@ -35,6 +36,7 @@ RUNE_REF="${RUNE_REF:-main}"
 BINS="rune rune-lsp rune-syntax"
 SKILLS_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 AGENTS_DIR="${CLAUDE_AGENTS_DIR:-$HOME/.claude/agents}"
+PLUGINS_DIR="${CLAUDE_PLUGINS_DIR:-$HOME/.claude/rune-plugins}"
 
 # The release tag to install. The rolling release is ALWAYS tagged `latest`;
 # pinned snapshots use their v* tag. Resolve directly — never via the GitHub
@@ -102,6 +104,35 @@ install_agents() {
   done
 }
 
+# install_plugins <dir> — install/update the Claude Code plugin marketplace that
+# ships in claude/plugin/ (REQ-015): the dir is copied whole to $PLUGINS_DIR
+# (default ~/.claude/rune-plugins), a LOCAL marketplace named "rune" that Claude
+# Code reads in place — so a re-install refreshes every plugin in it. When the
+# `claude` CLI is on the PATH the marketplace is registered and each plugin
+# installed; otherwise the two commands are printed for the user. Skipped
+# wholesale when ~/.claude is absent.
+install_plugins() {
+  [ -d "$1" ] || return 0
+  if [ ! -d "$HOME/.claude" ]; then
+    echo "rune: ~/.claude not found — skipping the Claude Code plugins."
+    return 0
+  fi
+  rm -rf "$PLUGINS_DIR"
+  mkdir -p "$(dirname "$PLUGINS_DIR")"
+  cp -R "$1" "$PLUGINS_DIR"
+  if command -v claude >/dev/null 2>&1; then
+    claude plugin marketplace add "$PLUGINS_DIR" >/dev/null 2>&1 || true
+    for p in "$PLUGINS_DIR"/*/; do
+      [ -f "$p/.claude-plugin/plugin.json" ] || continue
+      claude plugin install "$(basename "$p")@rune" >/dev/null 2>&1 || true
+    done
+    echo "rune: Claude Code plugins installed from $PLUGINS_DIR (marketplace 'rune')."
+  else
+    echo "rune: Claude Code plugins staged at $PLUGINS_DIR — to load them, run:"
+    echo "  claude plugin marketplace add $PLUGINS_DIR && claude plugin install rune-lsp@rune"
+  fi
+}
+
 # --dev: build + install from this local checkout instead of a GitHub release.
 DEV=0
 for a in "$@"; do [ "$a" = "--dev" ] && DEV=1; done
@@ -163,6 +194,7 @@ if [ "$DEV" = "1" ]; then
   fi
   install_skills "$repo/claude/skills"
   install_agents "$repo/claude/agents"
+  install_plugins "$repo/claude/plugin"
   echo "Installed rune (dev build from $repo) -> $BINDIR"
   command -v deno >/dev/null 2>&1 && echo "Run: rune --help"
   exit 0
@@ -240,6 +272,10 @@ fi
 # A new surface, so there is no pre-tarball MANIFEST fallback: a release without an
 # agent/ dir simply has no agents to install.
 [ -d "$tmp/pkg/agent" ] && install_agents "$tmp/pkg/agent"
+
+# The Claude Code plugin marketplace (claude/plugin/ — rune-lsp and any later
+# plugin) ships the same way, as a plugin/ dir inside the tarball.
+[ -d "$tmp/pkg/plugin" ] && install_plugins "$tmp/pkg/plugin"
 
 echo "Installed rune $tag -> $BINDIR"
 case ":$PATH:" in

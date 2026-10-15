@@ -1,0 +1,9 @@
+{
+  "rune": {
+    "command": "rune-lsp",
+    "args": [],
+    "extensionToLanguage": {
+      ".rune": "rune"
+    }
+  }
+}

@@ -302,3 +302,6 @@ diagnostics (pulling `rune check --json` only when no plugin is loaded), runs
   `claude plugin validate claude/plugin` → "Validation passed" (run by hand)
 - integration: n/a — the installer's `claude plugin …` calls need a user's Claude Code; verified by hand on this box
 - e2e: n/a — no page; the agent definition is a markdown deliverable (no tests — docs only)
+- `build:rust` (the gate's optional `build` step runs it first) finds cargo in
+  `$HOME/.cargo/bin` when the gate's shell has no rustup profile sourced — the
+  gate on this box died with `cargo: command not found` (exit 127) otherwise.

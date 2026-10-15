@@ -12,7 +12,7 @@
     "dev": "deno run --allow-read --allow-write --allow-net --allow-env --allow-run src/bootstrap/mod.ts",
     "gen": "deno run --allow-read --allow-write scripts/generate.mjs",
     "studio": "cd rune-studio && deno task dev",
-    "build:rust": "cd lang && cargo build --release",
+    "build:rust": "cd lang && PATH=\"$HOME/.cargo/bin:$PATH\" cargo build --release",
     "compile": "deno task setup && deno compile --allow-read --allow-write --allow-net --allow-env --allow-run -o dist/rune src/bootstrap/mod.ts",
     "build": "deno task compile && deno task build:rust && mkdir -p dist && cp lang/target/release/rune-lsp lang/target/release/rune-syntax dist/",
     "install": "sh scripts/install.sh --dev",

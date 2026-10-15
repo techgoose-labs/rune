@@ -198,3 +198,18 @@ REQ-006 had edited the copy, which the regen reverts) says the same.
 
 - unit/integration: the REQ-006 tests in `src/rune/entrypoints/sync/test.ts`,
   with a `DENO_DEPLOY=false → stubs kept` case added to the runtime evaluation.
+
+## REQ-012 — a markdown roadmap of the one-source / one-parser / one-checker changes
+
+> alright lets make a markdown files with the changes we are going to make
+> — Raphael, talk-mode review of the rune DSL, 2026-10-15
+
+`todos/09-one-source.md`: the roadmap agreed in the review — five principles,
+the evidence (file:line) for each defect found, four phases of checkbox items
+(one checker + LSP as the LLM's channel; DSL changes with `rune fmt`
+migrations; the registry as the single source with generated docs and an LLM
+language card; tree-sitter as the one parser of record), the dispatch order, and
+six open decisions with a recommended default each. `todos/README.md` gains
+its row and status line. Every item becomes its own `REQ-NNN` when it starts.
+
+- no tests — docs only

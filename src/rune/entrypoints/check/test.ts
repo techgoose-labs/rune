@@ -84,3 +84,73 @@ Deno.test("runCheck — exit 2 on an unknown [TYP] modifier", async () => {
     await Deno.remove(dir, { recursive: true });
   }
 });
+
+// REQ-013 — machine-readable output with stable rule ids, and a stdin mode so an
+// editor buffer can be checked without saving.
+function capture() {
+  const out: string[] = [];
+  const err: string[] = [];
+  return {
+    out,
+    err,
+    io: {
+      log: (s: string) => out.push(s),
+      error: (s: string) => err.push(s),
+      stdin: () => Promise.resolve(""),
+    },
+  };
+}
+
+Deno.test("REQ-013: runCheck --json prints findings with ids", async () => {
+  const dir = await Deno.makeTempDir();
+  const file = join(dir, "thing.rune");
+  await Deno.writeTextFile(file, MISSING_TYP);
+  const c = capture();
+  try {
+    assertEquals(await runCheck([file, "--json"], c.io), 2);
+    const report = JSON.parse(c.out.join(""));
+    assertEquals(report.ok, false);
+    assertEquals(report.path, file);
+    assertEquals(report.findings.length, 1);
+    assertEquals(report.findings[0].id, "dto-prop-undefined");
+    assertEquals(report.findings[0].severity, "error");
+    assertEquals(report.findings[0].line, 5);
+    assertEquals(typeof report.findings[0].message, "string");
+    assertEquals(c.err, []);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("REQ-013: runCheck --stdin --path checks a buffer", async () => {
+  const dir = await Deno.makeTempDir();
+  const file = join(dir, "thing.rune");
+  // Nothing on disk at `file`: the buffer is the spec.
+  const c = capture();
+  c.io.stdin = () => Promise.resolve(VALID);
+  try {
+    assertEquals(await runCheck(["--stdin", "--path", file, "--json"], c.io), 0);
+    const report = JSON.parse(c.out.join(""));
+    assertEquals(report.ok, true);
+    assertEquals(report.findings, []);
+    // --stdin without --path is a usage error.
+    assertEquals(await runCheck(["--stdin"], capture().io), 2);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("REQ-013: runCheck text output names the rule id", async () => {
+  const dir = await Deno.makeTempDir();
+  const file = join(dir, "thing.rune");
+  await Deno.writeTextFile(file, MISSING_TYP);
+  const c = capture();
+  try {
+    assertEquals(await runCheck([file], c.io), 2);
+    const lines = c.err.join("\n");
+    assertEquals(lines.includes("[dto-prop-undefined]"), true);
+    assertEquals(lines.includes(`${file}:5:`), true);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});

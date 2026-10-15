@@ -629,3 +629,10 @@ Deno.test("parse — [DTO] modifiers: :open and :core accepted, a typo is a hard
     true,
   );
 });
+
+Deno.test("REQ-013: parse errors carry a stable id", () => {
+  const dup = parse("[MOD] one\n[MOD] two");
+  assertEquals(dup.errors.map((e) => e.id), ["mod-duplicate"]);
+  const stray = parse("[MOD] m\n        [CSE] email");
+  assertEquals(stray.errors.map((e) => e.id), ["cse-outside-ply"]);
+});

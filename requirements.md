@@ -213,3 +213,30 @@ six open decisions with a recommended default each. `todos/README.md` gains
 its row and status line. Every item becomes its own `REQ-NNN` when it starts.
 
 - no tests — docs only
+
+## REQ-013 — `rune check --json`: every finding carries a stable rule id, line and severity; `--stdin --path` checks a buffer
+
+> Phase 1, item 1.1 of `todos/09-one-source.md` (REQ-012), started on "well go."
+> — Raphael, 2026-10-15
+
+Every error `rune check` reports is a `Finding { id, severity, path, line, message, fix? }`
+with an id from one catalogue (`src/rune/domain/business/diagnostics/mod.ts`;
+Phase 3.2 moves the catalogue into the registry). The text output renders each
+finding as `path:line: message [id]`; `--json` prints `{ path, ok, findings }`
+on stdout; `--stdin --path <file>` reads the spec from stdin and resolves root
+and core services as if it were at `<file>`, so an editor buffer can be checked
+without saving. `plan.errors` is the rendered form of `plan.findings` — one
+source, one rendering.
+
+- unit: `src/rune/domain/business/diagnostics/test.ts` —
+  `REQ-013: renderFinding is path:line: message [id]`,
+  `REQ-013: diagnostic ids are unique`;
+  `src/rune/domain/business/rune-parse/test.ts` —
+  `REQ-013: parse errors carry a stable id`;
+  `src/rune/domain/business/rune-manifest/test.ts` —
+  `REQ-013: plan.findings carry ids and plan.errors is their rendering`
+- integration: `src/rune/entrypoints/check/test.ts` —
+  `REQ-013: runCheck --json prints findings with ids`,
+  `REQ-013: runCheck --stdin --path checks a buffer`,
+  `REQ-013: runCheck text output names the rule id`
+- e2e: n/a — a CLI with no page; the LSP consumer is REQ-014 (Phase 1.2)

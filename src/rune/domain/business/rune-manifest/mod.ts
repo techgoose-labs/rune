@@ -17,6 +17,10 @@ import {
   type TypNode,
 } from "@rune/domain/business/rune-parse/mod.ts";
 import {
+  type Finding,
+  renderFinding,
+} from "@rune/domain/business/diagnostics/mod.ts";
+import {
   applyCase,
   type Binding,
   bindings,
@@ -56,7 +60,16 @@ export interface ManifestPlan {
   // Create-once files that already exist (preserved). Carry their freshly-generated content so
   // `rune sync --regen <path>` can offer it as a `.new` sibling without re-running the manifest.
   toSkip: FilePlan[];
+  /** Every finding with its stable rule id (REQ-013). */
+  findings: Finding[];
+  /** The rendered findings (`renderFinding`) — a view of `findings`, never a second source. */
   errors: string[];
+}
+
+/** Render the findings into `errors` — the one place the view is produced. */
+function finish(plan: ManifestPlan): ManifestPlan {
+  plan.errors = plan.findings.map(renderFinding);
+  return plan;
 }
 
 /** How a generated file behaves across re-runs. */
@@ -151,22 +164,31 @@ export function planManifest(
   activePolicies = opts.policies ?? null;
   const ast = parse(runeText);
   const module = ast.module ?? moduleFromSpecPath(runePath);
-  const errors: string[] = ast.errors.map((e) =>
-    `${runePath}:${e.line + 1}: ${e.message}`
-  );
+  const findings: Finding[] = ast.errors.map((e) => ({
+    id: e.id,
+    severity: "error",
+    path: runePath,
+    line: e.line + 1,
+    message: e.message,
+  }));
   const plan: ManifestPlan = {
     module: module ?? "",
     rune: runePath,
     toCreate: [],
     toRegenerate: [],
     toSkip: [],
-    errors,
+    findings,
+    errors: [],
   };
   if (!module) {
-    plan.errors.push(
-      `${runePath}: no [MOD] directive and could not derive module name`,
-    );
-    return plan;
+    plan.findings.push({
+      id: "mod-underivable",
+      severity: "error",
+      path: runePath,
+      line: 0,
+      message: "no [MOD] directive and could not derive module name",
+    });
+    return finish(plan);
   }
 
   const wantedFiles = new Map<string, string>(); // create-if-absent (lifecycle: create-once)
@@ -219,12 +241,16 @@ export function planManifest(
     const canonical = canonicalSpecPath(runePath);
     if (isProjectSpec(canonical) && !isCoreSpec(canonical)) {
       for (const s of ast.srvs) {
-        plan.errors.push(
-          `[SRV] (${s.transport})${s.name} declared in a module spec (line ${
-            s.line + 1
-          }) — shared services must be declared once in ${CORE_SPEC_REL} ` +
-            `(rune-service-core-only)`,
-        );
+        plan.findings.push({
+          id: "srv-outside-core",
+          severity: "error",
+          path: runePath,
+          line: s.line + 1,
+          message:
+            `[SRV] (${s.transport})${s.name} declared in a module spec — shared ` +
+            `services must be declared once in ${CORE_SPEC_REL} (rune-service-core-only)`,
+          fix: `move the [SRV] to ${CORE_SPEC_REL} and delete it here`,
+        });
       }
     }
   }
@@ -269,8 +295,12 @@ export function planManifest(
       const root = opts.projectRoot ?? ".";
       const names = undeclared.map(([s]) => `"${s}"`).join(", ");
       const plural = undeclared.length > 1;
-      plan.errors.push(
-        `${runePath}: no core.rune found under the resolved project root ` +
+      plan.findings.push({
+        id: "core-spec-missing",
+        severity: "error",
+        path: runePath,
+        line: 0,
+        message: `no core.rune found under the resolved project root ` +
           `"${root}" — shared services live in its src/core/core.rune and none ` +
           `was found there, so the boundary service${
             plural ? "s" : ""
@@ -282,15 +312,18 @@ export function planManifest(
           } ` +
           `— or move the spec into that project. rune resolves the root from the ` +
           `spec's path; see \`rune sync --help\`.`,
-      );
+      });
     } else {
       for (const [service, line] of undeclared) {
-        plan.errors.push(
-          `${runePath}:${
-            line + 1
-          }: undeclared service "${service}" — declare ` +
-            `it as \`[SRV] (TRANSPORT)${service}: <ENV,…>\` in src/core/core.rune`,
-        );
+        plan.findings.push({
+          id: "service-undeclared",
+          severity: "error",
+          path: runePath,
+          line: line + 1,
+          message: `undeclared service "${service}"`,
+          fix:
+            `declare it as \`[SRV] (TRANSPORT)${service}: <ENV,…>\` in src/core/core.rune`,
+        });
       }
     }
   }
@@ -322,7 +355,7 @@ export function planManifest(
       boundaryFaults,
       businessFaults,
       types,
-      plan.errors,
+      plan.findings,
     );
   }
   for (const dto of ast.dtos) {
@@ -361,10 +394,14 @@ export function planManifest(
           r.noun === ent.delegate!.noun && r.verb === ent.delegate!.verb
         );
         if (!found) {
-          plan.errors.push(
-            `${runePath}: [ENT] ${ent.surface}.${ent.action} delegates to [REQ] ` +
+          plan.findings.push({
+            id: "ent-delegate-undefined",
+            severity: "error",
+            path: runePath,
+            line: ent.line + 1,
+            message: `[ENT] ${ent.surface}.${ent.action} delegates to [REQ] ` +
               `${ent.delegate.noun}.${ent.delegate.verb}, which is not defined`,
-          );
+          });
         }
         continue;
       }
@@ -372,12 +409,19 @@ export function planManifest(
         (r) => r.input === ent.input && r.output === ent.output,
       );
       if (matches.length > 1) {
-        plan.errors.push(
-          `${runePath}: [ENT] ${ent.surface}.${ent.action}(${ent.input}): ${ent.output} is ` +
+        plan.findings.push({
+          id: "ent-ambiguous",
+          severity: "error",
+          path: runePath,
+          line: ent.line + 1,
+          message:
+            `[ENT] ${ent.surface}.${ent.action}(${ent.input}): ${ent.output} is ` +
             `ambiguous — ${matches.length} [REQ]s share that signature (${
               matches.map((r) => `${r.noun}.${r.verb}`).join(", ")
-            }); give them distinct (input): output signatures so the delegation is unambiguous`,
-        );
+            })`,
+          fix:
+            "give them distinct (input): output signatures, or name the [REQ] on an indented line under the [ENT]",
+        });
       }
     }
     const bySurface = new Map<string, EntNode[]>();
@@ -395,10 +439,15 @@ export function planManifest(
     // A surface can't be both an HTTP controller and a WebSocket socket.
     for (const surface of wsBySurface.keys()) {
       if (bySurface.has(surface)) {
-        plan.errors.push(
-          `${runePath}: surface "${surface}" is declared as both an HTTP [ENT] and a ` +
-            `WebSocket [ENT:ws] — give them distinct surfaces`,
-        );
+        plan.findings.push({
+          id: "surface-mixed",
+          severity: "error",
+          path: runePath,
+          line: wsBySurface.get(surface)![0].line + 1,
+          message:
+            `surface "${surface}" is declared as both an HTTP [ENT] and a WebSocket [ENT:ws]`,
+          fix: "give them distinct surfaces",
+        });
       }
     }
     for (const [surface, ents] of bySurface) {
@@ -465,7 +514,7 @@ export function planManifest(
   plan.toRegenerate.sort((a, b) => a.path.localeCompare(b.path));
   plan.toSkip.sort((a, b) => a.path.localeCompare(b.path));
 
-  return plan;
+  return finish(plan);
 }
 
 // ---- step traversal ----
@@ -499,7 +548,7 @@ function walkStepsForFiles(
   boundaryFaults: Map<string, string[]>,
   businessFaults: Map<string, string[]>,
   types: TypeContext,
-  errors: string[],
+  findings: Finding[],
 ): void {
   for (const step of steps) {
     if (step.kind === "step") {
@@ -527,7 +576,7 @@ function walkStepsForFiles(
       );
     } else if (step.kind === "ply") {
       polyNouns.add(step.noun);
-      addPolyFeature(emit, module, step, runePath, types, errors);
+      addPolyFeature(emit, module, step, runePath, types, findings);
       for (const cse of step.cases) {
         walkStepsForFiles(
           cse.steps,
@@ -539,7 +588,7 @@ function walkStepsForFiles(
           boundaryFaults,
           businessFaults,
           types,
-          errors,
+          findings,
         );
       }
     }
@@ -626,19 +675,21 @@ function addPolyFeature(
   ply: PlyNode,
   runePath: string,
   types: TypeContext,
-  errors: string[],
+  findings: Finding[],
 ): void {
   // A [PLY] with no [CSE] has zero variants: the poly-mod barrel would re-export
   // `./implementations//mod.ts` (a double-slash path to a module that is never
   // emitted), and firstVariant would be "" — the generated project fails to
   // resolve. Surface it as a manifest error and emit nothing for this PLY.
   if (ply.cases.length === 0) {
-    errors.push(
-      `${runePath}:${
-        ply.line + 1
-      }: [PLY] ${ply.noun}.${ply.verb} requires at ` +
-        `least one [CSE] (a polymorphic step needs ≥1 variant case)`,
-    );
+    findings.push({
+      id: "ply-cases",
+      severity: "error",
+      path: runePath,
+      line: ply.line + 1,
+      message: `[PLY] ${ply.noun}.${ply.verb} requires at least one [CSE] ` +
+        "(a polymorphic step needs ≥1 variant case)",
+    });
     return;
   }
   const noun = applyCase(ply.noun, "kebab");

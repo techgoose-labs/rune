@@ -53,7 +53,8 @@ if (
 USAGE
   rune init <project-name>   scaffold a fresh project (folder, deno.json, src/, bootstrap/)
   rune sync <file.rune>      generate/update a module from its spec
-  rune check <file.rune>     check a spec for errors (no codegen)
+  rune check <file.rune>     check a spec for errors (no codegen); --json for findings
+                             with rule ids, --stdin --path <file> to check a buffer
   rune dev [path]            live loop: save spec → check → sync → app restart → page reload
                             (one shared process per git repo; re-run to attach to it)
   rune stop [path]           stop this repo's shared \`rune dev\` process

@@ -198,3 +198,110 @@ REQ-006 had edited the copy, which the regen reverts) says the same.
 
 - unit/integration: the REQ-006 tests in `src/rune/entrypoints/sync/test.ts`,
   with a `DENO_DEPLOY=false → stubs kept` case added to the runtime evaluation.
+
+## REQ-012 — a markdown roadmap of the one-source / one-parser / one-checker changes
+
+> alright lets make a markdown files with the changes we are going to make
+> — Raphael, talk-mode review of the rune DSL, 2026-10-15
+
+`todos/09-one-source.md`: the roadmap agreed in the review — five principles,
+the evidence (file:line) for each defect found, four phases of checkbox items
+(one checker + LSP as the LLM's channel; DSL changes with `rune fmt`
+migrations; the registry as the single source with generated docs and an LLM
+language card; tree-sitter as the one parser of record), the dispatch order, and
+six open decisions with a recommended default each. `todos/README.md` gains
+its row and status line. Every item becomes its own `REQ-NNN` when it starts.
+
+- no tests — docs only
+
+## REQ-013 — `rune check --json`: every finding carries a stable rule id, line and severity; `--stdin --path` checks a buffer
+
+> Phase 1, item 1.1 of `todos/09-one-source.md` (REQ-012), started on "well go."
+> — Raphael, 2026-10-15
+
+Every error `rune check` reports is a `Finding { id, severity, path, line, message, fix? }`
+with an id from one catalogue (`src/rune/domain/business/diagnostics/mod.ts`;
+Phase 3.2 moves the catalogue into the registry). The text output renders each
+finding as `path:line: message [id]`; `--json` prints `{ path, ok, findings }`
+on stdout; `--stdin --path <file>` reads the spec from stdin and resolves root
+and core services as if it were at `<file>`, so an editor buffer can be checked
+without saving. `plan.errors` is the rendered form of `plan.findings` — one
+source, one rendering.
+
+- unit: `src/rune/domain/business/diagnostics/test.ts` —
+  `REQ-013: renderFinding is path:line: message [id]`,
+  `REQ-013: diagnostic ids are unique`;
+  `src/rune/domain/business/rune-parse/test.ts` —
+  `REQ-013: parse errors carry a stable id`;
+  `src/rune/domain/business/rune-manifest/test.ts` —
+  `REQ-013: plan.findings carry ids and plan.errors is their rendering`
+- integration: `src/rune/entrypoints/check/test.ts` —
+  `REQ-013: runCheck --json prints findings with ids`,
+  `REQ-013: runCheck --stdin --path checks a buffer`,
+  `REQ-013: runCheck text output names the rule id`
+- e2e: n/a — a CLI with no page; the LSP consumer is REQ-014 (Phase 1.2)
+
+## REQ-014 — the corpus pins WHICH findings: invalid fixtures carry a `.diag.json` sidecar and the parity gate diffs it exactly
+
+> Phase 1, item 1.3 of `todos/09-one-source.md` (REQ-012). — Raphael, "well go.", 2026-10-15
+
+`fixtures/corpus/invalid/<name>.diag.json` lists the exact `[{ id, line }]`
+`rune check` must report for `<name>.rune`; every `fixtures/corpus/valid/*.rune`
+must check clean. `corpusParity()` (`src/rune/domain/business/diagnostics/corpus.ts`)
+is the one comparison, used by the `corpus` gate in `scripts/verify.ts`;
+`--update-goldens` captures a MISSING sidecar only (a changed verdict is a
+reviewed edit). Two checkers can no longer disagree on which error and both pass.
+
+- unit: `src/rune/domain/business/diagnostics/test.ts` —
+  `REQ-014: the valid corpus checks clean and every invalid fixture matches its sidecar`,
+  `REQ-014: an invalid fixture without a sidecar is a mismatch, and a wrong sidecar names the difference`
+- integration: the `corpus` gate of `deno run -A scripts/verify.ts` (same function over the real corpus)
+- e2e: n/a — no page; the LSP side of parity is REQ-015
+
+## REQ-015 — the LSP's diagnostics ARE `rune check --json` over the buffer; the engine gains the 80-column rule
+
+> Phase 1, item 1.2 of `todos/09-one-source.md` (REQ-012); "the lsp tells the llm
+> if what it did was fucked." — Raphael, 2026-10-15
+
+`rune-lsp` no longer computes a verdict: on open/change it pipes the buffer to
+`rune check --json --stdin --path <file>` (`RUNE_BIN`, else the `rune` beside
+its own executable, else PATH) and publishes the findings as diagnostics — the
+rule id as the code, the 1-based line mapped to the editor's, severity kept, a
+`fix` appended to the message. A checker that cannot run or returns no report
+is one `checker-unavailable` diagnostic naming the cause. The hand-written
+diagnostics port (`compute_diagnostics` and its helpers and tests) is deleted.
+The one rule only the LSP enforced, 80 columns, moves into the engine as
+`line-length` so nothing is lost.
+
+- unit: `lang/lsp/src/main.rs` —
+  `req_015_diagnostics_are_rune_check_json_over_the_buffer`,
+  `req_015_missing_checker_is_one_diagnostic_naming_the_cause`,
+  `req_015_garbage_report_is_one_diagnostic_with_stderr` (cargo test -p rune-lsp;
+  CI runs no cargo — run it by hand before handing off);
+  `src/rune/domain/business/rune-parse/test.ts` —
+  `REQ-015: a line over 80 characters is a line-length finding`
+- integration: REQ-014's corpus gate is the parity oracle both sides now share
+- e2e: n/a — an editor protocol, no page
+
+## REQ-016 — rune ships a Claude Code code-intelligence plugin for `.rune`, and the spec-author agent works from the pushed diagnostics
+
+> Phase 1, items 1.4 and 1.5 of `todos/09-one-source.md` (REQ-012). — Raphael, 2026-10-15
+
+`claude/plugin/` is a local Claude Code plugin marketplace named `rune`; its
+`rune-lsp` plugin registers `rune-lsp` for `.rune` files (`.lsp.json`), so
+Claude Code reports `rune check`'s findings after every edit of a spec. The
+installer copies the marketplace to `~/.claude/rune-plugins`, registers it and
+installs the plugin when the `claude` CLI is present (else prints the two
+commands); the uninstaller removes it; the release tarball carries it as
+`plugin/`. `claude/agents/rune-spec-author.md` now loops on the pushed
+diagnostics (pulling `rune check --json` only when no plugin is loaded), runs
+`rune fmt`, and keeps `rune check` exit 0 as the gate it returns.
+
+- unit: `src/rune/domain/business/diagnostics/test.ts` —
+  `REQ-016: the rune-lsp plugin registers rune-lsp for .rune under the marketplace entry of the same name`;
+  `claude plugin validate claude/plugin` → "Validation passed" (run by hand)
+- integration: n/a — the installer's `claude plugin …` calls need a user's Claude Code; verified by hand on this box
+- e2e: n/a — no page; the agent definition is a markdown deliverable (no tests — docs only)
+- `build:rust` (the gate's optional `build` step runs it first) finds cargo in
+  `$HOME/.cargo/bin` when the gate's shell has no rustup profile sourced — the
+  gate on this box died with `cargo: command not found` (exit 127) otherwise.

@@ -4,7 +4,16 @@
   "toCreate": [],
   "toRegenerate": [],
   "toSkip": [],
+  "findings": [
+    {
+      "id": "mod-underivable",
+      "severity": "error",
+      "path": "corpus/valid/scope-static-instance.rune",
+      "line": 0,
+      "message": "no [MOD] directive and could not derive module name"
+    }
+  ],
   "errors": [
-    "corpus/valid/scope-static-instance.rune: no [MOD] directive and could not derive module name"
+    "corpus/valid/scope-static-instance.rune: no [MOD] directive and could not derive module name [mod-underivable]"
   ]
 }

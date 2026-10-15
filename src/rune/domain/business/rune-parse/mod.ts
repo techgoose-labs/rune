@@ -1,3 +1,4 @@
+import type { DiagnosticId } from "@rune/domain/business/diagnostics/mod.ts";
 // Rune line-based parser. Pure function: text → structured AST.
 // Mirrors rune/parser/src/lib.rs but produces a tree instead of a flat line list.
 
@@ -206,6 +207,8 @@ export interface SrvNode {
 }
 
 export interface ParseError {
+  /** Stable rule id (REQ-013) — see diagnostics/mod.ts. */
+  id: DiagnosticId;
   line: number;
   message: string;
 }
@@ -225,6 +228,18 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
   };
 
   const lines = text.split(/\r?\n/);
+  // line-length (REQ-015): the registry rule the LSP used to enforce on its own;
+  // the engine owns it now that the LSP delegates to `rune check`.
+  lines.forEach((l, i) => {
+    const cols = [...l].length;
+    if (cols > 80) {
+      ast.errors.push({
+        id: "line-length",
+        line: i,
+        message: `line exceeds 80 characters (${cols})`,
+      });
+    }
+  });
 
   // Block-mode tracking for indented description lines. Any node with a
   // `description` field can be the target (DTO/TYP/NON/SRV + the module).
@@ -281,11 +296,13 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
         const sig = parseReqSignature(entReq.rest);
         if (!sig) {
           ast.errors.push({
+            id: "ent-body-signature",
             line: i,
             message: "[ENT] body [REQ] has a malformed signature",
           });
         } else if (entReq.modifier !== null) {
           ast.errors.push({
+            id: "ent-body-modifier",
             line: i,
             message: "[ENT] body [REQ] does not take a modifier",
           });
@@ -321,6 +338,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
           currentWsSocket.topicCount++;
         } else {
           ast.errors.push({
+            id: "ws-topic-shape",
             line: i,
             message:
               `[ENT:ws] ${currentWsSocket.surface}: malformed topic — expected "<verb>(InputDto): OutputDto"`,
@@ -331,6 +349,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       }
       if (currentWsSocket.topicCount === 0) {
         ast.errors.push({
+          id: "ws-no-topics",
           line: currentWsSocket.line,
           message:
             `[ENT:ws] ${currentWsSocket.surface} has no topics — add at least one "<verb>(InputDto): OutputDto"`,
@@ -361,10 +380,11 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       const name = (colon === -1 ? rest : rest.slice(0, colon)).trim();
       const inlineDesc = colon === -1 ? "" : rest.slice(colon + 1).trim();
       if (name === "") {
-        ast.errors.push({ line: i, message: "[MOD] missing name" });
+        ast.errors.push({ id: "mod-name", line: i, message: "[MOD] missing name" });
         descTarget = null;
       } else if (!MOD_NAME_RE.test(name)) {
         ast.errors.push({
+          id: "mod-name",
           line: i,
           message:
             `[MOD] invalid name "${name}" — must start with a letter or "_" and use only letters, digits, "-", "_"`,
@@ -372,6 +392,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
         descTarget = null;
       } else if (ast.module !== null) {
         ast.errors.push({
+          id: "mod-duplicate",
           line: i,
           message: `duplicate [MOD]: already set to "${ast.module}"`,
         });
@@ -392,6 +413,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       );
       if (!m) {
         ast.errors.push({
+          id: "srv-shape",
           line: i,
           message:
             "[SRV] malformed — expected [SRV] (TRANSPORT)<name>: <ENV,…>",
@@ -402,6 +424,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       const [, transport, name, envStr] = m;
       if (!SRV_TRANSPORTS.includes(transport as SrvTransport)) {
         ast.errors.push({
+          id: "srv-transport",
           line: i,
           message: `[SRV] unknown transport "${transport}" — expected ${
             SRV_TRANSPORTS.join("/")
@@ -437,11 +460,13 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       const isOpen = reqTag.modifier === "open";
       if (reqTag.modifier === "core") {
         ast.errors.push({
+          id: "req-core",
           line: i,
           message: "[REQ:core] is invalid — coordinators are module-level",
         });
       } else if (reqTag.modifier !== null && !isOpen) {
         ast.errors.push({
+          id: "req-modifier",
           line: i,
           message:
             `[REQ] unknown modifier "${reqTag.modifier}" — the only one is :open`,
@@ -450,6 +475,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       const sig = parseReqSignature(reqTag.rest);
       if (!sig) {
         ast.errors.push({
+          id: "req-signature",
           line: i,
           message: "[REQ] missing or malformed signature",
         });
@@ -475,6 +501,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
         const header = parseWsHeader(entTag.rest);
         if (!header) {
           ast.errors.push({
+            id: "ws-header-signature",
             line: i,
             message:
               '[ENT:ws] malformed — expected "[ENT:ws] <surface> @ /path"',
@@ -499,6 +526,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       const sig = parseReqSignature(entTag.rest);
       if (!sig) {
         ast.errors.push({
+          id: "ent-signature",
           line: i,
           message: "[ENT] missing or malformed signature",
         });
@@ -506,6 +534,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
         // An explicit `@ METHOD` must name a real HTTP verb.
         if (sig.method && !ENT_METHODS.has(sig.method)) {
           ast.errors.push({
+            id: "ent-method",
             line: i,
             message:
               `[ENT] HTTP method must be one of GET, POST, PUT, PATCH, DELETE (got "${sig.method.toUpperCase()}")`,
@@ -544,6 +573,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       // fields at runtime with no warning. Mirrors the [REQ] modifier guard.
       if (dtoTag.modifier && !isCore && !isOpen) {
         ast.errors.push({
+          id: "dto-modifier",
           line: i,
           message:
             `[DTO] unknown modifier "${dtoTag.modifier}" — expected :core or :open`,
@@ -551,7 +581,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       }
       const colon = dtoTag.rest.indexOf(":");
       if (colon === -1) {
-        ast.errors.push({ line: i, message: "[DTO] missing properties" });
+        ast.errors.push({ id: "dto-props", line: i, message: "[DTO] missing properties" });
       } else {
         const name = dtoTag.rest.slice(0, colon).trim();
         const props = dtoTag.rest
@@ -583,10 +613,10 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     const typTag = rec.match(trimmed, "typ");
     if (typTag) {
       const { mods, errors: modErrors } = parseTypModifiers(typTag.modifier);
-      for (const message of modErrors) ast.errors.push({ line: i, message });
+      for (const message of modErrors) ast.errors.push({ id: "typ-modifier", line: i, message });
       const colon = typTag.rest.indexOf(":");
       if (colon === -1) {
-        ast.errors.push({ line: i, message: "[TYP] missing type" });
+        ast.errors.push({ id: "typ-type", line: i, message: "[TYP] missing type" });
       } else {
         const name = typTag.rest.slice(0, colon).trim();
         const typeName = typTag.rest.slice(colon + 1).trim();
@@ -598,6 +628,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
           const spec = TYP_MODIFIERS.get(id);
           if (spec?.base && spec.base !== typeName) {
             ast.errors.push({
+              id: "typ-modifier",
               line: i,
               message:
                 `[TYP] modifier "${id}" requires a ${spec.base} type, but "${name}" is ${typeName}`,
@@ -628,7 +659,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     if (nonTag) {
       const name = nonTag.rest.trim();
       if (name === "") {
-        ast.errors.push({ line: i, message: "[NON] missing name" });
+        ast.errors.push({ id: "non-name", line: i, message: "[NON] missing name" });
       } else {
         const node: NonNode = { name, description: "", line: i };
         ast.nons.push(node);
@@ -647,13 +678,14 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       const sig = parseStepSignature(plyTag.rest);
       if (!sig) {
         ast.errors.push({
+          id: "ply-signature",
           line: i,
           message: "[PLY] missing or malformed signature",
         });
       } else {
         const node: PlyNode = { kind: "ply", ...sig, cases: [], line: i };
         if (currentReq) currentReq.steps.push(node);
-        else ast.errors.push({ line: i, message: "[PLY] outside [REQ]" });
+        else ast.errors.push({ id: "ply-outside-req", line: i, message: "[PLY] outside [REQ]" });
         currentPly = node;
         currentCse = null;
       }
@@ -667,9 +699,9 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     if (cseTag) {
       const name = cseTag.rest;
       if (name === "") {
-        ast.errors.push({ line: i, message: "[CSE] missing case name" });
+        ast.errors.push({ id: "cse-name", line: i, message: "[CSE] missing case name" });
       } else if (!currentPly) {
-        ast.errors.push({ line: i, message: "[CSE] outside [PLY] block" });
+        ast.errors.push({ id: "cse-outside-ply", line: i, message: "[CSE] outside [PLY] block" });
       } else {
         const node: CseNode = { name, steps: [], line: i };
         currentPly.cases.push(node);
@@ -685,7 +717,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     if (newTag) {
       const className = newTag.rest;
       if (className === "") {
-        ast.errors.push({ line: i, message: "[CTR] missing class name" });
+        ast.errors.push({ id: "new-class", line: i, message: "[CTR] missing class name" });
       } else {
         const node: CtrNode = { kind: "ctr", className, line: i };
         appendStepToCurrentScope(
@@ -707,7 +739,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     if (retTag) {
       const value = retTag.rest;
       if (value === "") {
-        ast.errors.push({ line: i, message: "[RET] missing value" });
+        ast.errors.push({ id: "ret-value", line: i, message: "[RET] missing value" });
       } else {
         const node: RetNode = { kind: "ret", value, line: i };
         appendStepToCurrentScope(
@@ -730,6 +762,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       const sig = parseStepSignature(boundary.rest);
       if (!sig) {
         ast.errors.push({
+          id: "boundary-signature",
           line: i,
           message: `${boundary.service}: malformed signature`,
         });
@@ -775,11 +808,13 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
       const url = trimmed.slice("@docs".length).trim();
       if (url === "") {
         ast.errors.push({
+          id: "srv-docs-url",
           line: i,
           message: `[SRV] ${currentSrv.name}: @docs needs a URL`,
         });
       } else if (currentSrv.docsLink) {
         ast.errors.push({
+          id: "srv-docs-duplicate",
           line: i,
           message: `[SRV] ${currentSrv.name}: duplicate @docs link`,
         });
@@ -826,13 +861,14 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
     }
 
     // Fall-through: unrecognized line.
-    ast.errors.push({ line: i, message: `unrecognized line: "${trimmed}"` });
+    ast.errors.push({ id: "unrecognized-line", line: i, message: `unrecognized line: "${trimmed}"` });
   }
 
   // An [ENT:ws] socket still open at EOF with no topics is an error (mirrors the
   // dedent-close check inside the loop, for a socket that ends the file).
   if (currentWsSocket && currentWsSocket.topicCount === 0) {
     ast.errors.push({
+      id: "ws-no-topics",
       line: currentWsSocket.line,
       message:
         `[ENT:ws] ${currentWsSocket.surface} has no topics — add at least one "<verb>(InputDto): OutputDto"`,
@@ -855,6 +891,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
         dtoNames.has(`${pascal(clean)}Dto`);
       if (!resolved) {
         ast.errors.push({
+          id: "dto-prop-undefined",
           line: dto.line,
           message:
             `[DTO] ${dto.name}: property "${prop}" has no [TYP] or [DTO] — declare "[TYP] ${clean}: <type>"`,
@@ -868,6 +905,7 @@ export function parse(text: string, opts: ParseOptions = {}): RuneAst {
   for (const srv of ast.srvs) {
     if (!srv.docsLink) {
       ast.errors.push({
+        id: "srv-docs-required",
         line: srv.line,
         message: `[SRV] ${srv.name} requires an @docs <url> line`,
       });
@@ -1208,6 +1246,7 @@ function appendStepToCurrentScope(
   if (currentCse) {
     if (step.kind === "ply") {
       ast.errors.push({
+        id: "ply-nested",
         line,
         message: "nested [PLY] inside [CSE] not supported",
       });
@@ -1220,5 +1259,5 @@ function appendStepToCurrentScope(
     currentReq.steps.push(step);
     return;
   }
-  ast.errors.push({ line, message: `step outside [REQ]: ${step.kind}` });
+  ast.errors.push({ id: "step-outside-req", line, message: `step outside [REQ]: ${step.kind}` });
 }

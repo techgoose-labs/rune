@@ -64,6 +64,15 @@ if [ -d "$keepskill" ] && [ ! -L "$keepskill" ]; then
   rm -rf "$keepskill" && echo "removed $keepskill (folded into the rune skill)" && removed=$((removed + 1))
 fi
 
+# The Claude Code plugin marketplace the installer staged (claude/plugin/ →
+# ~/.claude/rune-plugins, marketplace "rune"): unregister it when the claude CLI
+# is here (that also uninstalls its plugins), then remove the directory.
+pluginsdir="${CLAUDE_PLUGINS_DIR:-$HOME/.claude/rune-plugins}"
+if [ -d "$pluginsdir" ]; then
+  command -v claude >/dev/null 2>&1 && claude plugin marketplace remove rune >/dev/null 2>&1 || true
+  rm -rf "$pluginsdir" && echo "removed $pluginsdir (Claude Code plugin marketplace 'rune')" && removed=$((removed + 1))
+fi
+
 if [ "$removed" -eq 0 ]; then
   echo "rune: nothing to uninstall."
 else

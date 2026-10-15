@@ -24,6 +24,7 @@ Run tasks **sequentially in numeric order**. The only safe parallelization is `0
 | 06 | System map at `/docs/_map` | keep | 02 (04 helps verification) |
 | 07 | Docs, skill, cross-repo sweep, release order | both | all of the above |
 | 08 | `rune check`: signature consistency + step-arg resolution | rune | — (standalone) |
+| 09 | One source, one parser, one checker, LLM-first (roadmap: 4 phases, each item its own task) | rune | 08 folds into 2.3 |
 
 Do **not** parallelize 03 with 05 (both edit rune `src/rune/entrypoints/sync/mod.ts`) or any of
 04/05/06 with each other (all edit keep `emulator-ui/` and/or `bootstrap-server/`).
@@ -40,6 +41,7 @@ with one — it contains runnable commands), then tick the task's row here:
 - [x] 05 — rune dev
 - [x] 06 — system map
 - [x] 07 — docs + sweep
+- [ ] 09 — one-source roadmap (see `09-one-source.md`; tick per phase)
 
 ## Non-negotiable policies (repeat these to every worker)
 

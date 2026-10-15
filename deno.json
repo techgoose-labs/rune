@@ -12,7 +12,7 @@
     "dev": "deno run --allow-read --allow-write --allow-net --allow-env --allow-run src/bootstrap/mod.ts",
     "gen": "deno run --allow-read --allow-write scripts/generate.mjs",
     "studio": "cd rune-studio && deno task dev",
-    "build:rust": "cd lang && cargo build --release",
+    "build:rust": "cd lang && PATH=\"$HOME/.cargo/bin:$PATH\" cargo build --release",
     "compile": "deno task setup && deno compile --allow-read --allow-write --allow-net --allow-env --allow-run -o dist/rune src/bootstrap/mod.ts",
     "build": "deno task compile && deno task build:rust && mkdir -p dist && cp lang/target/release/rune-lsp lang/target/release/rune-syntax dist/",
     "install": "sh scripts/install.sh --dev",
@@ -26,7 +26,19 @@
     "verify": "deno task check:lockstep && deno task check:spec-refs && deno task check:agent-guardrail && deno run -A scripts/verify.ts",
     "test:keep": "cd keep && deno task test",
     "check:keep-jsr": "cd keep && deno task check:jsr",
-    "test:e2e": "deno test -A --unstable-raw-imports --config e2e/cake/deno.json e2e/cake/ && deno test -A --unstable-raw-imports --config e2e/checkout/deno.json e2e/checkout/",
+    "test:unit": {
+      "description": "parallel: deno test --parallel over the unit files scripts/lane.ts plans (REQ-278 lane; answers --plan)",
+      "command": "deno run -A scripts/lane.ts unit"
+    },
+    "test:int": {
+      "description": "parallel: deno test --parallel over the *.int.test.ts files scripts/lane.ts plans (REQ-278 lane; answers --plan)",
+      "command": "deno run -A scripts/lane.ts int"
+    },
+    "test:e2e": "deno test -A --parallel --unstable-raw-imports --config e2e/cake/deno.json e2e/cake/ && deno test -A --parallel --unstable-raw-imports --config e2e/checkout/deno.json e2e/checkout/",
+    "serve": {
+      "description": "REQ-278 — the cake app test:e2e drives, on PORT (the gate sets it)",
+      "command": "deno run -A --unstable-raw-imports --config e2e/cake/deno.json e2e/cake/server.ts"
+    },
     "test:e2e:checkout": "deno test -A --unstable-raw-imports --config e2e/checkout/deno.json e2e/checkout/",
     "cake": "deno run -A npm:playwright install chromium chromium-headless-shell && KEEP_BROWSER=1 KEEP_HEADED=1 deno test -A --unstable-raw-imports --config e2e/cake/deno.json e2e/cake/cake.e2e.test.ts",
     "example": "deno run -A examples/in-process-client/main.ts"

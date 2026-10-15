@@ -1,0 +1,8 @@
+{
+  "name": "rune-lsp",
+  "version": "1.0.0",
+  "description": "Code intelligence for .rune specs: rune-lsp diagnostics after every edit (the same findings and rule ids as `rune check`), hover, definitions and references.",
+  "author": {
+    "name": "techgoose-labs"
+  }
+}

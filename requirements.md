@@ -240,3 +240,20 @@ source, one rendering.
   `REQ-013: runCheck --stdin --path checks a buffer`,
   `REQ-013: runCheck text output names the rule id`
 - e2e: n/a — a CLI with no page; the LSP consumer is REQ-014 (Phase 1.2)
+
+## REQ-014 — the corpus pins WHICH findings: invalid fixtures carry a `.diag.json` sidecar and the parity gate diffs it exactly
+
+> Phase 1, item 1.3 of `todos/09-one-source.md` (REQ-012). — Raphael, "well go.", 2026-10-15
+
+`fixtures/corpus/invalid/<name>.diag.json` lists the exact `[{ id, line }]`
+`rune check` must report for `<name>.rune`; every `fixtures/corpus/valid/*.rune`
+must check clean. `corpusParity()` (`src/rune/domain/business/diagnostics/corpus.ts`)
+is the one comparison, used by the `corpus` gate in `scripts/verify.ts`;
+`--update-goldens` captures a MISSING sidecar only (a changed verdict is a
+reviewed edit). Two checkers can no longer disagree on which error and both pass.
+
+- unit: `src/rune/domain/business/diagnostics/test.ts` —
+  `REQ-014: the valid corpus checks clean and every invalid fixture matches its sidecar`,
+  `REQ-014: an invalid fixture without a sidecar is a mismatch, and a wrong sidecar names the difference`
+- integration: the `corpus` gate of `deno run -A scripts/verify.ts` (same function over the real corpus)
+- e2e: n/a — no page; the LSP side of parity is REQ-015

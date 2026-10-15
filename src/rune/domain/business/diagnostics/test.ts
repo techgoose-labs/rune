@@ -28,3 +28,44 @@ Deno.test("REQ-013: renderFinding is path:line: message [id]", () => {
 Deno.test("REQ-013: diagnostic ids are unique", () => {
   assertEquals(new Set(DIAGNOSTIC_IDS).size, DIAGNOSTIC_IDS.length);
 });
+
+import { corpusParity } from "./corpus.ts";
+import { fromFileUrl, join } from "#std/path";
+
+const CORPUS = fromFileUrl(new URL("../../../../../fixtures/corpus", import.meta.url));
+
+Deno.test("REQ-014: the valid corpus checks clean and every invalid fixture matches its sidecar", async () => {
+  assertEquals(await corpusParity(CORPUS), []);
+});
+
+Deno.test("REQ-014: an invalid fixture without a sidecar is a mismatch, and a wrong sidecar names the difference", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    await Deno.mkdir(join(dir, "valid"));
+    await Deno.mkdir(join(dir, "invalid"));
+    await Deno.writeTextFile(
+      join(dir, "invalid/dup.rune"),
+      "[MOD] one\n[MOD] two\n",
+    );
+    const missing = await corpusParity(dir);
+    assertEquals(missing.length, 1);
+    assertEquals(missing[0].includes("no sidecar"), true);
+    // --update-goldens captures it; the capture is the real verdict.
+    assertEquals(await corpusParity(dir, { update: true }), []);
+    assertEquals(
+      JSON.parse(await Deno.readTextFile(join(dir, "invalid/dup.diag.json"))),
+      [{ id: "mod-duplicate", line: 2 }],
+    );
+    // A sidecar that disagrees is reported with both lists.
+    await Deno.writeTextFile(
+      join(dir, "invalid/dup.diag.json"),
+      JSON.stringify([{ id: "mod-name", line: 2 }], null, 2) + "\n",
+    );
+    const wrong = await corpusParity(dir);
+    assertEquals(wrong.length, 1);
+    assertEquals(wrong[0].includes("mod-duplicate@2"), true);
+    assertEquals(wrong[0].includes("mod-name@2"), true);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});

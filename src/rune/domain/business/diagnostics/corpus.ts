@@ -18,14 +18,14 @@ export interface ExpectedFinding {
 /** The findings `rune check` reports for a corpus fixture: the spec is checked
  * as `src/<stem>/<stem>.rune` so a fixture without `[MOD]` still derives its
  * module (the corpus tests the language, not the project layout). */
-export function corpusFindings(stem: string, text: string): ExpectedFinding[] {
+function corpusFindings(stem: string, text: string): ExpectedFinding[] {
   const plan = planManifest(`src/${stem}/${stem}.rune`, text, new Set());
   return plan.findings
     .map((f) => ({ id: f.id, line: f.line }))
     .sort((a, b) => a.line - b.line || a.id.localeCompare(b.id));
 }
 
-export const sidecarPath = (runePath: string): string =>
+const sidecarPath = (runePath: string): string =>
   runePath.replace(/\.rune$/, ".diag.json");
 
 function stableJson(v: unknown): string {

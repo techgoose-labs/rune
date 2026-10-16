@@ -25,13 +25,11 @@ import type {
 import type { Finding } from "@rune/domain/business/diagnostics/mod.ts";
 import {
   fixFor,
-  indent,
   isEnabled,
   message,
   registry,
   severityOf,
   shapeRules,
-  tagById,
   wellKnownFault,
 } from "@rune/domain/business/registry/mod.ts";
 
@@ -476,8 +474,3 @@ export function checkSpec(ast: RuneAst, text: string): Finding[] {
 
   return out;
 }
-
-/** The registry's indent table, for callers that render fixes. */
-export const INDENT = indent;
-/** The registry's tag table, for callers that render fixes. */
-export const TAGS = tagById;

@@ -6,10 +6,12 @@
 // `examples/` do NOT exist. Without the bundle, the agent has to go find the
 // toolchain source and read the docs from there — wasted, brittle archaeology.
 //
-// So the canonical docs (the single source of truth in `lang/docs/`) and a
-// known-good example spec are COPIED, verbatim, into the skill's `references/`.
-// `install.sh` ships the whole skill folder, so the copies travel to
-// `~/.claude/skills/rune:spec/references/` (source: claude/skills/rune:spec/).
+// So the language card (generated from the registry and the corpus by
+// scripts/gen-lang-docs.ts — grammar by example, every table, every rule with
+// its message and fix, every invalid fixture as an error → fix pair), the
+// hand-written cookbook and two known-good example specs are COPIED, verbatim,
+// into the skill's `references/`. `install.sh` ships the whole skill folder, so
+// the copies travel to `~/.claude/skills/rune:spec/references/`.
 //
 // Usage:
 //   deno run -A scripts/sync-spec-skill-refs.ts          # write the copies
@@ -17,8 +19,7 @@
 
 // src (repo-relative) → dest (under claude/skills/rune:spec/references/)
 const PAIRS: [src: string, dest: string][] = [
-  ["lang/docs/spec.md", "spec.md"],
-  ["lang/docs/constraints.md", "constraints.md"],
+  ["lang/docs/card.md", "card.md"],
   ["lang/docs/cookbook.md", "cookbook.md"],
   ["examples/todos/src/core/core.rune", "example-core.rune"],
   ["examples/todos/src/tasks/tasks.rune", "example-tasks.rune"],

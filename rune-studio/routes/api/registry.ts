@@ -1,11 +1,11 @@
 // deno-lint-ignore-file no-explicit-any
 import { define } from "../../utils.ts";
 
-// Persist the edited language definition back to data/keywords.json.
+// Persist the edited language definition back to lang/keywords.json.
 // This is what makes "editing the language through the UI" durable: routes read
 // keywords.json at request time, so a save shows up on the next load everywhere.
 // CWD-relative so it works in the bundled server too (import.meta.url → _fresh/)
-const REGISTRY = "../keywords.json";
+const REGISTRY = "../lang/keywords.json";
 
 export const handler = define.handlers({
   async POST(ctx) {

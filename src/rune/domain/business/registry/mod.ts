@@ -89,7 +89,6 @@ export function wellKnownFault(name: string): number | null {
   return null;
 }
 
-export const indent = registry.indent;
 export const columns = registry.columns;
 
 // ---- the rule catalogue ----------------------------------------------------

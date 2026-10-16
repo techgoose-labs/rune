@@ -17,7 +17,9 @@
           "kind": "step",
           "noun": "cart",
           "verb": "total",
-          "params": [],
+          "params": [
+            "items"
+          ],
           "output": "PriceDto",
           "isStatic": false,
           "faults": [
@@ -42,9 +44,35 @@
           "line": 4
         },
         {
+          "kind": "step",
+          "noun": "receipt",
+          "verb": "build",
+          "params": [
+            "IdDto",
+            "PriceDto"
+          ],
+          "output": "ReceiptDto",
+          "isStatic": true,
+          "faults": [],
+          "line": 6
+        },
+        {
+          "kind": "boundary",
+          "service": "db",
+          "noun": "receipt",
+          "verb": "log",
+          "params": [
+            "ReceiptDto"
+          ],
+          "output": "void",
+          "isStatic": false,
+          "faults": [],
+          "line": 7
+        },
+        {
           "kind": "ret",
           "value": "ReceiptDto",
-          "line": 6
+          "line": 8
         }
       ],
       "isOpen": false,
@@ -61,7 +89,7 @@
       "description": "the order the customer wants to place",
       "isCore": false,
       "isOpen": false,
-      "line": 14
+      "line": 18
     },
     {
       "name": "PriceDto",
@@ -71,7 +99,7 @@
       "description": "a computed price",
       "isCore": false,
       "isOpen": false,
-      "line": 17
+      "line": 21
     },
     {
       "name": "IdDto",
@@ -81,7 +109,7 @@
       "description": "a persisted order identifier",
       "isCore": false,
       "isOpen": false,
-      "line": 20
+      "line": 24
     },
     {
       "name": "ReceiptDto",
@@ -92,7 +120,7 @@
       "description": "the receipt returned to the customer",
       "isCore": false,
       "isOpen": false,
-      "line": 23
+      "line": 27
     }
   ],
   "typs": [
@@ -103,7 +131,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 11
+      "line": 15
     },
     {
       "name": "items",
@@ -112,14 +140,28 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 26
+      "line": 30
+    },
+    {
+      "name": "id",
+      "typeName": "string",
+      "description": "the id",
+      "isCore": false,
+      "isExternal": false,
+      "modifiers": [],
+      "line": 32
     }
   ],
   "nons": [
     {
       "name": "cart",
       "description": "a shopping cart holding line items before checkout",
-      "line": 8
+      "line": 10
+    },
+    {
+      "name": "receipt",
+      "description": "the receipt handed to the customer",
+      "line": 12
     }
   ],
   "srvs": [
@@ -131,8 +173,17 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 29
+      "line": 35
     }
   ],
+  "faultStatuses": {
+    "empty-cart": 422
+  },
+  "bodyLines": [],
+  "faultLines": {
+    "empty-cart": 3,
+    "timeout": 5,
+    "network-error": 5
+  },
   "errors": []
 }

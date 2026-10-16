@@ -10,7 +10,8 @@
       "severity": "error",
       "path": "corpus/valid/all-tags.rune",
       "line": 0,
-      "message": "no [MOD] directive and could not derive module name"
+      "message": "no [MOD] directive and could not derive module name",
+      "fix": "add `[MOD] <name>` as the first line"
     }
   ],
   "errors": [

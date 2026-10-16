@@ -54,6 +54,19 @@ type FieldSource = "query" | "header";
 import type { Artifact } from "@rune/domain/business/artifact/mod.ts";
 import { checkSpec } from "@rune/domain/business/rune-checks/mod.ts";
 
+/** The ids this module emits (REQ-026): the cross-element rules that need the
+ * project — services, delegation, surfaces, cases. */
+export const EMITS = [
+  "mod-underivable",
+  "srv-outside-core",
+  "core-spec-missing",
+  "service-undeclared",
+  "ent-delegate-required",
+  "ent-delegate-undefined",
+  "surface-mixed",
+  "ply-cases",
+] as const;
+
 export interface FilePlan {
   path: string;
   content: string;
@@ -821,7 +834,7 @@ function addTyp(
     .map((d) => d.name);
   const fileName = typFileName(typ.name, dtoNamesSameDir, types.nameBinding);
   const dir = typ.isCore ? "src/core/dto" : `src/${module}/dto`;
-  emit("typ", `${dir}/${fileName}.ts`, renderTyp(typ, runePath, module, types));
+  emit("typ", `${dir}/${fileName}.ts`, renderTyp(typ, runePath));
 }
 
 // The module's typed fault classes (REQ-018): one class per fault its steps
@@ -1341,8 +1354,6 @@ function renderDto(
 function renderTyp(
   typ: TypNode,
   runePath: string,
-  module: string,
-  types: TypeContext,
 ): string {
   const { ts } = tsFor(typ.typeName);
   const tag = typ.modifiers.length > 0

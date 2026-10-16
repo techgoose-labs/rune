@@ -11,7 +11,7 @@ export const handler = define.handlers({
     let reg = registry;
     if (!reg) {
       try {
-        reg = JSON.parse(await Deno.readTextFile("../keywords.json"));
+        reg = JSON.parse(await Deno.readTextFile("../lang/keywords.json"));
       } catch { /* fall back to engine defaults */ }
     }
     try {

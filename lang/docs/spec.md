@@ -1,282 +1,300 @@
 # Rune
 
-Defines the notation used in `rune` files.
+Defines the notation used in `.rune` files. The tables in this document are
+generated from `lang/keywords.json`, the language's single source — the prose
+is hand-written. `rune check` is the gate; an editor's diagnostics (the LSP, the
+Claude Code plugin) are exactly its findings; `rune fmt` owns the layout. Every
+finding names a rule from the catalogue in `constraints.md`, and
+`rune check --explain <id>` prints it.
+
+## Lines
+
+Every line declares its kind by its first token:
+
+- `[TAG] …` — a declaration or a flow tag (the table below)
+- `noun.verb(args): Type` / `Noun::verb(args): Type` — a step
+- `service:noun.verb(args): Type` — a boundary step
+- `! name name` — the faults of the step above
+- `@docs <url>` — a service's documentation link
+- anything else, indented under a declaration — its description
+- `// …` — a comment, anywhere
+
+Indentation is presentation: `rune fmt` writes the canonical columns (the
+indent table below), and nesting is relative — a body line (an `[ENT]`'s
+`[REQ]`, a socket's topics, a `[PLY]`'s cases) sits deeper than its opener.
+
+<!-- rune:gen tags -->
+| Tag | Indent | Syntax | Meaning |
+| --- | --- | --- | --- |
+| `[REQ]` | 0 | `[REQ] noun.verb(InputDto): OutputDto` | A requirement — one feature entry point, the happy-path end-to-end. Input is a DTO (or inline {}), output is a DTO; the last step (or a [RET]) yields the output; faults live on its steps, not here; scope resets at each [REQ]. `[REQ:open]` is the openness marker — the endpoint is reachable without a credential (the only modifier [REQ] takes). |
+| `[MOD]` | 0 | `[MOD] name` | Names the module this file describes; fills the <module>/ path slot. The first non-comment line; kebab-case on disk. Optional (defaults to the filename). `[MOD] name: prose` plus indented continuation lines is the module's front-door description. |
+| `[ENT]` | 0 | `[ENT] surface.action(InputDto): OutputDto     [REQ] noun.verb(InputDto): OutputDto` | An inbound entrypoint (HTTP route) — the inverse of a boundary. Its body is ONE indented `[REQ] noun.verb(In): Out` line naming the coordinator it dispatches to (required — there is no signature matching). An optional `@ METHOD /template` clause between the name and the parens sets the verb and the route; `{field}` segments (and one trailing `{field*}` catch-all) bind URL parts to same-named input fields. `[ENT:ws] <surface> @ /path` declares a WebSocket socket whose indented `verb(In): Out` topics each carry their own indented `[REQ]` body line. |
+| `[PLY]` | 4 | `[PLY] noun.verb(args): type` | Opens a polymorphic block where the noun names an interface. Each [CSE] is a concrete implementation; they all share the interface's return type, and each case's last step yields it. The block ends at the first line indented no deeper than the [PLY] (the one place relative indentation carries meaning). |
+| `[CSE]` | 8 | `[CSE] caseName` | A concrete case inside a [PLY] block (camelCase name), with its own sub-steps and faults, indented deeper than the [PLY]. |
+| `[NEW]` | 4 | `[NEW] noun` | Constructor shorthand — instantiates a declared [NON] and adds it to scope under its own name. No parentheses, no return type; construction details are an implementation concern. |
+| `[RET]` | 4 | `[RET] value` | Returns a value already in scope — by its name (`[RET] loaded`) or, for an unnamed value, by its type (`[RET] TaskDto`). Use it when the last step is a side effect. Redundant right after a step that already returns the output. |
+| `[TYP]` | 0 | `[TYP:mod,mod] name: primitive` | A named semantic type built on a primitive (string, number, boolean, void, Uint8Array). Gives meaning to a raw primitive — `id` vs `string`. Generics (Array<url>), tuples ([x, y]) and string enums ("a" \| "b" — generated as a quoted union validated with @IsIn) are allowed. A [TYP] never resolves to a DTO; a noun is a [NON], never `[TYP] x: Class`. The bracket slot is a comma-separated modifier list: [TYP:ext,uuid], [TYP:min=0,max=100]. |
+| `[DTO]` | 0 | `[DTO] NameDto: prop1, prop2` | A reusable data contract; the name must end in Dto. Properties reference types or other DTOs by name; `url(s)` is `urls: Array<url>`, `tag(s?)` an array whose elements are not validated (dirty inbound data), `name?` an optional property. A description is required on the next line. `[DTO:core]` routes it to src/core; `[DTO:open]` is an opaque inbound payload — declared fields are validated, undeclared fields ride through. Every DTO must be used. |
+| `[NON]` | 0 | `[NON] noun` | Declares a noun (a subject / class) with a prose description on the following lines. [NEW] instantiates it; instance steps `noun.verb()` need it in scope; static steps `Noun::verb()` do not. Every [NON] must be used. |
+| `[SRV]` | 0 | `[SRV] (TRANSPORT)<name>: <ENV, ENV2>     <description>     @docs <url>` | Declares a backing service — transport (one of the registry's transports, in parens), a name referenced by `service:` boundary prefixes, its env vars, a one-line prose description and a required `@docs <url>` line. Declared once, in src/core/core.rune; boundary calls reference it as service:noun.verb(...). |
+<!-- /rune:gen -->
+
+<!-- rune:gen indent -->
+The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [ENT:ws] topics, [PLY] cases) is indented deeper than its opener.
+
+| Line | Column |
+| --- | --- |
+| `[REQ]` `[ENT]` `[DTO]` `[TYP]` `[NON]` `[SRV]` `[MOD]` | 0 |
+| steps, `[NEW]`, `[RET]`, `[PLY]` | 4 |
+| faults (`!` lines) | 6 |
+| `[CSE]` and the steps inside a case | 8 |
+| faults inside a case | 10 |
+| descriptions, `@docs` | 4 |
+| an `[ENT]` body `[REQ]`, `[ENT:ws]` topics | 4 |
+
+Lines are at most 80 characters.
+<!-- /rune:gen -->
 
 ## Requirement
 
 - Format: `[REQ] noun.verb(InputDto): OutputDto`
-- Input **must** be a DTO (ends in `Dto`) or inline `{}`
+- Input **must** be a DTO (ends in `Dto`) or inline `{field, field}`
 - Output **must** be a DTO (ends in `Dto`)
-- Last step of REQ **must** return the REQ's output DTO
-- Represents the happy-path outcome (e2e test)
-- Faults live under steps, not on the REQ line
-- One requirement per externally-triggerable feature
+- The requirement ends by yielding its output: its last step returns it, or a
+  `[RET]` names it (rule `last-step-returns-output`)
+- Represents the happy-path outcome (e2e test); faults live under steps
+- One requirement per externally-triggerable feature; `noun.verb` is unique
+  (`duplicate-req-signature`), and the verb is never a JavaScript reserved
+  word (`reserved-verb`) — it becomes the generated function's name
 - A `[REQ]` has **no HTTP surface of its own** — it is exposed only through an
-  `[ENT]` that dispatches to it (see Entrypoint). A `[REQ]`-only module is a pure
+  `[ENT]` that names it (see Entrypoint). A `[REQ]`-only module is a pure
   library module.
 - `[REQ:open]` is the **openness marker** — the one modifier `[REQ]` takes. It
   declares that the endpoint is reachable **without a credential**. Unmarked
-  means authenticated (the backend slot's default), so openness is always
-  something the spec STATES, never something a reader infers.
+  means authenticated (the backend slot's default).
 
 ```
 [REQ] recording.set(GetRecordingDto): RecordingSetResponseDto
 [REQ] recording.get(GetRecordingDto): RecordingDto
-[REQ] recording.addMetadata(AddMetadataDto): AddMetadataResponseDto
 [REQ:open] health.check({}): HealthDto
 ```
 
 ### Openness — where a route's policy comes from
 
-The marker is not decoration; it is the whole of the endpoint's policy, and it
-travels mechanically:
-
 `[REQ:open]` → `access: "open"` on the generated `@Endpoint` →
-`x-bedrock-auth: { access: "open" }` on the operation's OpenAPI →
-a row in the policy table the backend hands the composition root, which resolves
-it and answers.
-
-An unmarked `[REQ]` emits no extension at all — which the root reads as the slot
-default. Silence and an explicit "authenticated" stay distinguishable, so nothing
-downstream has to guess what silence meant.
-
-Mark an endpoint open when a caller with no credential must reach it: a health
-check, a public read, the sign-in POST. Everything else stays unmarked. Getting
-this wrong is now a one-line spec diff rather than a decorator someone has to
-re-apply to generated code after every regeneration.
+`x-bedrock-auth: { access: "open" }` on the operation's OpenAPI → a row in the
+policy table the backend hands the composition root. An unmarked `[REQ]` emits
+no extension, which the root reads as the slot default. Mark an endpoint open
+when a caller with no credential must reach it: a health check, a public read,
+the sign-in POST.
 
 ## Step
 
-- Indented 4 spaces under parent requirement
-- Format: `noun.verb(args): return-type`
-- Args and return types can be types or DTOs
-- No blank lines between steps within a requirement
-- Double blank line between requirements
-
-### Static vs Instance methods
-
-Use `.` for instance methods and `::` for static methods:
-
-```
-    provider.getRecording(externalId): data         // instance method
-    provider::pick(providerName): provider          // static method
-```
-
-**Instance methods** (`noun.verb()`):
-
-- Operates on an instance
-- `noun` must be returned by a previous step (in scope)
-
-**Static methods** (`noun::verb()`):
-
-- Class-level operation, no instance needed
-- `noun` does NOT need to be in scope
-
-The noun casing matches its `[TYP]` definition. If the type is defined as `[TYP] provider: Class`, use `provider::` for static calls and `provider.` for instance calls.
-
-**Scope rules:**
+- Format: `noun.verb(args): Type` — the value it yields is named by its type
+- `noun.verb(args): Type as name` names the value instead (see Scope)
+- Use `.` for an instance method (the noun must be a value in scope) and `::`
+  for a static one (no instance needed)
+- Every step declares what it yields; a side effect yields `void`
+  (`missing-return-type`)
+- Args are values in scope (see Scope); the same `noun.verb` has one signature
+  throughout the document (`signature-consistency`)
 
 ```
-    provider::pick(name): provider    // static - no scope check
-    provider.getRecording(id): data   // instance - 'provider' must be in scope
-    data.transform(): result          // instance - 'data' must be in scope
+    provider::pick(providerName): provider        // static: no instance
+    provider.getRecording(externalId): data       // instance: provider in scope
+    db:task.load(id): TaskDto as stored           // a named value
 ```
 
-Each step's return value is added to scope for subsequent steps.
+### Scope — the value model
+
+A `[REQ]` starts with its input in scope: the input DTO under its type name and
+the input's fields under their names (recursively through nested DTOs). Every
+step adds the value it yields, named by its `as` name or, unnamed, by its type;
+a DTO value also exposes its fields by name. `[NEW] noun` adds the noun under
+its own name. A step's arguments and an instance step's noun must be in scope
+(`param-scope`, `noun-in-scope`).
+
+**One live value per name.** A value's default name is its type, so a second
+value of the same type must be named with `as` (`value-duplicate`):
+
+```
+[REQ] task.copy(TaskRefDto): TaskDto
+    db:task.load(id): TaskDto as stored
+      ! not-found
+    task::fromDto(stored): task
+    task.toDto(): TaskDto
+    db:task.save(TaskDto): void
+      ! timeout
+    [RET] TaskDto
+```
+
+A fluent step on a value (`task.fill(title): task`) yields the same value, not
+a second one. Inside a `[PLY]` case the steps see the scope at the `[PLY]`, and
+the case's last step yields the `[PLY]`'s value.
 
 ### Constructor shorthand
 
-Use `[NEW]` to instantiate a class (the tag `[CTR]` is an accepted **synonym** —
-the parser treats them identically — but `[NEW]` is canonical and is what the
-whole example corpus uses; prefer it):
+`[NEW] noun` instantiates a declared `[NON]` and adds it to scope. No
+parentheses, no return type — construction details are an implementation
+concern.
+
+### Returning a value in scope
+
+`[RET] value` ends a requirement with a value already in scope, by name
+(`[RET] stored`) or, for an unnamed value, by type (`[RET] TaskDto`). Use it when
+the last step is a side effect:
 
 ```
-    [NEW] metadata
-    [NEW] storage
+    id.toDto(): IdDto
+    db:metadata.set(IdDto, MetadataDto): void
+      ! timeout network-error
+    [RET] IdDto
 ```
 
-- No parentheses, no return type
-- Return type is always the class itself (implied)
-- Adds the class name to scope for subsequent steps
-- Signature intentionally unspecified - constructor details are implementation concerns
+A `[RET]` right after a step that already returns the output is redundant
+(`ret-redundant`).
 
-This keeps design specs focused on flow, not construction details.
+### Boundary steps
 
-### Built-in return step
+A boundary step crosses a system boundary into a **backing service**:
+`service:noun.verb(args): Type` — a single-colon service prefix, distinct from
+`Noun::verb()` (static). The service **must** be declared once, in the
+project's `src/core/core.rune`, by a matching `[SRV]` (`service-undeclared`).
+There are no built-in boundary kinds: `db:`, `fs:`, `ex:` are plain service
+names. Parameters and return types are DTOs or primitives (`boundary-types`).
 
-Use `[RET]` to return a value created earlier in the flow. This is useful when the last operation is a side effect (like saving to DB) but you need to return a DTO created earlier:
+### Faults
 
-```
-    id::create(providerName, externalId): id
-    id.toDto(): IdDto                    // create the DTO to return
-    db:metadata.set(id, metadata): void  // side effect - returns void
-    os:storage.save(id, data): void      // side effect - returns void
-    [RET] IdDto                          // return the DTO created earlier
+A fault line is `! ` followed by space-separated fault names, directly under
+the step that raises it; a step with no faults cannot fail. A well-known name
+carries its HTTP status from the registry; any other name declares its own:
+`! card-expired=402` (`fault-status`). Codegen emits one typed class per fault
+(`src/<module>/dto/faults.ts`, `NotFoundFault`, `CardExpiredFault`, …) and the
+runtime answers a thrown fault with its status. Each fault implies a test case.
 
-[SRV] (SIDECAR)db: DB_URL                      // backs db:metadata.set
-    the project's primary datastore
-    @docs https://docs.example.com/db
-[SRV] (SDK)os: OBJECT_STORE_URL            // backs os:storage.save
-    object storage for recording blobs
-    @docs https://docs.example.com/storage
-```
+<!-- rune:gen faults -->
+Fault lines are written `! name name=STATUS`: A fault line is `! ` followed by space-separated fault names, directly under the step that raises it. A well-known name carries its HTTP status from this table; any other name must carry its own (`! card-expired=402`). Codegen emits one typed fault class per name; the runtime maps a thrown fault to its status. Each fault implies a test case; a step with no faults cannot fail.
 
-- Format: `[RET] value`
-- `value` must be in scope (returned by a previous step)
-- Sets the step output to `value` (satisfies REQ output requirement)
-- No class or instance required - it's a built-in
-
-### Boundary tags
-
-A boundary step crosses a system boundary into a **backing service**. It is written `service:noun.verb(args): ret` — a single-colon service prefix. This is distinct from `Noun::verb()` (static, double colon) and `noun.verb()` (in-module business step). Business logic steps stay untagged.
-
-The service name in the prefix **must** be declared once, in the project's shared `src/core/core.rune`, by a matching `[SRV]` block (see **`[SRV]` — backing services** below). There are no built-in boundary kinds anymore — `db:`, `fs:`, `ex:`, `os:` are not fixed tags but plain service names, and each one used as a prefix requires its own `[SRV]`. An undeclared `service:` prefix is a spec error.
-
-**Boundary constraints:** Parameters and return types must be DTOs or primitives (`string`, `number`, `boolean`, `void`, `Uint8Array`). Custom types are not allowed at system boundaries.
-
-Example: `db:task.save(TaskDto): void` (backed by `[SRV] (SIDECAR)db: DB_URL`).
+| Well-known fault | HTTP status | Meaning |
+| --- | --- | --- |
+| `not-found` | 404 | the subject does not exist |
+| `conflict` | 409 | the write collides with current state |
+| `timeout` | 504 | the service did not answer in time |
+| `unavailable` | 503 | the service is down |
+| `declined` | 402 | a payment was refused |
+| `unauthorized` | 401 | no valid credential |
+| `forbidden` | 403 | the caller may not do this |
+| `network-error` | 502 | the service could not be reached |
+| `invalid-*` | 422 | any `invalid-<what>` (and `invalid` itself): the input is unprocessable |
+<!-- /rune:gen -->
 
 ### `[SRV]` — backing services (shared, in `src/core/core.rune`)
 
-Services are **shared infrastructure**: every service referenced by a `service:` boundary prefix is declared exactly once, in a single `src/core/core.rune` (module `core`), and every other spec in the project resolves its boundary services from there. There is no import syntax — the engine always loads `<root>/src/core/core.rune`. A `[SRV]` declared in any other spec is an error (`rune-service-core-only`); move it to core.rune.
+Every service a `service:` prefix names is declared exactly once, in
+`src/core/core.rune` (`[MOD] core`); a `[SRV]` anywhere else is an error
+(`srv-outside-core`). Each `[SRV]` generates a shared client at
+`src/core/data/<service>/mod.ts`.
 
 ```
-// src/core/core.rune
-[MOD] core
 [SRV] (SIDECAR)db: DB_URL
     the project's primary datastore
     @docs https://docs.example.com/db
 ```
 
-Each `[SRV]` generates a shared client at `src/core/data/<service>/mod.ts` (a `<Name>Service` class). A module's per-noun data adapter imports and constructs that shared client for any boundary it calls.
+- Format: `[SRV] (TRANSPORT)<service>: <ENV_VAR, ENV_VAR2>` — the env list is
+  optional for `NATIVE`
+- A one-line prose description is required on the next line, and an
+  `@docs <url>` line is required (`srv-docs-required`)
 
-- Format: `[SRV] (TRANSPORT)<service>: <ENV_VAR, ENV_VAR2>`
-- `transport` is a closed set: `SDK`, `HTTP`, `WEBSOCKET`, `SIDECAR`, `NATIVE`. `NATIVE` is an **in-process runtime/std-lib boundary** (filesystem, subprocess, crypto, clock) — neither a network surface nor a co-located process; its declared faults map to synchronous throws. Its env-var list is optional (a root dir / binary path is legitimate config, but many `NATIVE` services need none)
-- `<service>` is the name used in `service:` boundary prefixes (here `db:` in `db:task.save`)
-- The trailing list names one or more environment variables (comma-separated) the generated adapter reads
-- A one-line prose description is **required** on the next line, indented 4 spaces
-- An `@docs <url>` line is **required**, indented 4 spaces and within the 80-column limit — its URL survives the inline-comment stripper. An `[SRV]` missing it is a hard parse error (`[SRV] <name> requires an @docs <url> line`). `rune codegen` surfaces the URL as an `@see <url>` JSDoc tag on the generated data-adapter method
-- An undeclared `service:` prefix — one with no matching `[SRV]` — is a spec error
-
-Here `db:task.save` is a boundary call to the service named `db`, declared by the `[SRV]` block; `SIDECAR` is the sidecar transport; `DB_URL` is its env var; the `@docs` line is the required documentation link.
+<!-- rune:gen transports -->
+| Transport | Meaning |
+| --- | --- |
+| `SDK` | a vendor SDK / client library |
+| `HTTP` | an HTTP API |
+| `WEBSOCKET` | a WebSocket peer |
+| `SIDECAR` | a co-located process (datastore, queue, object store) |
+| `NATIVE` | an in-process runtime/std-lib boundary (filesystem, subprocess, crypto, clock) — neither a network surface nor a co-located process; its faults are synchronous throws and its env-var list is optional |
+<!-- /rune:gen -->
 
 ### Polymorphic steps
 
-When a step Noun names an interface rather than a concrete class, the step is polymorphic. Use `[PLY]` to mark the polymorphic step and `[CSE]` for each concrete case. Block scope is determined by indentation.
+When a step's noun names an interface rather than a concrete class, mark it
+`[PLY]` and give each concrete case a `[CSE]`. Cases sit deeper than the
+`[PLY]`; the block ends at the first line indented no deeper than the `[PLY]`.
+One level of polymorphism per step (`ply-nested`); a `[PLY]` needs at least one
+case (`ply-cases`).
 
 ```
     [PLY] provider.getRecording(externalId): data
         [CSE] genie
         ex:provider.search(externalId): SearchDto
-          not-found timed-out invalid-id
-        ex:provider.download(url): data
-          not-found timed-out
+          ! not-found timeout invalid-id
+        ex:provider.download(urls): data
+          ! not-found timeout
         [CSE] fiveNine
         ex:provider.search(externalId): SearchDto
-          not-found timed-out invalid-id
-        ex:provider.download(url): data
-          not-found timed-out
+          ! not-found timeout invalid-id
+        ex:provider.download(urls): data
+          ! not-found timeout
     [NEW] metadata
-
-[SRV] (HTTP)ex: PROVIDER_API_URL              // backs ex:provider.*
-    the external recording provider's API
-    @docs https://docs.example.com/provider
 ```
-
-- `[PLY]` at 4 spaces opens a polymorphic block
-- `[CSE]` at 8 spaces defines each concrete case (camelCase name)
-- Steps inside cases at 8 spaces (same level as `[CSE]`)
-- Faults inside cases at 10 spaces (2 deeper than step)
-- Block ends when indentation returns to 4 spaces (no explicit closer)
-- Each case can have different sub-steps; they share the interface return type
-
-### Dto suffix
-
-Args ending in `Dto` are external inputs requiring validation. Internal args (passed between steps) have no suffix.
 
 ### Inline DTO
 
-Define a DTO shape inline using curly braces:
-
-```
-{prop:type, prop:type}
-```
-
-- Comma-separated fields
-- Properties reference types (not primitives)
-- Nested DTOs allowed: `{user:{id:id, name:name}, timestamp:timestamp}`
-- Multi-line allowed for readability
-
-Example:
-
-```
-[REQ] recording.set({provider:provider, externalId:externalId}): {internalId:internalId, status:status}
-```
+A requirement's input may be an inline shape: `{query, page}` — each field is
+a `[TYP]` of the same name (or `{name:type}` to name the type).
 
 ## Type Definition
 
-Define named types using `[TYP]` blocks. Types are the primitive building blocks:
-
 ```
 [TYP] id: string
-[TYP] provider: Class
 [TYP] metadata: Record<string, Primitive>
+[TYP] providerName: "genie" | "fiveNine"
 ```
 
 - Format: `[TYP] name: primitive`
-- Built-in primitives: `string`, `number`, `boolean`, `void`, `Uint8Array`, `Class`
-- `Primitive` is a built-in alias for `string | number | boolean`
-- `Class` indicates a class type (use `::` for static methods, `.` for instance methods after returned)
-- Generic types allowed: `Array<url>`, `Record<string, Primitive>`
-- Tuple types allowed: `[id, name]`, `[x, y, z]`
-- Types give semantic meaning to primitives (e.g., `id` vs raw `string`)
-- Types that resolve to primitives (e.g., `url: string`) are valid at system boundaries
+- Built-in primitives: `string`, `number`, `boolean`, `void`, `Uint8Array`;
+  `Primitive` is the alias `string | number | boolean`
+- Generics (`Array<url>`, `Record<string, Primitive>`), tuples (`[id, name]`)
+  and **string enums** (`"a" | "b"`, quoted — generated as the quoted union and
+  validated with `@IsIn`) are allowed
+- A `[TYP]` never aliases a DTO (`type-not-dto`); a noun is a `[NON]`, never
+  `[TYP] x: Class` (`class-retired`)
+- Every `[TYP]` is used (`typ-unused`) and unique (`typ-unique`)
+- A description may follow, indented, over several lines; it appears in editor
+  hover and on the generated field
 
 ### Type modifiers
 
 The bracket slot takes a comma-separated modifier list:
+`[TYP:ext,uuid] memberId: string`, `[TYP:min=0,max=100] qty: number`. Routing
+and source modifiers (`core`, `ext`) compose with constraints; a constraint
+requires its base primitive. Constraint modifiers become class-validator
+decorators on every generated DTO field of the type (`(s)` arrays use the
+each-form).
 
-```
-[TYP:uuid] id: string
-    a unique identifier
-[TYP:min=0,max=100] qty: number
-    an order quantity
-[TYP:ext,uuid] memberId: string
-    minted by the members module
-```
-
-- Format: `[TYP:mod,mod,...] name: primitive` — one bracket slot, commas
-- Routing/source modifiers (`core`, `ext`) and constraint modifiers
-  (`uuid`, `min=0`, ...) compose freely in the same list
-- Constraint modifiers become class-validator decorators on generated DTO
-  fields — see **Constraint Modifiers** below for the full table
-
-### Type Descriptions
-
-Types can include multi-line descriptions indented 4 spaces below the definition:
-
-```
-[TYP] storage: Class
-    a class representing the storage system used to save
-    and retrieve recording data
-
-[TYP] url: string
-    a URL string pointing to a resource
-```
-
-- Description lines are indented 4 spaces
-- Multiple lines are joined into a single description
-- Descriptions appear in LSP hover tooltips
-- Blank line ends the description block
+<!-- rune:gen modifiers -->
+| Modifier | Applies to | Kind | Requires | Decorator (scalar) | Decorator (array) | Meaning |
+| --- | --- | --- | --- | --- | --- | --- |
+| `[DTO:core] / [TYP:core]` | `[DTO]`, `[TYP]` | routing | — | — | — | Routes an element to the shared kernel (src/core/…) instead of the current module. Core elements are importable from any module; module elements are not. Allowed on [DTO] and [TYP]; not on [REQ]. |
+| `[REQ:open]` | `[REQ]` | routing | — | — | — | The OPENNESS MARKER: this endpoint is reachable WITHOUT a credential. Codegen emits it as `access: "open"` on the generated @Endpoint, which surfaces as `x-bedrock-auth` on the operation's OpenAPI — where the backend's policy table comes from. An unmarked [REQ] is authenticated (the backend slot's default). The only modifier [REQ] takes. |
+| `[TYP:ext]` | `[TYP]` | source | — | — | — | Marks a type whose value is produced OUTSIDE this module (another module's endpoint, a human). Entrypoint codegen turns unproduced input fields of this type into $name external-input binds (ghost stubs mint them in dev). Composes with constraint modifiers: [TYP:ext,uuid]. |
+| `[TYP:uuid]` | `[TYP]` | constraint | `string` | `@IsUUID()` | `@IsUUID(undefined, { each: true })` | Constrains a string [TYP] to UUID format (class-validator @IsUUID). |
+| `[TYP:email]` | `[TYP]` | constraint | `string` | `@IsEmail()` | `@IsEmail(undefined, { each: true })` | Constrains a string [TYP] to email format (class-validator @IsEmail). |
+| `[TYP:url]` | `[TYP]` | constraint | `string` | `@IsUrl()` | `@IsUrl(undefined, { each: true })` | Constrains a string [TYP] to URL format (class-validator @IsUrl). |
+| `[TYP:nonempty]` | `[TYP]` | constraint | `string` | `@IsNotEmpty()` | `@IsNotEmpty({ each: true })` | Constrains a string [TYP] to be non-empty (class-validator @IsNotEmpty). |
+| `[TYP:json]` | `[TYP]` | constraint | `string` | `@IsJSON()` | `@IsJSON({ each: true })` | Marks a string [TYP] that carries a JSON-encoded object/array over the wire (no typed [DTO]); validates it PARSES at the boundary (class-validator @IsJSON) so invalid JSON 422s at the seam instead of degrading silently downstream. |
+| `[TYP:int]` | `[TYP]` | constraint | `number` | `@IsInt()` | `@IsInt({ each: true })` | Constrains a number [TYP] to integers (class-validator @IsInt, replacing @IsNumber). |
+| `[TYP:min=0]` | `[TYP]` | constraint | `number` | `@Min(N)` | `@Min(N, { each: true })` | Constrains a number [TYP] to a minimum value (class-validator @Min(N)). |
+| `[TYP:max=100]` | `[TYP]` | constraint | `number` | `@Max(N)` | `@Max(N, { each: true })` | Constrains a number [TYP] to a maximum value (class-validator @Max(N)). |
+| `[TYP:positive]` | `[TYP]` | constraint | `number` | `@IsPositive()` | `@IsPositive({ each: true })` | Constrains a number [TYP] to be positive (class-validator @IsPositive). |
+| `[TYP:example=orders]` | `[TYP]` | doc | — | — | — | A real sample value for the field, emitted as @ApiProperty({ example }) — keep's runner and cake fill required, unbound input fields from it so headless walks don't 422. The value runs to the next comma/], so it cannot contain a comma. Composes: [TYP:ext,example=orders]. |
+| `[TYP:from=query]` | `[TYP]` | binding | — | — | — | Field-source binding (OpenAPI's parameter model): where this field is populated from at the HTTP boundary — query \| header. Body is the default, so a field with no from= routes exactly as before. Path segments are bound by the [ENT]'s `@ METHOD /path/{field}` route template, never by a modifier. Composes: [TYP:from=query,example=widgets]. |
+<!-- /rune:gen -->
 
 ## DTO Definition
 
-Define reusable DTOs using `[DTO]` blocks. DTOs are composed of types:
-
 ```
-[DTO] UrlDto: url
-    a URL wrapper for external service responses
-
 [DTO] GetRecordingDto: providerName, externalId
     input for retrieving a recording by provider and external ID
 
@@ -284,443 +302,128 @@ Define reusable DTOs using `[DTO]` blocks. DTOs are composed of types:
     a list of URLs returned by provider search
 ```
 
-- Format: `[DTO] DtoName: prop1, prop2, ...`
-- Name must end in `Dto`
-- Properties are comma-separated inline
-- Properties reference types or other DTOs (property name = type/DTO name)
-- Description required on next line, indented 4 spaces
-- DTOs can nest other DTOs (all ultimately resolve to primitives)
-- Blank line ends the description block
-- Defined after all requirements
-- Referenced by name in requirements and steps
+- Format: `[DTO] NameDto: prop1, prop2, …` — the name ends in `Dto`
+  (`dto-suffix`); a description is required on the next line (`dto-described`)
+- A property names a `[TYP]`, a nested `[DTO]` (`PaymentDto`, or `payment` by
+  the `<Name>Dto` convention); an unknown name is `dto-prop-undefined`
+- `url(s)` is an array: property `urls`, type `Array<url>`
+- `tag(s?)` is a lenient array: the elements are not validated (dirty inbound
+  data rides through)
+- `name?` is an optional property
+- `[DTO:core]` routes the contract to `src/core/dto` (importable from any
+  module); `[DTO:open]` is an opaque inbound payload — declared fields are
+  validated, undeclared fields pass through
+- Every `[DTO]` is used (`dto-unused`) and unique (`dto-unique`)
 
-### Array properties
+## Noun declaration
 
-Use parenthesized suffix to indicate an array of a type:
-
-```
-[DTO] SearchDto: url(s)
-    URLs returned by provider search endpoint
-```
-
-- `url(s)` → property name `urls`, type `Array<url>`
-- `address(es)` → property name `addresses`, type `Array<address>`
-- `child(ren)` → property name `children`, type `Array<child>`
-
-The base type (before parentheses) must be a defined `[TYP]`. The suffix in parentheses is appended to form the property name.
-
-## Fault
-
-- Indented 2 spaces deeper than parent step (6 spaces under normal steps, 10 spaces inside poly cases)
-- Multiple faults on single line, space-separated (e.g., `not-found timed-out invalid-id`)
-- Line must not exceed 80 characters; wrap to next line if needed
-- Fault names are lowercase, hyphen-separated (e.g., `not-found`, `timed-out`, `network-error`)
-- Fault names describe _why_ something didn't succeed (not just "failed")
-- Each fault implies a test case
-- Steps with no faults cannot fail
-
-## Comments
-
-Inline comments use `//` syntax:
-
-```
-    provider.getRecording(externalId): data  // fetches from provider API
-    // This step handles the main retrieval
-    db:metadata.set(id, metadata): void
-```
-
-- Comments start with `//` and extend to end of line
-- Can appear on their own line or after code
-- Comments are ignored during validation
-
-## File Conventions
-
-- File extension: `.rune`
-- Maximum 80 characters per line
-- Indentation: 4 spaces for steps, 6 spaces for faults
-- No blank lines between steps; double blank line between requirements
-
-## Validation Rules
-
-The LSP enforces these rules:
-
-### Requirement validation
-
-- REQ input must be a DTO (ends in `Dto`) or inline `{}`
-- REQ output must be a DTO
-- Last step must return the REQ's output DTO
-
-### Scope validation
-
-- Instance methods (`noun.verb()`) require `noun` to be returned by a previous step
-- Static methods (`Noun::verb()`) have no scope requirements
-- Parameters must be in scope: either returned by a previous step OR provided by the REQ input DTO
-- REQ input DTO properties (including nested DTOs) are automatically in scope
-
-### Indentation validation
-
-- REQ at column 0
-- Steps at 4 spaces
-- Faults at 6 spaces (2 deeper than parent step)
-- `[PLY]` at 4 spaces (step level)
-- `[CSE]` at 8 spaces (inside poly block)
-- Steps inside cases at 8 spaces
-- Faults inside cases at 10 spaces
-
-### Boundary validation
-
-- Boundary parameters must be DTOs or primitives
-- Boundary return types must be DTOs or primitives
-- Every `service:` prefix must have a matching `[SRV]` declaration in the project's `src/core/core.rune`; an undeclared service is an error
-- `[SRV]` may be declared ONLY in `src/core/core.rune` — one in any other spec is an error (`rune-service-core-only`)
-- Every `[SRV]` must have a description line and an `@docs <url>` line; a missing `@docs` line is a hard parse error
-- An `[SRV]` transport must be one of `SDK`, `HTTP`, `WEBSOCKET`, `SIDECAR`, `NATIVE`
-
-### Type validation
-
-- Parameters must reference defined types or DTOs
-- Return types must reference defined types, DTOs, or `void`
-
-### Signature consistency validation
-
-- The same `noun.verb` or `Noun::verb` must have identical signatures throughout the document
-- Parameters and return types must match across all calls to the same method
-- Error shows the first occurrence's signature for reference
-
-### Duplicate definition validation
-
-- Each `[TYP]` name must be unique
-- Each `[DTO]` name must be unique
-- Duplicate definitions generate errors referencing the first occurrence
-
-### Unused element validation
-
-- All defined types (`[TYP]`) must be used somewhere
-- All defined DTOs (`[DTO]`) must be used somewhere
-- Unused elements generate warnings
-
-### Constructor validation
-
-- `[NEW] class` is the canonical constructor syntax (`[CTR]` is an accepted synonym)
-- Constructor must reference a defined `[TYP]` with type `Class`
-
-### DTO description validation
-
-- Every `[DTO]` must have a description on the following line
-- Description must be indented 4 spaces
-- Missing descriptions generate an error
-
-### Modifier validation
-
-`[TYP]` modifiers are validated (the LSP and `rune check` emit identical
-messages):
-
-- Unknown modifier:
-  `[TYP] unknown modifier "<m>" (allowed: ext, core, uuid, email, url, nonempty, json, int, min=<n>, max=<n>, positive, example=<value>, from=<path|path*|query|header>)`
-- Constraint on the wrong base primitive:
-  `[TYP] modifier "<m>" requires a <string|number> type, but "<name>" is <declaredType>`
-- Missing or non-numeric value on `min`/`max`:
-  `[TYP] modifier "<m>" requires a numeric value (e.g. min=0)`
-  — and a value on a modifier that takes none:
-  `[TYP] modifier "<m>" does not take a value`
-- A `from=` source outside the closed set:
-  `[TYP] modifier "from" must be one of path, path*, query, header (got "<v>")`
-
-`[REQ]` takes exactly one modifier, `:open` (the openness marker). Any other is
-an error: `[REQ] unknown modifier "<m>" — the only one is :open`. `[REQ:core]`
-keeps its specific message — coordinators are module-level by definition.
+`[NON] noun` declares a subject (a class) with a prose description. `[NEW]`
+instantiates it; instance steps need it in scope; static steps do not. Every
+`[NON]` is used (`non-unused`).
 
 ## Module Directive
 
-A `.rune` file describes one module. The `[MOD]` directive at the top of the file names it.
-
-```
-[MOD] recording
-```
-
-- Format: `[MOD] name`
-- One per file, on the first non-comment line
-- The name fills the `<module-name>/` slot in canonical-paths.json
-- Optional — defaults to the rune filename without the `.rune` extension
-- Names are kebab-case in the file system (`[MOD] my-feature` → `src/my-feature/`)
+`[MOD] name` names the module (kebab-case on disk, `src/<name>/`); optional
+prose after a colon and on indented lines is the module's front-door
+description. Optional — defaults to the spec's filename.
 
 ## Core Modifier
 
-By default, every `[REQ]`, `[DTO]`, `[TYP]`, and untagged business step belongs to the current module (`src/<module-name>/...`). The `:core` modifier routes an element to the shared kernel (`src/core/...`) instead.
-
-```
-[DTO:core] CommonDto: a, b
-    shared across all modules
-
-[TYP:core] timestamp: number
-    Unix epoch milliseconds
-```
-
-- Allowed on: `[DTO:core]`, `[TYP:core]`
-- **Not allowed** on `[REQ:core]` — coordinators are module-level by definition; `core/` has no `coordinators/` slot
-- Without the modifier, the element belongs to the current `[MOD]`
-- Core elements are importable from any module; module elements are not
-
-## Constraint Modifiers
-
-Beyond routing (`core`) and sourcing (`ext`), the `[TYP]` bracket slot takes
-**constraint modifiers** — runtime validation rules attached to the type.
-Every generated DTO field of that type carries the matching class-validator
-decorator, and the generated coordinator asserts them at every seam.
-
-```
-[TYP:uuid] id: string
-    a unique identifier
-[TYP:min=0,max=100] qty: number
-    an order quantity
-[TYP:ext,uuid] memberId: string
-    minted by the members module
-```
-
-| Modifier   | Requires | Decorator (scalar)  | Decorator (`(s)` array)                |
-| ---------- | -------- | ------------------- | -------------------------------------- |
-| `ext`      | —        | —                   | —                                      |
-| `core`     | —        | —                   | —                                      |
-| `uuid`     | `string` | `@IsUUID()`         | `@IsUUID(undefined, { each: true })`   |
-| `email`    | `string` | `@IsEmail()`        | `@IsEmail(undefined, { each: true })`  |
-| `url`      | `string` | `@IsUrl()`          | `@IsUrl(undefined, { each: true })`    |
-| `nonempty` | `string` | `@IsNotEmpty()`     | `@IsNotEmpty({ each: true })`          |
-| `json`     | `string` | `@IsJSON()`         | `@IsJSON({ each: true })`              |
-| `int`      | `number` | `@IsInt()`          | `@IsInt({ each: true })`               |
-| `min=N`    | `number` | `@Min(N)`           | `@Min(N, { each: true })`              |
-| `max=N`    | `number` | `@Max(N)`           | `@Max(N, { each: true })`              |
-| `positive` | `number` | `@IsPositive()`     | `@IsPositive({ each: true })`          |
-| `example=V`| any      | `@ApiProperty({ example: V })` | `@ApiProperty({ example: [V] })` |
-
-- Modifiers are comma-separated in the single bracket slot; order is kept
-- `example=<value>` takes free text (no commas — the list splits on them) and
-  requires a non-empty value; it emits the swagger example keep's runner/cake
-  fill required, unbound input fields from. Typed by the declared primitive.
-- `ext` / `core` keep their semantics and compose with constraints
-  (`[TYP:ext,uuid]` is both an external input and a UUID)
-- `json` marks a `string` field that carries a JSON-encoded object/array over
-  the wire (no typed `[DTO]`); `@IsJSON()` validates it PARSES at the boundary,
-  so invalid JSON 422s at the seam instead of degrading silently downstream
-- Only `min` / `max` take a value (`min=0`); the value must be numeric
-- A constraint requires its base primitive: string constraints on `string`
-  types, number constraints on `number` types
-- `int` **replaces** `@IsNumber()` on the field (it is strictly narrower)
-- A DTO array property of a constrained type (`qty(s)`) uses the
-  `{ each: true }` decorator forms
+`[DTO:core]` / `[TYP:core]` route an element to the shared kernel
+(`src/core/…`), importable from any module. Not allowed on `[REQ]`
+(`req-core`).
 
 ## Entrypoint
 
-`[ENT]` declares an inbound entrypoint — the inverse of a boundary call. Where `service:` boundary calls (e.g. `db:`, `os:`, `ex:`, each backed by an `[SRV]`) describe outbound calls to backing services, `[ENT]` describes an incoming surface (HTTP route, CLI command, queue handler).
+`[ENT]` declares an inbound entrypoint — an HTTP route. Its body is **one
+indented `[REQ]` line naming the coordinator it dispatches to**; it is required
+(`ent-delegate-required`) and there is no matching by signature.
 
 ```
 [ENT] http.postRecording(GetRecordingDto): IdDto
     [REQ] recording.set(GetRecordingDto): IdDto
 ```
 
-- Format: `[ENT] surface.action(InputDto): OutputDto`
-- Maps to `src/<module>/entrypoints/<surface>/mod.ts` + `e2e.test.ts`
-- The body of an `[ENT]` references the `[REQ]` it dispatches to
-- The surface name (`http`, `cli`, `queue`, etc.) becomes the entrypoint folder name
-- **`[ENT]` is the ONLY source of an HTTP surface.** Codegen emits an `@Endpoint`
-  controller solely from `[ENT]` declarations — there is no auto-exposure of
-  `[REQ]`s. A module with `[REQ]`s but no `[ENT]` generates **no controller, no
-  route, no OpenAPI doc, and no rows in the cake walk**: `/docs/<module>` 404s and
-  a headless run-all over it is vacuously empty. If the module is meant to be
-  served, walked, or documented, declare an `[ENT]` per exposed `[REQ]`.
-  (Entrypoint controllers are generated artifacts — never hand-write one.)
+- Format: `[ENT] surface.action(InputDto): OutputDto`; the surface (`http`,
+  `cli`, …) becomes the entrypoint folder
+- **`[ENT]` is the ONLY source of an HTTP surface.** A module with `[REQ]`s but
+  no `[ENT]` generates no controller, no route, no OpenAPI doc and no rows in
+  the cake walk.
+- A required input field nothing earlier in the process produces needs an
+  `example=` on its `[TYP]`, or the cake's headless walk 422s on it
+  (`unbound-input-needs-example`)
 
-### HTTP verb & explicit route (`@ METHOD /template`)
+### HTTP verb & route (`@ METHOD /template`)
 
-Without a clause, an `[ENT]` is a **`POST`** at a route auto-derived from the action
-name (plus any `[TYP:from=…]` fields). An optional `@ METHOD [/template]` clause
-**between the name and the parens** overrides either or both:
+Without a clause an `[ENT]` is a `POST` at `/<surface>/<action>`. An optional
+`@ METHOD [/template]` clause between the name and the parens overrides the verb
+and, with a slash-led template, the route; `{field}` segments (and one trailing
+`{field*}` catch-all) bind URL parts to same-named input-DTO fields. Query and
+header fields are declared on the `[TYP]` with `from=query` / `from=header`;
+path segments are bound only by the template.
 
 ```
-[ENT] http.getTask    @ GET    /tasks/{id}(TaskRefDto): TaskDto
+[ENT] http.getTask    @ GET /tasks/{id}(TaskRefDto): TaskDto
+    [REQ] task.get(TaskRefDto): TaskDto
 [ENT] http.listTasks  @ GET(ListTasksDto): TasksDto
-[ENT] http.removeTask @ DELETE /tasks/{id}(TaskRefDto): OkDto
-[ENT] http.proxy      @ POST   /proxy/{target}/{rest*}(ProxyReqDto): ProxyResDto
+    [REQ] task.list(ListTasksDto): TasksDto
 ```
 
-- Verbs: `GET`, `POST`, `PUT`, `PATCH`, `DELETE` — anything else is an error
-  (`[ENT] HTTP method must be one of GET, POST, PUT, PATCH, DELETE`). Uppercase by
-  convention; matching is case-insensitive.
-- `@ METHOD` alone (no template) sets just the verb — the route is still auto-derived.
-- A template's `{name}` segments (and one trailing `{name*}` catch-all, which may span
-  `/`) bind URL parts to same-named **input DTO fields** — the explicit-template twin
-  of `[TYP:from=path|path*]`. Fields the template doesn't name stay where their
-  `from=` puts them (body by default) — for a `GET`, route every input field via the
-  template, `from=query`, or `from=header` (a GET carries no JSON body).
-- **The verb is part of the contract, not free styling** (the waist rule — sprig's
-  `contract.md`): reads are `GET` **queries** returning current-state DTOs
-  (`<type>.all`, `<type>.get`); writes stay `POST` **command verbs**. `PUT`/`PATCH`
-  exist for edge cases (an upstream contract you don't control) — never to model an
-  "edit-this-record" endpoint.
+**The verb is part of the contract**: reads are `GET` queries returning
+current-state DTOs, writes are `POST` command verbs. `PUT`/`PATCH` model an
+upstream contract you don't control, never an edit-this-record endpoint
+(`edit-record-endpoint`).
 
 ### Process flows (branches)
 
-The module's endpoints form a *process* (the cake walks them in order, chaining
-outputs into inputs — metadata derived from the DTO field graph). A bracket modifier
-names the **flow** an endpoint belongs to, expressing a branch:
-
-> **Outputs declare what an endpoint *mints*, not what it *echoes*.** A field that
-> appears in both an endpoint's input and output DTO is not treated as produced by
-> it — only genuinely-minted outputs feed another endpoint's input. (Echo-fields
-> would otherwise derive bogus producers and circular `dependsOn`.)
->
-> **Process direction follows declaration order — declare `[ENT]`s in the order the
-> process runs.** A producer edge only points backward to an earlier-declared
-> endpoint; a `dependsOn` on a later endpoint would contradict the derived `order`.
-> A field minted only by LATER endpoints is treated as an external input at that
-> point in the process: it binds as `$field` (shown on the Module-inputs card;
-> resolved from seeds, a captured same-named output on a later runner pass, or the
-> schema `example=` at send time). Note a load-through output (a field an endpoint
-> returns from storage rather than creates — e.g. a mutator echoing the record it
-> loaded) still *counts* as minted statically; declaring endpoints in process order
-> is what keeps such fields from deriving a backwards chain.
-
-```
-[ENT] http.start(StartDto): TicketDto
-[ENT:card] http.payCard(PayDto): PaymentDto
-[ENT:cash] http.payCash(PayDto): PaymentDto
-[ENT] http.fulfill(FulfillDto): DoneDto
-[ENT:optional] http.survey(SurveyDto): ThanksDto
-```
-
-- `[ENT:card]` / `[ENT:cash]` — the endpoint exists only in that named flow. Untagged
-  endpoints are part of every flow. The cake shows a flow selector and walks one
-  branch at a time; `exerciseEndpoints({ flow })` does the same headlessly.
-- When the same field is produced by endpoints in **different** flows (here
-  `paymentId`), the consumer (`fulfill`) is generated depending on all of them with
-  the alternatives bound first-resolvable-wins — the join after the branch.
-- `[ENT:optional]` (reserved) — the step is attempted but not required: its failure
-  doesn't stop the cake's run-all or fail the harness report.
+A bracket modifier names the flow an endpoint belongs to: `[ENT:card]`,
+`[ENT:cash]` — the endpoint exists only in that branch; untagged endpoints are in
+every flow. `[ENT:optional]` is attempted but never required. Outputs declare
+what an endpoint **mints**, not what it echoes, and process direction follows
+declaration order — declare `[ENT]`s in the order the process runs.
 
 ### WebSocket entrypoints (`[ENT:ws]`)
 
-`[ENT:ws]` declares a **WebSocket** entrypoint instead of an HTTP route. It is a *socket
-header* that names the surface and the handshake path once; the indented lines below it are
-its **topics** — one message handler each:
+`[ENT:ws] <surface> @ /path` declares a socket; the indented `verb(In): Out`
+lines are its topics, each with its own indented `[REQ]` body line:
 
 ```
 [ENT:ws] chat @ /rooms/{room}
-    join(JoinDto): JoinedDto      # topic "join"
-    send(ChatDto): EchoDto        # topic "send"
-    leave(LeaveDto): void         # topic "leave" — no reply
+    join(JoinDto): JoinedDto
+        [REQ] room.join(JoinDto): JoinedDto
+    send(ChatDto): EchoDto
+        [REQ] room.send(ChatDto): EchoDto
 ```
 
-- Format: `[ENT:ws] <surface> @ /path`, then indented `verb(InputDto): OutputDto` topics.
-- The client connects once to the handshake path; each message it sends is a JSON envelope
-  `{ "topic": "<verb>", "data": <InputDto> }`. The matching topic handler validates `data`
-  against its input DTO and may **return a reply DTO**, sent back **to that sender**. A
-  `void` topic sends no reply.
-- The verb is the message **topic**; the surface groups the topics into one socket. Each
-  topic still dispatches to the `[REQ]` it matches by `(input, output)` signature, exactly
-  like an HTTP `[ENT]`.
-- **Handshake bindings are connection-scoped.** A `{name}` path segment (or a
-  `[TYP:from=query]` field — e.g. an auth token, since a WS handshake can't set an
-  `Authorization` header) is read **once at connect**, not per message: the per-message
-  context carries only the topic and its `data`. Capture what a handler needs at connect.
-- A WS entrypoint carries no HTTP verb, so it never appears in the OpenAPI document or the
-  cake/headless endpoint walk. Maps to `src/<module>/entrypoints/<surface>/mod.ts` (a
-  `@WsEndpointController` with one `@WsEndpoint` per topic). A surface is either HTTP or WS,
-  never both.
-- Out of scope today: server-initiated **broadcast** to other clients (a handler replies
-  only to the sender) and binary / streaming frames.
+Handshake bindings (`{room}`, `from=query` fields) are read once at connect. A
+surface is either HTTP or WS, never both (`surface-mixed`).
 
-### External inputs
+### External inputs and ghost stubs
 
-`[TYP:ext]` marks a value as produced **outside this module** (another module's
-endpoint, a human). An input field of that type which no endpoint in the module
-produces is generated as a `$name` external-input bind — the cake lists it under
-"module inputs" (set once, shared across docs pages; it can reference another
-module's capture, e.g. `{{members:create.memberId}}`), and the headless runner takes
-it from `overrides.seeds`:
+`[TYP:ext]` marks a value produced outside this module. An input field of that
+type which no endpoint in the module produces becomes a `$name` external-input
+bind; until a producer exists, `rune sync` generates `bootstrap/stubs.ts`, a
+ghost module minting placeholders (excluded when `DENO_DEPLOY=true`), and
+removes it once every input has a real producer.
 
-```
-[TYP:ext] memberId: string
-    minted by the members module
-```
+## Comments
 
-#### Ghost stubs (the stub lifecycle)
+`// …` starts a comment at the start of a line or after whitespace; `://` in a
+URL is never a comment.
 
-An external input is a promise that *someone else* produces the value. Until that
-producer exists, `rune sync` keeps the project runnable by generating
-`bootstrap/stubs.ts` — a **ghost stub module** with one trivial GET endpoint per
-unfulfilled `[TYP:ext]` input (`mint-<name>`, marked `stub: true`), each minting a
-placeholder value of the declared primitive. It mounts like any module (cake at
-`/docs/stubs`, badged `stub`), so dependent modules run end-to-end before their real
-producers are built — the consumer's `$name` input auto-resolves from the stub's
-capture.
+## File Conventions
 
-- **Production exclusion** — the generated `bootstrap/modules.ts` registry skips the
-  stub module when `DENO_DEPLOY=true` (every Deno Deploy revision sets it, and so
-  does `env/prod`; `env/dev` carries it as `false` — the value is the signal, an
-  app cannot set `DENO_*` on Deploy) or `DENO_ENV=production` elsewhere; stubs can
-  never ship.
-- **Evaporation** — the moment a synced module's endpoint outputs the field (a real
-  producer anywhere in the project), the input is fulfilled and the next `rune sync`
-  removes the stub endpoint — and deletes `bootstrap/stubs.ts` entirely once every
-  input has a real producer. Business code never references the file, so nothing
-  breaks when it goes.
-- The file is generated-owned (header-guarded): a hand-written `bootstrap/stubs.ts`
-  or a real module named `stubs` disables ghost stubs instead of being overwritten.
+- File extension: `.rune`
+- Maximum 80 characters per line (`line-length`)
+- Declarations after the requirements; a blank line ends a description block
 
-### `rune dev` (the live loop)
+## `rune dev` (the live loop)
 
-`rune dev [path]` runs the spec→cake loop unattended: it boots the project's app
-(`deno run -A bootstrap/mod.ts`) under `KEEP_DEV=<status file>` and watches `src/`,
-`specs/`, `bootstrap/`, and `deno.json` (never the bare root; sync's own writes are
-muted so the loop can't feed on itself). On save:
-
-- **spec changed** → `rune check` first. Errors are published to the status file
-  **only** — keep's `/docs/_dev` serves them and the open cake pages show them in
-  a red banner while the **last good server keeps serving**. A clean check runs
-  `rune sync` and restarts the app.
-- **source changed** → restart only (no sync).
-
-Each restart mints a new `bootId`; the cake/map pages poll `/docs/_dev` and
-reload themselves when it changes. Cake session state (statuses, captures,
-edited bodies, module inputs) lives in `localStorage`, so it **survives every
-restart and reload** — fix a spec, save, and re-run the failed step where you left
-off.
-
-## Keyword Tags
-
-All keyword tags are exactly 3 letters inside brackets (`[XXX]`). This ensures content after the tag always starts at column 7, maintaining visual alignment.
-
-| Tag     | Purpose                       |
-| ------- | ----------------------------- |
-| `[MOD]` | Module directive (top of file)|
-| `[REQ]` | Requirement definition        |
-| `[ENT]` | Inbound entrypoint            |
-| `[SRV]` | Backing service declaration   |
-| `[PLY]` | Polymorphic step              |
-| `[CSE]` | Case inside polymorphic block |
-| `[NEW]` | Constructor shorthand (synonym: `[CTR]`) |
-| `[RET]` | Return value from scope       |
-| `[TYP]` | Type definition               |
-| `[DTO]` | DTO definition                |
-
-Modifiers (appended inside the bracket; `[TYP]` takes a comma-separated list):
-
-| Modifier                             | Applies to       | Effect                                 |
-| ------------------------------------ | ---------------- | -------------------------------------- |
-| `:core`                              | `[DTO]`, `[TYP]` | routes to `src/core/...`               |
-| `:ext`                               | `[TYP]`          | value produced outside this module     |
-| `:uuid` `:email` `:url` `:nonempty`  | `[TYP]` (string) | constraint → class-validator decorator |
-| `:json`                              | `[TYP]` (string) | JSON-encoded blob; `@IsJSON()` parseability check |
-| `:int` `:min=N` `:max=N` `:positive` | `[TYP]` (number) | constraint → class-validator decorator |
-
-See **Constraint Modifiers** for the full decorator table.
+`rune dev [path]` runs the spec→cake loop unattended: a saved spec is checked;
+errors go to the status file keep's `/docs/_dev` serves (the last good server
+keeps serving); a clean check runs `rune sync` and restarts the app. Cake
+session state lives in `localStorage` and survives every restart.
 
 ## Traced Example
 
-See `./example.rune` for a complete example demonstrating:
-
-- REQ lines with DTO inputs and outputs
-- Steps with `service:` boundary prefixes (`ex:`, `db:`, `os:`), each backed by an `[SRV]` declaration
-- Polymorphic step with `[PLY]` and `[CSE]` cases
-- Faults under steps
-- Type definitions with `[TYP]` blocks
-- DTO definitions with `[DTO]` blocks
+See `./example.rune` — part of the valid corpus, so it always checks clean.

@@ -2879,3 +2879,85 @@ Deno.test("REQ-013: plan.findings carry ids and plan.errors is their rendering",
   assertEquals(plan.findings[0].severity, "error");
   assertEquals(plan.errors, plan.findings.map(renderFinding));
 });
+
+// ---- REQ-018 / REQ-022 — typed faults and the business/adapter partition ----
+
+Deno.test("REQ-018: the module's faults.ts declares one typed class per fault with its status", () => {
+  const rune = `[MOD] billing
+
+[REQ] invoice.issue(IssueDto): InvoiceDto
+    [NEW] invoice
+    invoice.fill(amount): invoice
+      ! invalid-amount
+    invoice.toDto(): InvoiceDto
+    db:invoice.save(InvoiceDto): void
+      ! timeout card-expired=402
+    [RET] InvoiceDto
+
+[NON] invoice
+    a bill
+[DTO] IssueDto: amount
+    in
+[DTO] InvoiceDto: amount
+    out
+[TYP:example=100] amount: number
+    cents`;
+  const plan = planManifest("specs/billing.rune", rune, new Set());
+  assertEquals(plan.errors, []);
+  const faults = plan.toRegenerate.find((f) => f.path === "src/billing/dto/faults.ts");
+  assert(faults, "faults.ts is spec-owned (regenerated)");
+  assertStringIncludes(faults.content, 'import { RuneFault } from "@techgoose-labs/rune";');
+  assertStringIncludes(faults.content, "export class InvalidAmountFault extends RuneFault {");
+  assertStringIncludes(faults.content, 'super("invalid-amount", 422, message);');
+  assertStringIncludes(faults.content, 'super("timeout", 504, message);');
+  assertStringIncludes(faults.content, "export class CardExpiredFault extends RuneFault {");
+  assertStringIncludes(faults.content, 'super("card-expired", 402, message);');
+  // No faults, no file.
+  const quiet = planManifest("specs/q.rune", "[MOD] q\n[REQ] a.b(InDto): OutDto\n    a::b(InDto): OutDto\n[DTO] InDto: x\n    i\n[DTO] OutDto: x\n    o\n[TYP] x: string\n    x", new Set());
+  assertEquals(quiet.toRegenerate.some((f) => f.path.endsWith("/faults.ts")), false);
+});
+
+Deno.test("REQ-022: the business class carries only untagged-step methods and the adapter only boundary-step methods", () => {
+  const rune = `[MOD] tasks
+
+[REQ] task.create(CreateTaskDto): TaskDto
+    [NEW] task
+    task.fill(title): task
+    task.toDto(): TaskDto
+    db:task.save(TaskDto): void
+      ! timeout
+    [RET] TaskDto
+
+[REQ] task.complete(TaskRefDto): TaskDto
+    db:task.load(id): TaskDto as stored
+      ! not-found
+    task::fromDto(stored): task
+    task.markDone(): task
+    task.toDto(): TaskDto
+    db:task.save(TaskDto): void
+      ! timeout
+    [RET] TaskDto
+
+[NON] task
+    a todo item
+[DTO] CreateTaskDto: title
+    in
+[DTO] TaskRefDto: id
+    ref
+[DTO] TaskDto: id, title
+    a task
+[TYP:example=milk] title: string
+    t
+[TYP:example=t1] id: string
+    i`;
+  const plan = planManifest("specs/tasks.rune", rune, new Set());
+  assertEquals(plan.errors, []);
+  const business = plan.toCreate.find((f) => f.path === "src/tasks/domain/business/task/mod.ts")!.content;
+  const adapter = plan.toCreate.find((f) => f.path === "src/tasks/domain/data/task/mod.ts")!.content;
+  for (const m of ["fill(", "toDto(", "markDone(", "static fromDto("]) assertStringIncludes(business, m);
+  for (const m of ["save(", "load("]) assertEquals(business.includes(`  ${m}`), false, `business class must not carry ${m}`);
+  for (const m of ["save(", "load("]) assertStringIncludes(adapter, m);
+  for (const m of ["fill(", "toDto(", "markDone(", "fromDto("]) assertEquals(adapter.includes(m), false, `adapter must not carry ${m}`);
+  // A value-named parameter is typed by its value (REQ-020): fromDto(stored: TaskDto).
+  assertStringIncludes(business, "static fromDto(stored: TaskDto): Task");
+});

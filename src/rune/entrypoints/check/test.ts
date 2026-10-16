@@ -155,3 +155,18 @@ Deno.test("REQ-013: runCheck text output names the rule id", async () => {
     await Deno.remove(dir, { recursive: true });
   }
 });
+
+Deno.test("REQ-030: runCheck --explain prints the registry doc for a rule id", async () => {
+  const c = capture();
+  assertEquals(await runCheck(["--explain", "value-duplicate"], c.io), 0);
+  const out = c.out.join("\n");
+  assertEquals(out.startsWith("value-duplicate — error"), true, out);
+  assertEquals(out.includes("message: a value named \"{name}\" is already in scope (from {from})"), true, out);
+  assertEquals(out.includes("fix:     name this one"), true, out);
+  assertEquals(out.includes("One live value per name"), true, out);
+  // An unknown id is a usage error naming the rules.
+  const bad = capture();
+  assertEquals(await runCheck(["--explain", "nope"], bad.io), 2);
+  assertEquals(bad.err.join("\n").includes("unknown rule \"nope\""), true);
+  assertEquals(await runCheck(["--explain"], capture().io), 2);
+});

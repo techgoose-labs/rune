@@ -9,8 +9,8 @@ description: >-
   `[ENT]`/`[MOD]` scope); whenever you declare a shared service (`[SRV]` + `@docs`
   in `core.rune`) or a `[TYP]` validation modifier; whenever you run `rune
   check`/`rune fmt`; and whenever a spec "won't parse / won't lint" with a spec
-  error — DTO-suffix, scope, indentation, line-length, untyped-field, ambiguous-
-  endpoint complaints. The spec is the source of truth; this skill produces a
+  error — DTO-suffix, scope, value names, fault statuses, line-length,
+  untyped-field, missing-[ENT]-body complaints. The spec is the source of truth; this skill produces a
   `rune check`-clean `spec/runes/<m>.in-prog.rune` and stops there. NOT generating the
   module, filling bodies, or the test fleet → use `rune:build`; NOT the runtime
   (`@Endpoint` semantics, `bootstrapServer`, auth, deploy) → use `rune:framework`;
@@ -90,7 +90,8 @@ user **before** delegating authoring:
    above, clarifying genuine forks with the user.
 2. **Delegate** authoring to `rune-spec-author` (Task tool). Pass: the decided modeling
    brief, the target `spec/runes/<m>.in-prog.rune`, the project root, and the absolute
-   paths to `claude/skills/rune:spec/references/` (spec.md, constraints.md, cookbook.md,
+   paths to `claude/skills/rune:spec/references/` (card.md — the generated language card:
+   grammar by example, every table, every rule with its message and fix — cookbook.md,
    example-core.rune, example-tasks.rune) — or the installed `~/.claude/skills/rune:spec/references/`.
 3. It returns the clean spec path + the `rune check` exit-0 proof + a summary (and any
    choice to confirm). **Summarize** for the user; if it flags a fork, resolve it with

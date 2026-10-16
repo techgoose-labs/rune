@@ -305,3 +305,297 @@ diagnostics (pulling `rune check --json` only when no plugin is loaded), runs
 - `build:rust` (the gate's optional `build` step runs it first) finds cargo in
   `$HOME/.cargo/bin` when the gate's shell has no rustup profile sourced — the
   gate on this box died with `cargo: command not found` (exit 127) otherwise.
+
+## REQ-018 — faults are `! name name` under a step, well-known or with a status; codegen emits typed fault classes and the runtime maps them; `rune fmt` migrates bare faults
+
+> okay do all the other phases on a single branch — Phase 2, item 2.1 of `todos/09-one-source.md` (REQ-012). — Raphael, 2026-10-15
+
+A fault line declares its kind by its first token, the registry's marker
+(`lang/keywords.json` → `faults.marker`, `!`); indentation is cosmetic. The
+registry's `faults.wellKnown` table carries the HTTP status of each well-known
+name (`not-found` 404 … `invalid-*` 422); any other name declares its own
+(`! card-expired=402`) or is a `fault-status` error. Codegen emits
+`src/<module>/dto/faults.ts` — one `<Name>Fault extends RuneFault` class per
+fault with its status (spec-owned, regenerated) — and keep's bootstrap answers
+a thrown `RuneFault` with that status and `{ name, fault, status, message }`.
+`rune fmt` rewrites a bare fault line (the pre-marker form) to `! …`; the
+engine reports it as `fault-marker` with that fix. Every tracked spec was
+migrated.
+
+- unit: `src/rune/domain/business/rune-parse/test.ts` —
+  `REQ-018: a fault line is \`! name name\`; a custom fault carries its status`;
+  `src/rune/domain/business/rune-checks/test.ts` —
+  `REQ-018: a fault is well-known (status from the registry) or carries =NNN, else fault-status`;
+  `src/rune/domain/business/rune-manifest/test.ts` —
+  `REQ-018: the module's faults.ts declares one typed class per fault with its status`;
+  `keep/src/faults/test.ts` — `REQ-018: a RuneFault maps to its status and body`;
+  `lang/cli/src/commands/format.rs` — `req_018_bare_fault_lines_are_rewritten_with_the_marker` (cargo test)
+- integration: the corpus gate (`fixtures/corpus/invalid/fault-bare.rune`,
+  `fault-custom-no-status.rune` with their sidecars); `lang/cli/tests/format_cli.rs`
+- e2e: n/a — a language rule and a status mapping, no page
+
+## REQ-019 — an `[ENT]` names its `[REQ]` on an indented body line; there is no matching by signature
+
+> Phase 2, item 2.2. — Raphael, 2026-10-15
+
+The body `[REQ]` line is required for every `[ENT]` and every `[ENT:ws]` topic
+(`ent-delegate-required`, whose fix names the `[REQ]`(s) whose signature
+matches); a body naming an undefined `[REQ]` is `ent-delegate-undefined`. The
+signature matching and its `ent-ambiguous` error are deleted; the generated
+controller wires only the named coordinator.
+
+- unit: `src/rune/domain/business/rune-checks/test.ts` —
+  `REQ-019: an [ENT] without a body [REQ] is ent-delegate-required and the fix names the signature match`;
+  `src/rune/domain/business/rune-parse/test.ts` —
+  `REQ-019: [ENT] with its body [REQ]; a body with a modifier or a bad signature`
+- integration: the corpus gate (`invalid/ent-no-body.rune`, `invalid/ent-body-undefined.rune`)
+- e2e: n/a — a language rule, no page
+
+## REQ-020 — the value model: one live value per name, named by `as`; the registry's scope rules are enforced by the engine
+
+> Phase 2, item 2.3; closes `todos/08`. — Raphael, 2026-10-15
+
+A `[REQ]`'s scope starts with its input (by type) and the input's fields
+(recursively); every step adds the value it yields under its `as` name or its
+type; `[NEW]` adds the noun; a DTO value exposes its fields. A second value under
+a taken name is `value-duplicate` (error; a fluent step on the value itself is
+the same value). `[RET]` takes a value name resolved through the scope. The
+rules the registry declared and nothing enforced — `noun-in-scope`,
+`param-scope`, `undefined-ref`, `signature-consistency`,
+`last-step-returns-output` — fire from `src/rune/domain/business/rune-checks/mod.ts`
+under their registry ids, severities and messages. Codegen resolves value names
+in the coordinator weave and types a value-named parameter by its value.
+
+- unit: `src/rune/domain/business/rune-checks/test.ts` —
+  `REQ-020: a second live value of one type must be named with \`as\`, and the name resolves in params and [RET]`,
+  `REQ-020: the five registry scope rules fire under their ids`;
+  `src/rune/domain/business/rune-parse/test.ts` — `REQ-020: a step names its value with \`as\``
+- integration: the corpus gate (`invalid/value-duplicate.rune`, `scope.rune`,
+  `signature-consistency.rune`, `last-step-not-output.rune`)
+- e2e: n/a — a language rule, no page
+
+## REQ-021 — retired duplicates: `[CTR]`, `Class`, `[TYP:from=path|path*]`, a redundant `[RET]`
+
+> Phase 2, item 2.4 (D3: keep `@ METHOD /template`, D5: keep `[NON]`). — Raphael, 2026-10-15
+
+`[CTR]` is `ctr-retired` (fmt rewrites it to `[NEW]`); `[TYP] x: Class` is
+`class-retired` (a noun is a `[NON]`; `Class` left the builtins); `from=path`
+and `from=path*` are `from-path-retired` (the `[ENT]` route template is the one
+path binding; `from=query|header` stay); a `[RET]` right after a step that
+already returns the output is `ret-redundant` (warning).
+
+- unit: `src/rune/domain/business/rune-checks/test.ts` —
+  `REQ-021: [CTR], Class, from=path and a redundant [RET] are findings with fixes`;
+  `src/rune/domain/business/rune-parse/test.ts` —
+  `REQ-021: [CTR] is retired with a fix; [NEW] stays`,
+  `REQ-021: [TYP:from=path] and \`[TYP] x: Class\` are retired with fixes`;
+  `lang/cli/src/commands/format.rs` — `req_021_ctr_is_rewritten_to_new`
+- integration: the corpus gate (`invalid/ctr-retired.rune`, `class-retired.rune`,
+  `from-path-retired.rune`, `ret-redundant.rune`)
+- e2e: n/a — a language rule, no page
+
+## REQ-022 — codegen partitions methods by step kind
+
+> Phase 2, item 2.5. — Raphael, 2026-10-15
+
+The business class carries a noun's untagged-step methods only; the data
+adapter its boundary-step methods only (`collectNounMethods(ast, kind)`).
+
+- unit: `src/rune/domain/business/rune-manifest/test.ts` —
+  `REQ-022: the business class carries only untagged-step methods and the adapter only boundary-step methods`
+- integration: the L3 manifest goldens (`fixtures/golden/manifest/*.json`, recaptured and reviewed)
+- e2e: n/a — codegen, no page
+
+## REQ-023 — the prose rules are lints
+
+> Phase 2, item 2.6. — Raphael, 2026-10-15
+
+`unbound-input-needs-example` (a required input field no earlier endpoint
+produces and no `example=` seeds; `[TYP:ext]` exempt), `edit-record-endpoint`
+(PUT/PATCH), `reserved-verb` (error — the verb names a generated function),
+`duplicate-req-signature` (error). The spec-author agent's prose shrinks to the
+loop.
+
+- unit: `src/rune/domain/business/rune-checks/test.ts` — `REQ-023: the four prose rules are lints with ids`
+- integration: the corpus gate (`invalid/unbound-input-needs-example.rune`,
+  `edit-record-endpoint.rune`, `reserved-verb.rune`, `duplicate-req-signature.rune`)
+- e2e: n/a — a language rule, no page
+
+## REQ-024 — the undocumented is documented: `name?`, `tag(s?)`, quoted string enums, `[DTO:open]`
+
+> Phase 2, item 2.7. — Raphael, 2026-10-15
+
+Decided and documented from the registry's tag summaries: optional properties
+(`name?`), lenient arrays (`tag(s?)`), string enums as QUOTED unions
+(`"a" | "b"` — the one form; a bare-word union is an `undefined-ref`), and
+`[DTO:open]`.
+
+- unit: `scripts/gen-lang-docs.test.ts` —
+  `REQ-024: the generated reference documents \`?\`, \`(s?)\`, string enums and [DTO:open] from the registry`
+- integration/e2e: n/a — docs generated from the registry; the enum rendering is covered by the manifest's enum test
+
+## REQ-025 — the tables live in `lang/keywords.json` and the engine loads them
+
+> Phase 3, item 3.1. — Raphael, 2026-10-15
+
+Modifiers with their full spec (kind, base, param, values, decorator, call,
+eachCall), transports, the fault vocabulary, the indent table, the column limit
+and the builtins are registry sections (schema 2.0.0); the engine reads them
+through `src/rune/domain/business/registry/mod.ts` (validated at startup). The
+TS `rune-modifiers` table, the LSP's and Rust parser's copies and the studio's
+copies are deleted.
+
+- unit: `src/rune/domain/business/artifact/test.ts` —
+  `REQ-025: the engine's modifier, transport, fault and indent tables are the registry's`
+- integration: the L1 and L7 gates (`deno run -A scripts/verify.ts`)
+- e2e: n/a — data, no page
+
+## REQ-026 — the rule catalogue is the registry's, hardened
+
+> Phase 3, item 3.2. — Raphael, 2026-10-15
+
+Every spec lint entry is a shape rule fully specified by `type` + `params`
+(`max-line-length`, `tag-indent`, `name-suffix`, `required-description`,
+`unique-names`, `unused`) or names a `checker` the engine implements (its id);
+every entry carries `message`, `fix` where the rule can say so, and `doc`. The
+engine renders every finding from the registry's template — no message lives in
+code. A test asserts engine implementations ↔ registry ids in both directions.
+The prose-only `rules: []` strings on tags are folded into `summary`.
+
+- unit: `src/rune/domain/business/artifact/test.ts` —
+  `REQ-026: every spec lint names a checker the engine implements and every engine checker is a registry lint`
+- integration: the L1 gate
+- e2e: n/a — data, no page
+
+## REQ-027 — stale registry content removed
+
+> Phase 3, item 3.3. — Raphael, 2026-10-15
+
+`boundaries.prefixes` and every `new/generate.mjs` / `new/keywords.json`
+reference are gone from the registry and the generated grammar headers.
+
+- unit: `src/rune/domain/business/artifact/test.ts` —
+  `REQ-027: the registry carries no boundary prefixes and no new/generate.mjs reference, and neither do the generated grammar headers`
+- integration/e2e: n/a — data
+
+## REQ-028 — the doc tables are generated between markers; `example.rune` is in the valid corpus
+
+> Phase 3, item 3.4. — Raphael, 2026-10-15
+
+`scripts/gen-lang-docs.ts` renders the tag, modifier, transport, fault, indent
+and rule tables between `<!-- rune:gen … -->` markers in `lang/docs/spec.md`
+and `lang/docs/constraints.md`; the Drift gate regenerates and diffs them.
+`lang/docs/example.rune` checks clean and is the corpus' `example-e2e.rune`.
+
+- unit: `scripts/gen-lang-docs.test.ts` —
+  `REQ-028: the doc tables between the markers are the registry's and example.rune checks clean`
+- integration: the Drift gate
+- e2e: n/a — docs
+
+## REQ-029 — the LLM language card
+
+> Phase 3, item 3.5. — Raphael, 2026-10-15
+
+`lang/docs/card.md` (generated): grammar by example (every valid corpus spec),
+the tables, the rule catalogue with messages and fixes, and every invalid
+fixture rendered as an error → fix pair (what `rune check` really reports).
+`scripts/sync-spec-skill-refs.ts` ships the card and the cookbook into the
+`rune:spec` skill instead of `spec.md` + `constraints.md`; the agent and the
+skill read the card. Cost: the card is 8,168 words; `spec.md` + `constraints.md`
+were ~9,300. The llmify quiz harness is not in this repo or the box, so the
+correctness half is not proven here (`n/a` in `.wt/acceptance.md`).
+
+- unit: `scripts/gen-lang-docs.test.ts` —
+  `REQ-029: the card carries the valid corpus, the tables, every rule and every invalid fixture as an error → fix pair, and the skill ships it`
+- integration: the Drift gate; `deno task check:spec-refs`
+- e2e: n/a — docs
+
+## REQ-030 — `rune check --explain <id>`
+
+> Phase 3, item 3.6. — Raphael, 2026-10-15
+
+Prints the registry's entry for a rule: id, severity, message, fix and doc; an
+unknown id is a usage error listing the rules.
+
+- integration: `src/rune/entrypoints/check/test.ts` —
+  `REQ-030: runCheck --explain prints the registry doc for a rule id`
+- unit/e2e: n/a — a CLI command over the registry module (REQ-025's test covers the module)
+
+## REQ-031 — the engine parses through the grammar wasm
+
+> Phase 4, item 4.1 (D4: tree-sitter everywhere; ADR 0009 supersedes 0003). — Raphael, 2026-10-15
+
+`src/rune/domain/business/rune-parse/mod.ts` is a CST → AST lowering over
+`lang/grammar/rune.wasm` (web-tree-sitter in Deno, loaded at startup; `deno
+compile --include`s it). The grammar gained the fault marker, `as` value
+names, `[MOD] name: prose`, kebab module names, an optional return clause,
+multi-line parameters and quoted enums; the studio and the Rust side read the
+same grammar. The 1,263-line hand parser is deleted.
+
+- unit: `src/rune/domain/business/rune-parse/test.ts` —
+  `REQ-031: the engine parses through the grammar wasm and the valid corpus lowers with no findings`
+  (and the whole file)
+- integration: the corpus, L0 and L2 gates
+- e2e: n/a — a parser
+
+## REQ-032 — the Rust side links the generated parser; `lang/parser` is deleted
+
+> Phase 4, item 4.2. — Raphael, 2026-10-15
+
+`lang/grammar` is the `tree-sitter-rune` crate; `rune-lsp` (hover, definitions,
+references, completions from the registry and the document) and `rune-syntax
+format` (over the CST, with the REQ-018/021 migrations) link it.
+`lang/parser/src/lib.rs`, the dead `analyzer` module and the `validate`
+subcommand (a second checker) are deleted.
+
+- unit: `lang/lsp/src/main.rs` —
+  `req_032_hover_and_definitions_come_from_the_tree_sitter_cst`,
+  `req_032_completions_come_from_the_registry_and_the_document`;
+  `lang/cli/src/commands/format.rs` — `req_032_value_names_and_statuses_round_trip`
+  (`cargo test` from `lang/`; CI runs no cargo — run it by hand)
+- integration: `lang/cli/tests/format_cli.rs`
+- e2e: n/a — an editor protocol and a CLI
+
+## REQ-033 — scanner constants are generated from the registry's indent table
+
+> Phase 4, item 4.3. — Raphael, 2026-10-15
+
+`scripts/generate.mjs` writes `lang/grammar/src/scanner-config.h` from the
+registry's indent table and fault marker; the scanner includes it and keeps no
+literal of its own (a tab is one indent unit; a line opening with the marker is
+never prose). The installer embeds the header for the neovim parser build.
+
+- unit: `scripts/gen-lang-docs.test.ts` —
+  `REQ-033: scanner-config.h is generated from the registry's indent table`
+- integration: the Drift and grammar gates
+- e2e: n/a — generated C
+
+## REQ-034 — malformed lines yield id'd findings by shape
+
+> Phase 4, item 4.4. — Raphael, 2026-10-15
+
+A line the grammar rejects is parsed on its own (an ERROR never hides the
+lines after it) and mapped to a registry rule by its shape: the tag it opens
+with → that tag's `shapeRule` with the tag's syntax in the message (`[REQ]` /
+`[DTO]` modifiers checked first), a retired tag, a bare fault line, else
+`unrecognized-line`.
+
+- unit: `src/rune/domain/business/rune-parse/test.ts` —
+  `REQ-034: a malformed line yields an id'd finding from its shape`
+- integration: the corpus gate (every `invalid/*-shape` fixture)
+- e2e: n/a — a parser
+
+## REQ-035 — the studio parses and checks through the engine
+
+> Phase 4, item 4.5 (closes gaps.md G6/G9 for parse and lint). — Raphael, 2026-10-15
+
+`rune-studio/lib/engine.ts` is the studio's one door into the engine — check
+(the wasm parse + the checks), generate, and the generated-code rules run in
+memory over the engine's own output; `/api/check` serves it to the island.
+`lib/parse.ts`, `lib/lint.ts` and the `generate-core.ts` copy are deleted; the
+studio imports `scripts/generate-core.mjs`.
+
+- unit: `rune-studio/tests/studio_test.ts` —
+  `REQ-035: the studio parses and checks through the engine` (`cd rune-studio && deno task test`)
+- integration: the L5 gate
+- e2e: n/a — the studio's dev server is not the gate's serve task

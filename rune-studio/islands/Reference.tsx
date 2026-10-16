@@ -2,11 +2,7 @@
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { createEditor, pushRegistry } from "../lib/editor.ts";
-import { parseSpec } from "../lib/parse.ts";
-import { generate as engineGenerate } from "../lib/engine.ts";
-import { lintAll, lintFiles, RULE_TYPES } from "../lib/lint.ts";
-import { parseSpec as parseSpecForFs } from "../lib/parse.ts";
-import { buildGrammar, buildHighlights } from "../lib/generate-core.ts";
+import { buildGrammar, buildHighlights } from "#generate-core";
 
 type Reg = any;
 type File = { path: string; content: string };
@@ -93,16 +89,14 @@ export default function Reference(
       const res = await fetch("/api/check", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ dir: fsDir.value }),
+        body: JSON.stringify({ dir: fsDir.value, registry: reg }),
       });
       const data = await res.json();
       if (data.error) {
         fsResult.value = { fileCount: 0, diags: [], error: data.error };
         return;
       }
-      const model = parseSpecForFs(data.runeText || "", reg);
-      const diags = lintFiles(data.files || [], reg, model, data.runeText || "");
-      fsResult.value = { fileCount: data.fileCount, diags };
+      fsResult.value = { fileCount: data.fileCount, diags: data.diags ?? [] };
     } catch {
       fsResult.value = {
         fileCount: 0,
@@ -353,15 +347,32 @@ export default function Reference(
   // read rev so everything below recomputes on each edit
   rev.value;
 
-  const model = parseSpec(source.value, reg);
-  const diag = safeLintAll(source.value, reg);
-  const diagnostics = diag.spec;
-  const genDiagnostics = diag.generated;
-  // The Code lens shows EXACTLY what the shape-checker engine emits (WO-5/L5) —
-  // not an approximation. Same modules the CLI runs, driven by the live registry.
-  const files: File[] = safeEngineGenerate(source.value, reg);
+  // The engine, served (REQ-035): every edit of the spec or the language is
+  // posted to /api/check, which answers with what `rune check` reports, the
+  // files the engine generates and the generated-code findings — the SAME
+  // modules the CLI runs, driven by the live registry. Debounced: the wasm
+  // parse is fast, the round trip is what we rate.
+  const engine = useSignal<EngineAnswer>({ findings: [], generated: [], files: [], reqs: 0 });
+  useEffect(() => {
+    const body = JSON.stringify({ source: source.value, registry: reg });
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/check", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body,
+        });
+        if (res.ok) engine.value = await res.json();
+      } catch { /* the dev server is away; keep the last answer */ }
+    }, 150);
+    return () => clearTimeout(t);
+  }, [source.value, rev.value]);
+  const diagnostics = engine.value.findings;
+  const genDiagnostics = engine.value.generated;
+  const files: File[] = engine.value.files;
   if (selected.value === "" && files[0]) selected.value = files[0].path;
   const current = files.find((f) => f.path === selected.value) ?? files[0];
+  const reqTotal = engine.value.reqs;
 
   async function save() {
     saveStatus.value = "saving…";
@@ -529,7 +540,7 @@ export default function Reference(
             {diagnostics.length === 0
               ? (
                 <div class="diag-ok">
-                  spec ✓ no problems · {model.byTag.req?.length ?? 0}{" "}
+                  spec ✓ no problems · {reqTotal}{" "}
                   feature(s) · {files.length} files generated
                 </div>
               )
@@ -775,7 +786,7 @@ export default function Reference(
                     if (!reg.lint) reg.lint = [];
                     reg.lint.push({
                       id: `rule${reg.lint.length + 1}`,
-                      type: RULE_TYPES[0],
+                      type: ruleTypesOf(reg)[0],
                       target: "spec",
                       severity: "warning",
                       enabled: true,
@@ -1068,7 +1079,7 @@ export default function Reference(
               touch();
             }}
           >
-            {RULE_TYPES.map((t: string) => (
+            {ruleTypesOf(reg).map((t: string) => (
               <option value={t} selected={t === rule.type}>{t}</option>
             ))}
           </select>
@@ -1145,22 +1156,22 @@ function useSignalRef<T>(initial: T): T {
 }
 
 
-// The shared engine, run in the browser (WO-5). What you see is what the CLI emits.
-function safeEngineGenerate(source: string, reg: any): File[] {
-  try {
-    return engineGenerate(source, reg) as File[];
-  } catch {
-    return [];
-  }
-}
+// What /api/check answers: the engine's findings, its generated files and the
+// generated-code findings over them (lib/engine.ts, server-side).
+type EngineAnswer = {
+  findings: any[];
+  generated: any[];
+  files: File[];
+  reqs: number;
+};
 
-function safeLintAll(
-  text: string,
-  reg: any,
-): { spec: any[]; generated: any[] } {
-  try {
-    return lintAll(text, reg);
-  } catch {
-    return { spec: [], generated: [] };
-  }
+// The generated-code rule types the registry toggles (the rule editor's menu).
+function ruleTypesOf(reg: any): string[] {
+  return [
+    ...new Set(
+      ((reg.lint ?? []) as { target: string; type?: string }[])
+        .filter((r) => r.target === "generated" && r.type)
+        .map((r) => r.type as string),
+    ),
+  ];
 }

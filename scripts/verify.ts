@@ -134,6 +134,22 @@ async function gateDrift(): Promise<GateResult> {
       detail: `generate.mjs failed: ${new TextDecoder().decode(g.stderr)}`,
     };
   }
+  // The docs are derived too (REQ-028/029): the tables between the markers in
+  // spec.md / constraints.md and the whole language card.
+  const docs = new Deno.Command("deno", {
+    args: ["run", "-A", "scripts/gen-lang-docs.ts"],
+    cwd: ROOT,
+    stdout: "null",
+    stderr: "piped",
+  });
+  const g2 = await docs.output();
+  if (!g2.success) {
+    return {
+      name: "Drift",
+      ok: false,
+      detail: `gen-lang-docs.ts failed: ${new TextDecoder().decode(g2.stderr)}`,
+    };
+  }
   const diff = new Deno.Command("git", {
     args: [
       "diff",
@@ -141,6 +157,10 @@ async function gateDrift(): Promise<GateResult> {
       "--",
       "lang/grammar/grammar.js",
       "lang/queries/highlights.scm",
+      "lang/grammar/src/scanner-config.h",
+      "lang/docs/spec.md",
+      "lang/docs/constraints.md",
+      "lang/docs/card.md",
     ],
     cwd: ROOT,
     stdout: "piped",

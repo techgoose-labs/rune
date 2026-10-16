@@ -73,7 +73,7 @@ fn req_002_comment_lines_are_left_exactly_as_written() {
     // A column-0 comment right after a body, and a comment among a step's
     // faults, both survive untouched — the parser skips comment lines, so their
     // indent is the author's alone.
-    let spec = "[TYP] ok: boolean\n    whether it answered\n// minted by the gateway\n[TYP:ext,uuid] cardId: string\n    a token\n\n[REQ] card.open(OpenCardDto): CardDto\n    ex:nmi.tokenise(pan): cardId\n      // the issuer said no\n      declined\n    card::toDto(cardId): CardDto\n";
+    let spec = "[TYP] ok: boolean\n    whether it answered\n// minted by the gateway\n[TYP:ext,uuid] cardId: string\n    a token\n\n[REQ] card.open(OpenCardDto): CardDto\n    ex:nmi.tokenise(pan): cardId\n      // the issuer said no\n      ! declined\n    card::toDto(cardId): CardDto\n";
     let (out, after) = format_in_temp(spec, false);
     assert!(out.status.success());
     assert_eq!(after, spec);

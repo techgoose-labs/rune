@@ -2,7 +2,7 @@
 // Edit the body. Re-running manifest will not overwrite this file.
 
 // Boundary methods to reach:
-//   Payment.charge(PayDto) (service: db)
+//   Payment.charge(id) (service: db)
 
 Deno.test("payment — connectivity", () => {
   // TODO: smoke test that verifies the boundary is reachable

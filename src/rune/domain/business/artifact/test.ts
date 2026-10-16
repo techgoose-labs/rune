@@ -165,7 +165,6 @@ Deno.test("canonicalPaths is sourced from the keywords.json artifact", async () 
 // ---- REQ-025/026/027 — the registry is the single source (Phase 3) ----
 import {
   FAULT_MARKER,
-  indent,
   lintById,
   modifiers,
   registry,
@@ -174,6 +173,13 @@ import {
   transports,
   wellKnownFault,
 } from "@rune/domain/business/registry/mod.ts";
+import { EMITS as PARSE_EMITS } from "@rune/domain/business/rune-parse/mod.ts";
+import { EMITS as CHECK_EMITS } from "@rune/domain/business/rune-checks/mod.ts";
+import { EMITS as MANIFEST_EMITS } from "@rune/domain/business/rune-manifest/mod.ts";
+// The shape rules the checks emit generically (by registry type, not by checker).
+const SHAPE_RULE_IDS = new Set(
+  registry.lint.filter((r) => r.target === "spec" && !r.checker).map((r) => r.id),
+);
 
 Deno.test("REQ-025: the engine's modifier, transport, fault and indent tables are the registry's", () => {
   for (const m of registry.modifiers) {
@@ -193,8 +199,8 @@ Deno.test("REQ-025: the engine's modifier, transport, fault and indent tables ar
   assertEquals(wellKnownFault("invalid"), 422);
   assertEquals(wellKnownFault("card-expired"), null);
   assertEquals(FAULT_MARKER, registry.faults.marker);
-  assertEquals(indent.step, registry.indent.step);
-  assertEquals(indent.faultOffset, 2);
+  assertEquals(registry.indent.step, 4);
+  assertEquals(registry.indent.faultOffset, 2);
   assertEquals(registry.columns.max, 80);
   assertEquals(registry.builtins.includes("Class"), false);
 });
@@ -214,6 +220,14 @@ Deno.test("REQ-026: every spec lint names a checker the engine implements and ev
   for (const id of SPEC_CHECKERS) {
     assert(declared.has(id), `engine checker ${id} is not a registry lint`);
   }
+  // Both directions, by implementation: the ids the parser, the checks and the
+  // manifest actually emit are exactly the engine's declared checkers.
+  const emitted = new Set<string>([...PARSE_EMITS, ...CHECK_EMITS, ...MANIFEST_EMITS]);
+  for (const id of emitted) {
+    assert(SHAPE_RULE_IDS.has(id) || SPEC_CHECKERS.has(id), `emitted id ${id} is neither a checker nor a shape rule`);
+  }
+  assertEquals([...emitted].filter((id) => !SHAPE_RULE_IDS.has(id)).sort(), [...SPEC_CHECKERS].sort());
+  for (const id of SHAPE_RULE_IDS) assert(emitted.has(id), `shape rule ${id} is emitted by nothing`);
   for (const type of SHAPE_TYPES) {
     assert(specRules.some((r) => !r.checker && r.type === type), `shape type ${type} is declared by no lint`);
   }

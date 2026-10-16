@@ -1,10 +1,13 @@
 import { define } from "../../utils.ts";
+import { check, generate, lintGenerated, reqCount } from "../../lib/engine.ts";
 
-// Filesystem-validation bridge: scan a real project directory and return its
-// source files (+ any .rune spec) so the generated-target rules can run over
-// real on-disk code, not just the studio's rendered output.
+// The engine, served (REQ-035): the island posts the spec (and the edited
+// registry) and gets back exactly what `rune check` reports, the files the
+// engine generates and the generated-code findings over them. With `dir`, the
+// filesystem bridge scans a real project directory instead and lints its
+// source files (+ any .rune spec) with the same rules.
 
-// CWD is the studio dir; rune repo root is ../.. (survives bundling)
+// CWD is the studio dir; rune repo root is .. (survives bundling)
 const REPO = `${Deno.cwd()}/..`;
 const SKIP = new Set([
   "node_modules",
@@ -17,63 +20,64 @@ const SKIP = new Set([
   ".claude",
   "vendor",
 ]);
-const SRC = /\.(ts|tsx|js|jsx)$/;
+const SRC = /\.(ts|tsx|js|jsx|rune)$/;
+
+async function scan(root: string): Promise<{ files: { path: string; content: string }[]; count: number }> {
+  const files: { path: string; content: string }[] = [];
+  let count = 0;
+  async function walk(d: string, prefix: string) {
+    let entries: AsyncIterable<Deno.DirEntry>;
+    try {
+      entries = Deno.readDir(d);
+    } catch {
+      return;
+    }
+    for await (const e of entries) {
+      if (count > 3000) return;
+      const rel = prefix ? `${prefix}/${e.name}` : e.name;
+      if (e.isDirectory) {
+        if (SKIP.has(e.name)) continue;
+        await walk(`${d}/${e.name}`, rel);
+      } else if (SRC.test(e.name)) {
+        try {
+          const info = await Deno.stat(`${d}/${e.name}`);
+          if (info.size > 250_000) continue;
+          files.push({ path: rel, content: await Deno.readTextFile(`${d}/${e.name}`) });
+          count++;
+        } catch { /* skip */ }
+      }
+    }
+  }
+  await walk(root, "");
+  files.sort((a, b) => a.path.localeCompare(b.path));
+  return { files, count };
+}
 
 export const handler = define.handlers({
   async POST(ctx) {
-    const { dir } = await ctx.req.json().catch(() => ({ dir: "." }));
-    const root = (dir && String(dir).startsWith("/"))
-      ? String(dir)
-      : `${REPO}/${dir || "."}`;
-    const files: { path: string; content: string }[] = [];
-    const runeTexts: string[] = [];
-    let count = 0;
-
-    async function walk(d: string, prefix: string) {
-      let entries: AsyncIterable<Deno.DirEntry>;
+    const body = await ctx.req.json().catch(() => ({}));
+    const registry = body.registry ?? undefined;
+    if (body.dir !== undefined) {
+      const root = (body.dir && String(body.dir).startsWith("/"))
+        ? String(body.dir)
+        : `${REPO}/${body.dir || "."}`;
       try {
-        entries = Deno.readDir(d);
+        await Deno.stat(root.replace(/\/$/, ""));
       } catch {
-        return;
+        return Response.json({ error: `directory not found: ${root}` }, { status: 404 });
       }
-      for await (const e of entries) {
-        if (count > 3000) return;
-        const rel = prefix ? `${prefix}/${e.name}` : e.name;
-        if (e.isDirectory) {
-          if (SKIP.has(e.name)) continue;
-          await walk(`${d}/${e.name}`, rel);
-        } else if (e.name.endsWith(".rune")) {
-          try {
-            runeTexts.push(await Deno.readTextFile(`${d}/${e.name}`));
-          } catch { /* skip */ }
-        } else if (SRC.test(e.name)) {
-          try {
-            const info = await Deno.stat(`${d}/${e.name}`);
-            if (info.size > 250_000) continue;
-            files.push({
-              path: rel,
-              content: await Deno.readTextFile(`${d}/${e.name}`),
-            });
-            count++;
-          } catch { /* skip */ }
-        }
-      }
+      const { files, count } = await scan(root.replace(/\/$/, ""));
+      return Response.json({ root, fileCount: count, diags: await lintGenerated(files, registry) });
     }
-
+    const source = String(body.source ?? "");
+    const findings = check(source, registry);
+    let files: { path: string; content: string }[] = [];
     try {
-      await Deno.stat(root.replace(/\/$/, ""));
+      files = generate(source, registry);
     } catch {
-      return Response.json({ error: `directory not found: ${root}` }, {
-        status: 404,
-      });
+      files = []; // a spec with errors generates nothing to preview
     }
-    await walk(root.replace(/\/$/, ""), "");
-    files.sort((a, b) => a.path.localeCompare(b.path));
-    return Response.json({
-      root,
-      fileCount: files.length,
-      files,
-      runeText: runeTexts.join("\n\n\n"),
-    });
+    const generated = files.length ? await lintGenerated([...files, { path: "specs/spec.rune", content: source }], registry) : [];
+    return Response.json({ findings, generated, files, reqs: reqCount(source) });
   },
 });

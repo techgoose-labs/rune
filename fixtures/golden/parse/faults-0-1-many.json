@@ -16,7 +16,8 @@
             "ChargeDto"
           ],
           "output": "ChargeDto",
-          "isStatic": false,
+          "valueName": "validated",
+          "isStatic": true,
           "faults": [],
           "line": 1
         },
@@ -26,7 +27,7 @@
           "noun": "gateway",
           "verb": "authorize",
           "params": [
-            "ChargeDto"
+            "validated"
           ],
           "output": "AuthDto",
           "isStatic": false,
@@ -51,11 +52,6 @@
             "conflict"
           ],
           "line": 4
-        },
-        {
-          "kind": "ret",
-          "value": "ChargeResultDto",
-          "line": 6
         }
       ],
       "isOpen": false,
@@ -72,7 +68,7 @@
       "description": "a request to charge a card",
       "isCore": false,
       "isOpen": false,
-      "line": 11
+      "line": 10
     },
     {
       "name": "AuthDto",
@@ -82,7 +78,7 @@
       "description": "an authorization from the gateway",
       "isCore": false,
       "isOpen": false,
-      "line": 14
+      "line": 13
     },
     {
       "name": "ChargeResultDto",
@@ -93,7 +89,7 @@
       "description": "the settled charge",
       "isCore": false,
       "isOpen": false,
-      "line": 17
+      "line": 16
     }
   ],
   "typs": [
@@ -104,7 +100,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 20
+      "line": 19
     },
     {
       "name": "token",
@@ -113,14 +109,14 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 22
+      "line": 21
     }
   ],
   "nons": [
     {
       "name": "card",
       "description": "a payment card presented by the customer",
-      "line": 8
+      "line": 7
     }
   ],
   "srvs": [
@@ -132,7 +128,7 @@
       ],
       "description": "external http service",
       "docsLink": "https://docs.example.com/ex",
-      "line": 25
+      "line": 24
     },
     {
       "transport": "SIDECAR",
@@ -142,8 +138,16 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 29
+      "line": 28
     }
   ],
+  "faultStatuses": {},
+  "bodyLines": [],
+  "faultLines": {
+    "declined": 3,
+    "timeout": 5,
+    "network-error": 5,
+    "conflict": 5
+  },
   "errors": []
 }

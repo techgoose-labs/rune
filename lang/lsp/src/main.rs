@@ -1,12 +1,18 @@
 use ropey::Rope;
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use rune_parser::{parse_document, LineKind};
+// The registry, embedded (REQ-025): tags, modifiers and the fault vocabulary
+// the completions offer come from it, never from a list of our own.
+const REGISTRY: &str = include_str!("../../keywords.json");
+
+fn registry() -> &'static serde_json::Value {
+    static REG: OnceLock<serde_json::Value> = OnceLock::new();
+    REG.get_or_init(|| serde_json::from_str(REGISTRY).expect("lang/keywords.json is valid JSON"))
+}
 
 #[derive(Debug)]
 struct Backend {
@@ -57,17 +63,17 @@ impl Backend {
 /// `rune` beside this executable (the installer drops both into one dir), else
 /// `rune` on PATH.
 fn rune_binary() -> std::path::PathBuf {
-    if let Ok(p) = std::env::var("RUNE_BIN") {
-        if !p.is_empty() {
-            return std::path::PathBuf::from(p);
-        }
+    if let Ok(p) = std::env::var("RUNE_BIN")
+        && !p.is_empty()
+    {
+        return std::path::PathBuf::from(p);
     }
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let sibling = dir.join("rune");
-            if sibling.is_file() {
-                return sibling;
-            }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        let sibling = dir.join("rune");
+        if sibling.is_file() {
+            return sibling;
         }
     }
     std::path::PathBuf::from("rune")
@@ -182,6 +188,206 @@ fn line_range(line: usize) -> Range {
     }
 }
 
+// ---- the document, read through the grammar (REQ-032) ----------------------
+//
+// Hover, definitions, references and completions read the tree-sitter CST of
+// the buffer — the one parser of record, built from the registry — never a
+// second hand-written parse. The CST is a line soup: a declaration's prose is
+// the `*_desc` lines right after it, which `declarations` folds back in.
+
+#[derive(Debug, Clone, PartialEq)]
+enum DeclKind {
+    /// `[TYP] name: primitive`
+    Typ { type_name: String },
+    /// `[DTO] NameDto: prop, prop`
+    Dto { props: Vec<String> },
+    /// `[NON] name`
+    Non,
+    /// `[SRV] (TRANSPORT)name: ENV` with its `@docs` link.
+    Srv { transport: String, docs: Option<String> },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Decl {
+    name: String,
+    kind: DeclKind,
+    /// 0-based line of the declaration.
+    line: usize,
+    /// The indented prose lines under it, joined with spaces.
+    description: Option<String>,
+}
+
+fn parse_tree(text: &str) -> Option<tree_sitter::Tree> {
+    let mut parser = tree_sitter::Parser::new();
+    parser
+        .set_language(&tree_sitter_rune::LANGUAGE.into())
+        .expect("the rune grammar loads");
+    parser.parse(text, None)
+}
+
+fn node_text<'a>(n: tree_sitter::Node, text: &'a str) -> &'a str {
+    n.utf8_text(text.as_bytes()).unwrap_or("")
+}
+
+fn child_of_kind<'t>(n: tree_sitter::Node<'t>, kind: &str) -> Option<tree_sitter::Node<'t>> {
+    let mut cursor = n.walk();
+    n.children(&mut cursor).find(|c| c.kind() == kind)
+}
+
+/// Every [TYP]/[DTO]/[NON]/[SRV] in the document with its prose and @docs link.
+fn declarations(text: &str) -> Vec<Decl> {
+    let Some(tree) = parse_tree(text) else { return Vec::new() };
+    let root = tree.root_node();
+    let mut out: Vec<Decl> = Vec::new();
+    // Prose attaches to the declaration above it only until another line
+    // intervenes (a step after a [REQ] is not the [DTO]'s description).
+    let mut open = false;
+    let mut cursor = root.walk();
+    for n in root.children(&mut cursor) {
+        match n.kind() {
+            "typ_line" => {
+                open = true;
+                let name = child_of_kind(n, "typ_name").map(|c| node_text(c, text)).unwrap_or("");
+                let type_name = child_of_kind(n, "typ_type").map(|c| node_text(c, text)).unwrap_or("");
+                out.push(Decl {
+                    name: name.to_string(),
+                    kind: DeclKind::Typ { type_name: type_name.trim().to_string() },
+                    line: n.start_position().row,
+                    description: None,
+                });
+            }
+            "dto_line" => {
+                open = true;
+                let name = child_of_kind(n, "dto_def_name").map(|c| node_text(c, text)).unwrap_or("");
+                let mut c2 = n.walk();
+                let props = n
+                    .children(&mut c2)
+                    .filter(|c| c.kind() == "dto_prop")
+                    .map(|c| node_text(c, text).trim().to_string())
+                    .collect();
+                out.push(Decl {
+                    name: name.to_string(),
+                    kind: DeclKind::Dto { props },
+                    line: n.start_position().row,
+                    description: None,
+                });
+            }
+            "non_line" => {
+                open = true;
+                let name = n.child_by_field_name("name").map(|c| node_text(c, text)).unwrap_or("");
+                out.push(Decl {
+                    name: name.to_string(),
+                    kind: DeclKind::Non,
+                    line: n.start_position().row,
+                    description: None,
+                });
+            }
+            "srv_line" => {
+                open = true;
+                // `(TRANSPORT)name: ENV, ENV` — the body is one token; split it here.
+                let spec = child_of_kind(n, "srv_spec").map(|c| node_text(c, text)).unwrap_or("").trim();
+                let (transport, rest) = match spec.strip_prefix('(').and_then(|r| r.split_once(')')) {
+                    Some((t, r)) => (t.trim().to_string(), r),
+                    None => (String::new(), spec),
+                };
+                let name = rest.split(':').next().unwrap_or("").trim().to_string();
+                out.push(Decl {
+                    name,
+                    kind: DeclKind::Srv { transport, docs: None },
+                    line: n.start_position().row,
+                    description: None,
+                });
+            }
+            "srv_docs_line" => {
+                if !open {
+                    continue;
+                }
+                if let Some(Decl { kind: DeclKind::Srv { docs, .. }, .. }) = out.last_mut() {
+                    let url = child_of_kind(n, "srv_spec").map(|c| node_text(c, text)).unwrap_or("").trim();
+                    if !url.is_empty() {
+                        *docs = Some(url.to_string());
+                    }
+                }
+            }
+            "typ_desc" | "dto_desc" | "non_desc" => {
+                // Prose right under the last declaration is its description; the
+                // scanner emits one of the three kinds regardless of the tag above.
+                if !open {
+                    continue;
+                }
+                if let Some(last) = out.last_mut() {
+                    let line = node_text(n, text).trim();
+                    last.description = Some(match &last.description {
+                        Some(d) => format!("{} {}", d, line),
+                        None => line.to_string(),
+                    });
+                }
+            }
+            "comment" => {}
+            // Any other line ends the prose block of the declaration above.
+            _ => open = false,
+        }
+    }
+    out
+}
+
+/// The hover text for a word: a [TYP] shows its primitive and prose, a [NON]
+/// its prose, a DTO its properties, a `service:` prefix the [SRV] it names.
+fn hover_text(decls: &[Decl], word: &str) -> Option<String> {
+    let d = decls.iter().find(|d| d.name == word)?;
+    let desc = |s: &str| match &d.description {
+        Some(p) => format!("{}\n\n{}", s, p),
+        None => s.to_string(),
+    };
+    Some(match &d.kind {
+        DeclKind::Typ { type_name } => desc(&format!("**{}**: `{}`", d.name, type_name)),
+        DeclKind::Non => desc(&format!("**{}** (noun)", d.name)),
+        DeclKind::Dto { props } => {
+            if props.is_empty() {
+                format!("**{}** {{}}", d.name)
+            } else {
+                format!("**{}** {{ {} }}", d.name, props.join(", "))
+            }
+        }
+        DeclKind::Srv { transport, docs } => {
+            let mut s = format!("**{}:** service ({})", d.name, transport);
+            if let Some(p) = &d.description {
+                s.push_str(&format!("\n\n{}", p));
+            }
+            if let Some(u) = docs {
+                s.push_str(&format!("\n\n@docs {}", u));
+            }
+            s
+        }
+    })
+}
+
+/// The 0-based line a word is declared on.
+fn definition_line(decls: &[Decl], word: &str) -> Option<usize> {
+    decls.iter().find(|d| d.name == word).map(|d| d.line)
+}
+
+/// Every fault name the document declares (for completions on a fault line).
+fn fault_names(text: &str) -> Vec<String> {
+    let Some(tree) = parse_tree(text) else { return Vec::new() };
+    let root = tree.root_node();
+    let mut cursor = root.walk();
+    let mut out: Vec<String> = Vec::new();
+    for n in root.children(&mut cursor) {
+        if n.kind() != "fault_line" {
+            continue;
+        }
+        let list = child_of_kind(n, "fault_list").map(|c| node_text(c, text)).unwrap_or("");
+        for item in list.split_whitespace() {
+            let name = item.split('=').next().unwrap_or(item).to_string();
+            if !out.contains(&name) {
+                out.push(name);
+            }
+        }
+    }
+    out
+}
+
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
@@ -198,6 +404,8 @@ impl LanguageServer for Backend {
                         ":".to_string(),
                         ".".to_string(),
                         "{".to_string(),
+                        "!".to_string(),
+                        "[".to_string(),
                     ]),
                     ..Default::default()
                 }),
@@ -260,129 +468,7 @@ impl LanguageServer for Backend {
         let current_line = lines_vec.get(pos.line as usize).unwrap_or(&"");
         let col = pos.character as usize;
         let prefix = completion_prefix(current_line, col);
-        let prefix = prefix.as_str();
-
-        let mut items = Vec::new();
-
-        // Boundary prefixes
-        if prefix.trim().is_empty() || prefix.ends_with(' ') {
-            for bp in ["db:", "fs:", "mq:", "ex:", "os:", "lg:"] {
-                items.push(CompletionItem {
-                    label: bp.to_string(),
-                    kind: Some(CompletionItemKind::KEYWORD),
-                    detail: Some(boundary_detail(bp)),
-                    ..Default::default()
-                });
-            }
-        }
-
-        // Tags at column 0
-        if prefix.trim().is_empty() && col == 0 || prefix.starts_with('[') {
-            for tag in ["[REQ]", "[ENT]", "[DTO]", "[TYP]", "[NON]", "[PLY]", "[CSE]", "[NEW]", "[RET]", "[MOD]"] {
-                items.push(CompletionItem {
-                    label: tag.to_string(),
-                    kind: Some(CompletionItemKind::KEYWORD),
-                    detail: Some(match tag {
-                        "[REQ]" => "requirement (endpoint)".to_string(),
-                        "[ENT]" => "entrypoint / transport binding".to_string(),
-                        "[DTO]" => "data transfer object".to_string(),
-                        "[TYP]" => "type alias".to_string(),
-                        "[NON]" => "noun declaration".to_string(),
-                        "[PLY]" => "polymorphic dispatch".to_string(),
-                        "[CSE]" => "polymorphism case".to_string(),
-                        "[NEW]" => "construct a noun".to_string(),
-                        "[RET]" => "return a value in scope".to_string(),
-                        "[MOD]" => "module name".to_string(),
-                        _ => "tag".to_string(),
-                    }),
-                    ..Default::default()
-                });
-            }
-        }
-
-        // Common types (after colon)
-        if prefix.ends_with(':') || prefix.ends_with(": ") {
-            for t in ["string", "number", "boolean", "void"] {
-                items.push(CompletionItem {
-                    label: t.to_string(),
-                    kind: Some(CompletionItemKind::TYPE_PARAMETER),
-                    ..Default::default()
-                });
-            }
-        }
-
-        // Common faults (indented lines)
-        if prefix.starts_with("      ") && !prefix.contains('.') && !prefix.contains(':') {
-            for f in ["not-found", "timeout", "network-error", "invalid", "forbidden", "unauthorized"] {
-                items.push(CompletionItem {
-                    label: f.to_string(),
-                    kind: Some(CompletionItemKind::ENUM_MEMBER),
-                    ..Default::default()
-                });
-            }
-        }
-
-        // Extract existing nouns, DTOs, faults from document
-        let parsed = parse_document(&text);
-        let mut nouns: HashSet<String> = HashSet::new();
-        let mut dtos: HashSet<String> = HashSet::new();
-        let mut faults: HashSet<String> = HashSet::new();
-
-        for parsed_line in &parsed {
-            match &parsed_line.kind {
-                LineKind::Req { noun, .. }
-                | LineKind::Step { noun, .. }
-                | LineKind::BoundaryStep { noun, .. } => {
-                    nouns.insert(noun.clone());
-                }
-                LineKind::NonDef { name } => {
-                    nouns.insert(name.clone());
-                }
-                LineKind::DtoRef(name) | LineKind::DtoDef { name, properties: _ } => {
-                    dtos.insert(name.clone());
-                }
-                LineKind::Fault { names, .. } => {
-                    for name in names {
-                        faults.insert(name.clone());
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        // Add existing nouns
-        for noun in nouns {
-            items.push(CompletionItem {
-                label: noun.clone(),
-                kind: Some(CompletionItemKind::CLASS),
-                detail: Some("noun".to_string()),
-                ..Default::default()
-            });
-        }
-
-        // Add existing DTOs
-        for dto in dtos {
-            items.push(CompletionItem {
-                label: dto.clone(),
-                kind: Some(CompletionItemKind::STRUCT),
-                detail: Some("DTO".to_string()),
-                ..Default::default()
-            });
-        }
-
-        // Add existing faults (for fault lines)
-        if prefix.starts_with("      ") {
-            for fault in faults {
-                items.push(CompletionItem {
-                    label: fault.clone(),
-                    kind: Some(CompletionItemKind::ENUM_MEMBER),
-                    detail: Some("existing fault".to_string()),
-                    ..Default::default()
-                });
-            }
-        }
-
-        Ok(Some(CompletionResponse::Array(items)))
+        Ok(Some(CompletionResponse::Array(completions_for(&text, &prefix))))
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
@@ -396,142 +482,21 @@ impl LanguageServer for Backend {
 
         let text = rope.to_string();
         let lines: Vec<&str> = text.lines().collect();
-        let parsed = parse_document(&text);
-
-        let line_num = pos.line as usize;
-        if line_num >= parsed.len() {
-            return Ok(None);
-        }
-
-        // Build TYP definitions map for hover on type references
-        let mut typ_defs: HashMap<String, (String, Option<String>)> = HashMap::new();
-        // Build NON definitions map for hover on noun references
-        let mut non_defs: HashMap<String, Option<String>> = HashMap::new();
-        let mut i = 0;
-        while i < parsed.len() {
-            if let LineKind::TypDef { name, type_name, .. } = &parsed[i].kind {
-                let mut desc_lines = Vec::new();
-                let mut j = i + 1;
-                while j < parsed.len() {
-                    if let LineKind::TypDesc { text, .. } = &parsed[j].kind {
-                        desc_lines.push(text.clone());
-                        j += 1;
-                    } else {
-                        break;
-                    }
-                }
-                let desc = if desc_lines.is_empty() {
-                    None
-                } else {
-                    Some(desc_lines.join(" "))
-                };
-                typ_defs.insert(name.clone(), (type_name.clone(), desc));
-            } else if let LineKind::NonDef { name } = &parsed[i].kind {
-                let mut desc_lines = Vec::new();
-                let mut j = i + 1;
-                while j < parsed.len() {
-                    if let LineKind::NonDesc { text, .. } = &parsed[j].kind {
-                        desc_lines.push(text.clone());
-                        j += 1;
-                    } else {
-                        break;
-                    }
-                }
-                let desc = if desc_lines.is_empty() {
-                    None
-                } else {
-                    Some(desc_lines.join(" "))
-                };
-                non_defs.insert(name.clone(), desc);
-            }
-            i += 1;
-        }
-
-        // Build DTO definitions map with properties
-        let mut dto_defs: HashMap<String, Vec<String>> = HashMap::new();
-        for parsed_line in &parsed {
-            match &parsed_line.kind {
-                LineKind::DtoDef { name, properties } => {
-                    dto_defs.insert(name.clone(), properties.clone());
-                }
-                _ => {}
-            }
-        }
-
-        let current_line = lines.get(line_num).unwrap_or(&"");
+        let current_line = lines.get(pos.line as usize).unwrap_or(&"");
         let col = pos.character as usize;
 
-        // Find word at cursor position
         let word = get_word_at_position(current_line, col);
         if word.is_empty() {
             return Ok(None);
         }
-
-        // Check if it's a TYP reference
-        if let Some((type_name, desc)) = typ_defs.get(&word) {
-            let content = if let Some(d) = desc {
-                format!("**{}**: `{}`\n\n{}", word, type_name, d)
-            } else {
-                format!("**{}**: `{}`", word, type_name)
-            };
-            return Ok(Some(Hover {
-                contents: HoverContents::Markup(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: content,
-                }),
-                range: None,
-            }));
-        }
-
-        // Check if it's a NON reference
-        if let Some(desc) = non_defs.get(&word) {
-            let content = if let Some(d) = desc {
-                format!("**{}** (noun)\n\n{}", word, d)
-            } else {
-                format!("**{}** (noun)", word)
-            };
-            return Ok(Some(Hover {
-                contents: HoverContents::Markup(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: content,
-                }),
-                range: None,
-            }));
-        }
-
-        // Check if it's a DTO reference
-        if word.ends_with("Dto") {
-            if let Some(props) = dto_defs.get(&word) {
-                let content = if props.is_empty() {
-                    format!("**{}** {{}}", word)
-                } else {
-                    format!("**{}** {{ {} }}", word, props.join(", "))
-                };
-                return Ok(Some(Hover {
-                    contents: HoverContents::Markup(MarkupContent {
-                        kind: MarkupKind::Markdown,
-                        value: content,
-                    }),
-                    range: None,
-                }));
-            }
-        }
-
-        // Check if it's a boundary prefix
-        let boundary_prefixes = ["db:", "fs:", "mq:", "ex:", "os:", "lg:"];
-        for bp in boundary_prefixes {
-            if current_line.trim().starts_with(bp) && col <= current_line.find(bp).unwrap_or(0) + 3 {
-                return Ok(Some(Hover {
-                    contents: HoverContents::Markup(MarkupContent {
-                        kind: MarkupKind::Markdown,
-                        value: format!("**{}** {}", bp, boundary_detail(bp)),
-                    }),
-                    range: None,
-                }));
-            }
-        }
-
-        Ok(None)
+        let decls = declarations(&text);
+        Ok(hover_text(&decls, &word).map(|value| Hover {
+            contents: HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value,
+            }),
+            range: None,
+        }))
     }
 
     async fn goto_definition(
@@ -548,85 +513,19 @@ impl LanguageServer for Backend {
 
         let text = rope.to_string();
         let lines: Vec<&str> = text.lines().collect();
-        let parsed = parse_document(&text);
-
         let current_line = lines.get(pos.line as usize).unwrap_or(&"");
         let col = pos.character as usize;
         let word = get_word_at_position(current_line, col);
-
         if word.is_empty() {
-            self.client
-                .log_message(MessageType::INFO, "gd: word is empty")
-                .await;
             return Ok(None);
         }
-
-        self.client
-            .log_message(MessageType::INFO, format!("gd: looking for '{}'", word))
-            .await;
-
-        // Build maps of definitions with their line numbers
-        let mut typ_lines: HashMap<String, usize> = HashMap::new();
-        let mut dto_lines: HashMap<String, usize> = HashMap::new();
-        let mut non_lines: HashMap<String, usize> = HashMap::new();
-
-        for parsed_line in &parsed {
-            match &parsed_line.kind {
-                LineKind::TypDef { name, .. } => {
-                    typ_lines.insert(name.clone(), parsed_line.line_num);
-                }
-                LineKind::DtoDef { name, properties: _ } => {
-                    dto_lines.insert(name.clone(), parsed_line.line_num);
-                }
-                LineKind::NonDef { name } => {
-                    non_lines.insert(name.clone(), parsed_line.line_num);
-                }
-                _ => {}
-            }
-        }
-
-        self.client
-            .log_message(MessageType::INFO, format!("gd: typ_lines keys: {:?}", typ_lines.keys().collect::<Vec<_>>()))
-            .await;
-
-        // Find TYP definition
-        if let Some(&line_num) = typ_lines.get(&word) {
-            self.client
-                .log_message(MessageType::INFO, format!("gd: found TYP at line {}", line_num))
-                .await;
-            return Ok(Some(GotoDefinitionResponse::Array(vec![Location {
+        let decls = declarations(&text);
+        Ok(definition_line(&decls, &word).map(|line| {
+            GotoDefinitionResponse::Array(vec![Location {
                 uri: uri.clone(),
-                range: line_range(line_num),
-            }])));
-        }
-
-        // Find DTO definition
-        if let Some(&line_num) = dto_lines.get(&word) {
-            self.client
-                .log_message(MessageType::INFO, format!("gd: found DTO at line {}", line_num))
-                .await;
-            return Ok(Some(GotoDefinitionResponse::Array(vec![Location {
-                uri: uri.clone(),
-                range: line_range(line_num),
-            }])));
-        }
-
-        // Find NON definition
-        if let Some(&line_num) = non_lines.get(&word) {
-            self.client
-                .log_message(MessageType::INFO, format!("gd: found NON at line {}", line_num))
-                .await;
-            return Ok(Some(GotoDefinitionResponse::Array(vec![Location {
-                uri: uri.clone(),
-                range: line_range(line_num),
-            }])));
-        }
-
-        self.client
-            .log_message(MessageType::INFO, format!("gd: '{}' not found in typ_lines, dto_lines, or non_lines", word))
-            .await;
-
-        Ok(None)
+                range: line_range(line),
+            }])
+        }))
     }
 
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
@@ -676,6 +575,118 @@ impl LanguageServer for Backend {
             Ok(Some(locations))
         }
     }
+}
+
+/// The completion items for a cursor whose line reads `prefix` so far: the
+/// registry's tags at a line start, its modifiers inside an open `[TAG:`, the
+/// document's `[SRV]` names as boundary prefixes, primitives after a colon,
+/// and on a fault line the registry's well-known faults plus the document's.
+fn completions_for(text: &str, prefix: &str) -> Vec<CompletionItem> {
+    let reg = registry();
+    let trimmed = prefix.trim_start();
+    let mut items = Vec::new();
+
+    // `[TAG:` open — the modifiers that apply to that tag.
+    if let Some(open) = trimmed.strip_prefix('[')
+        && let Some((tag, _)) = open.split_once(':')
+        && !open.contains(']')
+    {
+        let tag_id = tag.to_lowercase();
+        for m in reg["modifiers"].as_array().into_iter().flatten() {
+            let applies = m["appliesTo"]
+                .as_array()
+                .is_some_and(|a| a.iter().any(|t| t.as_str() == Some(&tag_id)));
+            if applies {
+                items.push(CompletionItem {
+                    label: m["id"].as_str().unwrap_or("").to_string(),
+                    kind: Some(CompletionItemKind::ENUM_MEMBER),
+                    detail: Some(m["syntax"].as_str().unwrap_or("").to_string()),
+                    documentation: m["description"].as_str().map(|d| Documentation::String(d.to_string())),
+                    ..Default::default()
+                });
+            }
+        }
+        return items;
+    }
+
+    // A fault line: the well-known faults (with their status) and the ones
+    // already declared in this document.
+    let marker = reg["faults"]["marker"].as_str().unwrap_or("!");
+    if trimmed.starts_with(marker) {
+        for f in reg["faults"]["wellKnown"].as_array().into_iter().flatten() {
+            let id = f["id"].as_str().unwrap_or("");
+            if id.contains('*') {
+                continue; // a glob, not a name to insert
+            }
+            items.push(CompletionItem {
+                label: id.to_string(),
+                kind: Some(CompletionItemKind::ENUM_MEMBER),
+                detail: Some(format!("HTTP {} — {}", f["status"], f["summary"].as_str().unwrap_or(""))),
+                ..Default::default()
+            });
+        }
+        for name in fault_names(text) {
+            if items.iter().any(|i| i.label == name) {
+                continue;
+            }
+            items.push(CompletionItem {
+                label: name,
+                kind: Some(CompletionItemKind::ENUM_MEMBER),
+                detail: Some("declared in this spec".to_string()),
+                ..Default::default()
+            });
+        }
+        return items;
+    }
+
+    // Tags, at a line start (or an opened bracket).
+    if trimmed.is_empty() || trimmed.starts_with('[') {
+        for t in reg["tags"].as_array().into_iter().flatten() {
+            items.push(CompletionItem {
+                label: t["tag"].as_str().unwrap_or("").to_string(),
+                kind: Some(CompletionItemKind::KEYWORD),
+                detail: Some(t["label"].as_str().unwrap_or("").to_string()),
+                documentation: t["summary"].as_str().map(|d| Documentation::String(d.to_string())),
+                ..Default::default()
+            });
+        }
+    }
+
+    // Primitive types after a colon.
+    if prefix.ends_with(':') || prefix.ends_with(": ") {
+        for t in ["string", "number", "boolean", "void", "Uint8Array"] {
+            items.push(CompletionItem {
+                label: t.to_string(),
+                kind: Some(CompletionItemKind::TYPE_PARAMETER),
+                ..Default::default()
+            });
+        }
+    }
+
+    // The document's own names: declared services as `name:` prefixes, nouns,
+    // types and DTOs.
+    if trimmed.is_empty() || trimmed.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        for d in declarations(text) {
+            let (label, kind, detail) = match &d.kind {
+                DeclKind::Srv { transport, .. } => (
+                    format!("{}:", d.name),
+                    CompletionItemKind::MODULE,
+                    format!("boundary service ({})", transport),
+                ),
+                DeclKind::Non => (d.name.clone(), CompletionItemKind::CLASS, "noun".to_string()),
+                DeclKind::Typ { type_name } => (d.name.clone(), CompletionItemKind::TYPE_PARAMETER, type_name.clone()),
+                DeclKind::Dto { .. } => (d.name.clone(), CompletionItemKind::STRUCT, "DTO".to_string()),
+            };
+            items.push(CompletionItem {
+                label,
+                kind: Some(kind),
+                detail: Some(detail),
+                ..Default::default()
+            });
+        }
+    }
+
+    items
 }
 
 /// Every (start, end) column pair (as char offsets, the LSP `Position.character`
@@ -733,18 +744,6 @@ fn get_word_at_position(line: &str, col: usize) -> String {
     }
 
     chars[start..end].iter().collect()
-}
-
-fn boundary_detail(prefix: &str) -> String {
-    match prefix {
-        "db:" => "database / persistence".to_string(),
-        "fs:" => "file system (local)".to_string(),
-        "mq:" => "message queue".to_string(),
-        "ex:" => "external service / provider".to_string(),
-        "os:" => "object storage (S3, GCS)".to_string(),
-        "lg:" => "logs".to_string(),
-        _ => "boundary".to_string(),
-    }
 }
 
 #[tokio::main]
@@ -810,120 +809,82 @@ mod tests {
         assert!(diags[0].message.contains("RUNE_BIN"), "{}", diags[0].message);
     }
 
-    /// REQ-015: a checker that answers without a report is reported with its stderr.
+    /// REQ-015: a checker that answers garbage is reported with its stderr.
     #[tokio::test]
     async fn req_015_garbage_report_is_one_diagnostic_with_stderr() {
         let dir = std::env::temp_dir().join("rune-lsp-req-015-garbage");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let bin = fake_rune(&dir, "cat >/dev/null; echo 'boom: no such root' >&2; exit 2");
+        let bin = fake_rune(&dir, r#"echo "boom: no such project" >&2; echo "not json""#);
         let diags = diagnostics_with(&bin, std::path::Path::new("/tmp/x.rune"), "[MOD] x").await;
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, Some(NumberOrString::String("checker-unavailable".into())));
-        assert!(diags[0].message.contains("boom: no such root"), "{}", diags[0].message);
+        assert!(diags[0].message.contains("returned no report"), "{}", diags[0].message);
+        assert!(diags[0].message.contains("boom: no such project"), "{}", diags[0].message);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    fn change(text: &str) -> TextDocumentContentChangeEvent {
-        TextDocumentContentChangeEvent {
-            range: None,
-            range_length: None,
-            text: text.to_string(),
-        }
+    const SPEC: &str = "[MOD] m\n\n[REQ] task.create(InDto): TaskDto\n    db:task.save(InDto): TaskDto\n      ! timeout card-expired=402\n\n[TYP] id: string\n    a unique identifier,\n    minted by the system\n[DTO] TaskDto: id, title?\n    a persisted task\n[NON] task\n    a single todo item\n[SRV] (SIDECAR)db: DB_URL\n    the datastore\n    @docs https://docs.example.com/db\n";
+
+    /// REQ-032: hover, definitions and the names on offer come from the grammar's
+    /// CST — the prose is the desc lines under a declaration, a service's docs
+    /// link is its @docs line, a DTO's shape its properties.
+    #[test]
+    fn req_032_hover_and_definitions_come_from_the_tree_sitter_cst() {
+        let decls = declarations(SPEC);
+        assert_eq!(decls.iter().map(|d| d.name.as_str()).collect::<Vec<_>>(), ["id", "TaskDto", "task", "db"]);
+        assert_eq!(
+            hover_text(&decls, "id").as_deref(),
+            Some("**id**: `string`\n\na unique identifier, minted by the system")
+        );
+        assert_eq!(hover_text(&decls, "TaskDto").as_deref(), Some("**TaskDto** { id, title? }"));
+        assert_eq!(hover_text(&decls, "task").as_deref(), Some("**task** (noun)\n\na single todo item"));
+        assert_eq!(
+            hover_text(&decls, "db").as_deref(),
+            Some("**db:** service (SIDECAR)\n\nthe datastore\n\n@docs https://docs.example.com/db")
+        );
+        assert_eq!(hover_text(&decls, "nothing"), None);
+        assert_eq!(definition_line(&decls, "id"), Some(6));
+        assert_eq!(definition_line(&decls, "TaskDto"), Some(9));
+        assert_eq!(definition_line(&decls, "task"), Some(11));
+        assert_eq!(definition_line(&decls, "db"), Some(13));
+        assert_eq!(fault_names(SPEC), ["timeout", "card-expired"]);
     }
 
-    /// R7: under FULL sync, a batched didChange must apply the LAST change (the
-    /// authoritative full-document snapshot), not the first.
+    /// REQ-032: completions read the registry — tags, a tag's modifiers, the
+    /// well-known faults — and the document's declared services and names.
     #[test]
-    fn r7_full_sync_uses_last_change() {
-        // batched [OLD, NEW] -> NEW
-        let picked = full_sync_text(vec![change("OLD"), change("NEW")]);
-        assert_eq!(picked.as_deref(), Some("NEW"));
-
-        // batched [CLEAN, BAD] -> BAD (the bug returned the first = CLEAN)
-        let picked = full_sync_text(vec![change("clean"), change("bad")]);
-        assert_eq!(picked.as_deref(), Some("bad"));
-
-        // single change -> that change
-        let picked = full_sync_text(vec![change("only")]);
-        assert_eq!(picked.as_deref(), Some("only"));
-
-        // no changes -> None
-        let picked = full_sync_text(Vec::new());
-        assert_eq!(picked, None);
-    }
-
-    // --- Bug [B]: completion prefix must be char-indexed, not byte-indexed ---
-
-    #[test]
-    fn completion_prefix_multibyte_no_panic() {
-        // `col` is an LSP/char offset; on a multibyte line, byte-slicing at
-        // col=1 lands inside `é` (bytes 0..2) and panics.
-        assert_eq!(completion_prefix("é", 1), "é");
-    }
-
-    #[test]
-    fn completion_prefix_cursor_past_end() {
-        // Cursor past the end of a multibyte line clamps to the whole line.
-        assert_eq!(completion_prefix("é", 5), "é");
-        assert_eq!(completion_prefix("ab", 5), "ab");
-    }
-
-    #[test]
-    fn completion_prefix_ascii_unchanged() {
-        assert_eq!(completion_prefix("hello world", 5), "hello");
-        assert_eq!(completion_prefix("hello", 0), "");
-    }
-
-    // --- Bug [C]: get_word_at_position must resolve a trailing cursor --------
-
-    #[test]
-    fn word_at_position_end_of_line() {
-        // Cursor at EOL, immediately after the last char of `UserDto`.
-        // `"[DTO] UserDto"` has 13 chars; col=13 is one past the end.
-        let line = "[DTO] UserDto";
-        assert_eq!(get_word_at_position(line, 13), "UserDto");
+    fn req_032_completions_come_from_the_registry_and_the_document() {
+        let labels = |items: Vec<CompletionItem>| items.into_iter().map(|i| i.label).collect::<Vec<_>>();
+        let tags = labels(completions_for(SPEC, ""));
+        assert!(tags.contains(&"[REQ]".to_string()) && tags.contains(&"[SRV]".to_string()), "{:?}", tags);
+        assert!(!tags.contains(&"[CTR]".to_string()));
+        assert!(tags.contains(&"db:".to_string()), "declared services complete as prefixes: {:?}", tags);
+        let mods = labels(completions_for(SPEC, "[TYP:"));
+        assert!(mods.contains(&"uuid".to_string()) && mods.contains(&"ext".to_string()), "{:?}", mods);
+        assert!(!mods.contains(&"open".to_string()), "a [REQ] modifier is not offered on [TYP]: {:?}", mods);
+        let faults = labels(completions_for(SPEC, "      ! "));
+        assert!(faults.contains(&"not-found".to_string()), "{:?}", faults);
+        assert!(faults.contains(&"card-expired".to_string()), "the document's own faults: {:?}", faults);
+        assert!(!faults.iter().any(|f| f.contains('*')), "a glob is not a name: {:?}", faults);
     }
 
     #[test]
-    fn word_at_position_trailing_within_line() {
-        // Cursor just after a word but before a non-identifier char.
-        // "id foo": cursor at col=2 (the space) sits right after `id`.
-        assert_eq!(get_word_at_position("id foo", 2), "id");
+    fn full_sync_last_change_wins() {
+        let changes = vec![
+            TextDocumentContentChangeEvent { range: None, range_length: None, text: "first".into() },
+            TextDocumentContentChangeEvent { range: None, range_length: None, text: "last".into() },
+        ];
+        assert_eq!(full_sync_text(changes).as_deref(), Some("last"));
+        assert_eq!(full_sync_text(vec![]), None);
     }
 
     #[test]
-    fn word_at_position_inside_word_unchanged() {
-        // Cursor inside a word still returns the whole word.
-        assert_eq!(get_word_at_position("[DTO] UserDto", 8), "UserDto");
-        assert_eq!(get_word_at_position("id foo", 0), "id");
-    }
-
-    #[test]
-    fn word_at_position_on_whitespace_between_words() {
-        // Cursor on whitespace between two words returns "".
-        // "id  foo": col=2 is right after `id` (resolves to "id"); col=3 is a
-        // space with a space before it (no adjacent identifier char) -> "".
-        assert_eq!(get_word_at_position("id  foo", 3), "");
-    }
-
-    // --- Bug [D]: references must find ALL occurrences, as char offsets ------
-
-    #[test]
-    fn word_match_columns_multiple_occurrences() {
-        // A word used twice on one line must yield BOTH locations.
+    fn word_at_position_resolves_trailing_cursor() {
+        assert_eq!(get_word_at_position("[TYP] id: string", 7), "id");
+        assert_eq!(get_word_at_position("[TYP] id: string", 8), "id");
+        assert_eq!(get_word_at_position("  ", 1), "");
         assert_eq!(word_match_columns("id id", "id"), vec![(0, 2), (3, 5)]);
-    }
-
-    #[test]
-    fn word_match_columns_multibyte_char_offset() {
-        // Leading multibyte char: `id` starts at char column 2, not byte 3.
-        assert_eq!(word_match_columns("é id", "id"), vec![(2, 4)]);
-    }
-
-    #[test]
-    fn word_match_columns_ascii_single() {
-        assert_eq!(word_match_columns("hello id world", "id"), vec![(6, 8)]);
-        assert_eq!(word_match_columns("no match here", "id"), Vec::<(u32, u32)>::new());
+        assert_eq!(completion_prefix("héllo", 2), "hé");
     }
 }

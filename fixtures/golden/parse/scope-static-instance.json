@@ -38,11 +38,6 @@
             "already-active"
           ],
           "line": 3
-        },
-        {
-          "kind": "ret",
-          "value": "AccountDto",
-          "line": 5
         }
       ],
       "isOpen": false,
@@ -59,7 +54,7 @@
       "description": "a request to open an account",
       "isCore": false,
       "isOpen": false,
-      "line": 10
+      "line": 11
     },
     {
       "name": "IdDto",
@@ -69,7 +64,7 @@
       "description": "a generated identifier",
       "isCore": false,
       "isOpen": false,
-      "line": 13
+      "line": 14
     },
     {
       "name": "AccountDto",
@@ -80,7 +75,7 @@
       "description": "an opened account",
       "isCore": false,
       "isOpen": false,
-      "line": 16
+      "line": 17
     }
   ],
   "typs": [
@@ -91,16 +86,37 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 19
+      "line": 20
+    },
+    {
+      "name": "id",
+      "typeName": "string",
+      "description": "the id",
+      "isCore": false,
+      "isExternal": false,
+      "modifiers": [],
+      "line": 22
     }
   ],
   "nons": [
     {
       "name": "account",
       "description": "a customer account",
-      "line": 7
+      "line": 6
+    },
+    {
+      "name": "id",
+      "description": "an identity minted for a new account",
+      "line": 8
     }
   ],
   "srvs": [],
+  "faultStatuses": {
+    "already-active": 409
+  },
+  "bodyLines": [],
+  "faultLines": {
+    "already-active": 4
+  },
   "errors": []
 }

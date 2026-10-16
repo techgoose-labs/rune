@@ -29,8 +29,6 @@ export async function issue(input: IssueDto): Promise<InvoiceDto> {
 // Pure business logic for invoice.issue — no I/O. Takes the
 // request input; returns nothing (the post-core boundary calls produce the flow's values).
 function issueCore(input: IssueDto): void {
-  // Recipe from [REQ] invoice.issue (run in order):
-  //   1. [RET] InvoiceDto
-  // TODO: implement the steps above, then build the dtos
+  // TODO: run the pure steps on the inputs, build the dtos
   throw new Error("not implemented");
 }

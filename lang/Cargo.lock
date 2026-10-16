@@ -886,8 +886,10 @@ dependencies = [
  "clap_complete",
  "dirs",
  "inquire",
- "rune-parser",
+ "serde_json",
  "tempfile",
+ "tree-sitter",
+ "tree-sitter-rune",
 ]
 
 [[package]]
@@ -895,16 +897,13 @@ name = "rune-lsp"
 version = "0.1.0"
 dependencies = [
  "ropey",
- "rune-parser",
  "serde",
  "serde_json",
  "tokio",
  "tower-lsp",
+ "tree-sitter",
+ "tree-sitter-rune",
 ]
-
-[[package]]
-name = "rune-parser"
-version = "0.1.0"
 
 [[package]]
 name = "rustix"

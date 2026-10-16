@@ -41,7 +41,7 @@ with one — it contains runnable commands), then tick the task's row here:
 - [x] 05 — rune dev
 - [x] 06 — system map
 - [x] 07 — docs + sweep
-- [ ] 09 — one-source roadmap (see `09-one-source.md`; tick per phase)
+- [x] 09 — one-source roadmap (see `09-one-source.md`; Phase 1 REQ-013..016, Phases 2–4 REQ-018..035 on one branch)
 
 ## Non-negotiable policies (repeat these to every worker)
 

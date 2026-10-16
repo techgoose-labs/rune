@@ -599,3 +599,22 @@ studio imports `scripts/generate-core.mjs`.
   `REQ-035: the studio parses and checks through the engine` (`cd rune-studio && deno task test`)
 - integration: the L5 gate
 - e2e: n/a — the studio's dev server is not the gate's serve task
+
+## REQ-029 — AMENDMENT: the install manifest ships what the skill ships
+
+> Judge finding on the first `wt-ready` run, 2026-10-16: `claude/skills/MANIFEST.txt`
+> (the file list `install.sh` falls back to) still named the retired `spec.md`
+> and `constraints.md` and omitted `card.md`.
+
+`scripts/sync-spec-skill-refs.ts` now writes `claude/skills/MANIFEST.txt` from
+the skills tree (and `--check` diffs it), so the manifest can never name a
+reference that no longer ships. The generated-code runtime contract (the
+`#assert` seams and the `RuneFault` classes) moved from `lang/docs/constraints.md`
+to `claude/skills/rune:framework/references/endpoints.md`, which is installed;
+the sixteen agents that cited it point there.
+
+- unit: `scripts/gen-lang-docs.test.ts` — the `REQ-029` test also asserts the
+  shipped cookbook matches its source and the manifest ships the card, names no
+  retired reference, and names only files that exist
+- integration: the Drift gate; `deno task check:spec-refs`
+- e2e: n/a — docs

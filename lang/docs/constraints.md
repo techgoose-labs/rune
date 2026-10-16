@@ -144,35 +144,9 @@ The columns `rune fmt` writes. Indentation is presentation: a line's kind is its
 Lines are at most 80 characters.
 <!-- /rune:gen -->
 
-## Generated code: validated seams
+## Generated code
 
-Generated coordinators validate every seam at runtime via
-`import { assert } from "#assert"` — keep's assert runtime; `rune sync` maps
-the `#assert` alias in the project's `deno.json`. Context labels use the
-REQ's `noun.verb` for input/result and the boundary step's `noun.verb` for
-reads/writes:
-
-- the request **input**: `assert(InputDto, input, "task.create input")`,
-  first statement of the shell
-- every data-adapter **read**: `assert(TDto, await ..., "task.load")`;
-  reads whose type resolves to a primitive use
-  `assert.string` / `assert.number` / `assert.boolean` / `assert.uint8Array`
-- every DTO **write** argument before it leaves:
-  `assert(WDto, out.field, "task.save input")`
-- the **result**:
-  `return assert(OutputDto, out.result, "task.create output")`
-
-A failed contract throws `RuneAssertError`; keep maps it to HTTP 422 with
-`{ target, context, failures }` and dotted failure paths (`lines.1.qty`).
-Named types with no runtime contract keep an `as` cast plus a trailing
-`// unvalidated: <type> has no runtime contract` comment. `RUNE_ASSERT=off`
-turns every assert into a passthrough (trusted prod mode). Entrypoint
-controllers stay validation-free — validation lives in the coordinator.
-
-## Generated code: faults
-
-Every fault a module declares is a class in `src/<module>/dto/faults.ts`
-extending keep's `RuneFault` with the fault's name and HTTP status
-(`! not-found` → `NotFoundFault`, 404; `! card-expired=402` →
-`CardExpiredFault`, 402). A coordinator throws one; keep's bootstrap answers
-with that status and `{ name: "RuneFault", fault, status, message }`.
+The runtime contract the generated code keeps — validated seams through
+`#assert`, and the typed fault classes keep answers with — is documented
+with the runtime, in `claude/skills/rune:framework/references/endpoints.md`
+(installed as `~/.claude/skills/rune:framework/references/endpoints.md`).

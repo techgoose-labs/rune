@@ -59,6 +59,14 @@ Deno.test("REQ-029: the card carries the valid corpus, the tables, every rule an
   assert(!sync.includes('"lang/docs/spec.md"'));
   assert(!sync.includes('"lang/docs/constraints.md"'));
   assertEquals(await read("claude/skills/rune:spec/references/card.md"), card, "the shipped card drifted — run scripts/sync-spec-skill-refs.ts");
+  assertEquals(await read("claude/skills/rune:spec/references/cookbook.md"), await read("lang/docs/cookbook.md"), "the shipped cookbook drifted — run scripts/sync-spec-skill-refs.ts");
+  // install.sh's fallback manifest ships the card and nothing retired.
+  const manifest = (await read("claude/skills/MANIFEST.txt")).trim().split("\n");
+  assert(manifest.includes("claude/skills/rune:spec/references/card.md"), "manifest ships the card");
+  for (const retired of ["spec.md", "constraints.md"]) {
+    assert(!manifest.includes(`claude/skills/rune:spec/references/${retired}`), `manifest still ships ${retired}`);
+  }
+  for (const p of manifest) assert(Deno.statSync(new URL(p, ROOT)).isFile, `manifest names a missing file: ${p}`);
 });
 
 Deno.test("REQ-024: the generated reference documents `?`, `(s?)`, string enums and [DTO:open] from the registry", async () => {

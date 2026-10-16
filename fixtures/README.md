@@ -23,19 +23,12 @@ fixtures/
 
 ## Corpus coverage
 
-Every tag (`[REQ] [MOD] [ENT] [PLY] [CSE] [NEW]/[CTR] [RET] [TYP] [DTO] [NON]`),
-all six boundary prefixes (`db: fs: mq: ex: os: lg:`), faults (0/1/many),
-polymorphism (single/many/nested), `:core` on `[DTO]`/`[TYP]`, static `::` vs
-instance `.`, inline `{}` DTOs, multi-module specs, the realistic end-to-end
-`example-e2e`, plus the parser's error paths in `invalid/`.
-
-## Known engine gap characterised here
-
-`valid/poly-nested.rune` contains a `[PLY]` nested inside a `[CSE]`. The spec
-calls this disallowed, but **today's engine parser does not reject it** — the
-`[PLY]` handler restarts a top-level poly block under the `[REQ]` and silently
-drops the case nesting (`rune-parse/mod.ts:292`; the guard at `:589` is
-unreachable for a real `[PLY]` line). It is therefore filed under `valid/`
-(0 parse errors) and its parse golden captures the lenient behaviour. Closing
-this gap belongs to WO-4c (artifact-driven parser) / WO-4d (lint), at which
-point it should move to `invalid/` with a golden diff that documents the change.
+Every tag (`[REQ] [MOD] [ENT] [PLY] [CSE] [NEW] [RET] [TYP] [DTO] [NON] [SRV]`),
+six declared services used as boundary prefixes, faults (0/1/many, well-known
+and `=STATUS`), value names (`as`), polymorphism (single/many), `:core` on
+`[DTO]`/`[TYP]`, static `::` vs instance `.`, inline `{}` DTOs, `[ENT]` bodies,
+route templates, `from=query|header`, a WebSocket socket, the realistic
+end-to-end `example-e2e` (the copy of `lang/docs/example.rune`), plus one
+`invalid/` fixture per rule the checker enforces — each with a `.diag.json`
+sidecar pinning exactly which findings `rune check` reports (REQ-014). The
+language card (`lang/docs/card.md`) is generated from this corpus.

@@ -37,7 +37,11 @@
     "@core/": "../src/core/",
     "#zod": "npm:zod",
     "#std/assert": "jsr:@std/assert",
-    "#std/path": "jsr:@std/path"
+    "#std/path": "jsr:@std/path",
+    "@keywords": "../lang/keywords.json",
+    "#tree-sitter": "npm:web-tree-sitter@0.25.10",
+    "#generate-core": "../scripts/generate-core.mjs",
+    "@/core/": "../src/core/"
   },
   "compilerOptions": {
     "lib": [

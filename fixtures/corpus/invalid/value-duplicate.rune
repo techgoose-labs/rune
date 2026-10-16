@@ -1,0 +1,13 @@
+[REQ] task.copy(RefDto): TaskDto
+    db:task.load(id): TaskDto
+      ! not-found
+    db:task.load(id): TaskDto
+
+[DTO] RefDto: id
+    a reference
+[DTO] TaskDto: id, title
+    a task
+[TYP] id: string
+    the id
+[TYP] title: string
+    the title

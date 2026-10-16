@@ -2,8 +2,7 @@
 
 [REQ] item.add(AddItemDto): ItemDto
     db:item.save(AddItemDto): ItemDto
-      conflict
-    [RET] ItemDto
+      ! conflict
 
 [TYP:ext,uuid] externalId: string
     an external identifier supplied by the source system
@@ -35,4 +34,3 @@
 [SRV] (SIDECAR)db: DB_URL
     the primary datastore
     @docs https://docs.example.com/db
-

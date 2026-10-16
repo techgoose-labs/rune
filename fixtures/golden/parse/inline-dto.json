@@ -14,7 +14,8 @@
           "noun": "index",
           "verb": "query",
           "params": [
-            "QueryDto"
+            "query",
+            "page"
           ],
           "output": "ResultsDto",
           "isStatic": false,
@@ -22,11 +23,6 @@
             "timeout"
           ],
           "line": 1
-        },
-        {
-          "kind": "ret",
-          "value": "ResultsDto",
-          "line": 3
         }
       ],
       "isOpen": false,
@@ -36,17 +32,6 @@
   "ents": [],
   "dtos": [
     {
-      "name": "QueryDto",
-      "properties": [
-        "query",
-        "page"
-      ],
-      "description": "a search query with pagination",
-      "isCore": false,
-      "isOpen": false,
-      "line": 5
-    },
-    {
       "name": "ResultsDto",
       "properties": [
         "items"
@@ -54,10 +39,19 @@
       "description": "the matched results",
       "isCore": false,
       "isOpen": false,
-      "line": 8
+      "line": 4
     }
   ],
   "typs": [
+    {
+      "name": "query",
+      "typeName": "string",
+      "description": "the query",
+      "isCore": false,
+      "isExternal": false,
+      "modifiers": [],
+      "line": 7
+    },
     {
       "name": "page",
       "typeName": "number",
@@ -65,7 +59,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 11
+      "line": 9
     },
     {
       "name": "items",
@@ -74,7 +68,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 13
+      "line": 11
     }
   ],
   "nons": [],
@@ -87,8 +81,13 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 16
+      "line": 14
     }
   ],
+  "faultStatuses": {},
+  "bodyLines": [],
+  "faultLines": {
+    "timeout": 2
+  },
   "errors": []
 }

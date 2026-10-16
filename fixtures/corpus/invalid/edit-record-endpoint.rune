@@ -1,0 +1,14 @@
+[MOD] tasks
+[ENT] http.editTask @ PATCH /tasks/{id}(TaskDto): TaskDto
+    [REQ] task.edit(TaskDto): TaskDto
+
+[REQ] task.edit(TaskDto): TaskDto
+    db:task.save(TaskDto): TaskDto as saved
+      ! not-found
+
+[DTO] TaskDto: id, title
+    a task
+[TYP:example=t1] id: string
+    the id
+[TYP:example=buy-milk] title: string
+    the title

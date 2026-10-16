@@ -3,22 +3,25 @@
 [REQ] list.create(CreateListDto): ListDto
     id::generate(): id
     [NEW] list
-    list.fill(name): list
-    db:list.save(ListDto): void
-      timeout
+    list.fill(id, name): list
     list.toDto(): ListDto
+    db:list.save(ListDto): void
+      ! timeout
+    [RET] ListDto
 
 [REQ] list.addTask(AddTaskDto): ListDto
-    db:list.load(id): ListDto
-      not-found
+    db:list.load(id): ListDto as stored
+      ! not-found
+    list::fromDto(stored): list
     list.append(taskId): list
-    db:list.save(ListDto): void
-      timeout
     list.toDto(): ListDto
+    db:list.save(ListDto): void
+      ! timeout
+    [RET] ListDto
 
 [TYP] id: string
     a unique list identifier
-[TYP] name: string
+[TYP:example=groceries] name: string
     the list name
 [TYP] taskId: string
     an id of a task placed on the list

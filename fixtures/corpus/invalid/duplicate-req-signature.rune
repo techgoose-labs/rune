@@ -1,0 +1,11 @@
+[REQ] task.create(InDto): TaskDto
+    db:task.save(InDto): TaskDto
+[REQ] task.create(InDto): TaskDto
+    db:task.save(InDto): TaskDto
+
+[DTO] InDto: a
+    in
+[DTO] TaskDto: a
+    a task
+[TYP] a: string
+    a

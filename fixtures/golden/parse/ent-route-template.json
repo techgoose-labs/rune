@@ -10,17 +10,21 @@
       "steps": [
         {
           "kind": "step",
-          "noun": "noop",
-          "verb": "run",
-          "params": [],
-          "output": "void",
+          "noun": "upstream",
+          "verb": "call",
+          "params": [
+            "ProxyReqDto"
+          ],
+          "output": "ProxyResDto",
           "isStatic": true,
-          "faults": [],
-          "line": 5
+          "faults": [
+            "unavailable"
+          ],
+          "line": 6
         }
       ],
       "isOpen": false,
-      "line": 4
+      "line": 5
     }
   ],
   "ents": [
@@ -32,7 +36,11 @@
       "modifier": null,
       "line": 2,
       "method": "post",
-      "pathTemplate": "/proxy/{target}/{path*}"
+      "pathTemplate": "/proxy/{target}/{path*}",
+      "delegate": {
+        "noun": "proxy",
+        "verb": "run"
+      }
     }
   ],
   "dtos": [
@@ -47,7 +55,7 @@
       "description": "a request proxied to an upstream service",
       "isCore": false,
       "isOpen": false,
-      "line": 7
+      "line": 9
     },
     {
       "name": "ProxyResDto",
@@ -57,7 +65,7 @@
       "description": "the upstream response",
       "isCore": false,
       "isOpen": false,
-      "line": 9
+      "line": 11
     }
   ],
   "typs": [
@@ -67,8 +75,10 @@
       "description": "the upstream host segment, named in the route template",
       "isCore": false,
       "isExternal": false,
-      "modifiers": [],
-      "line": 12
+      "modifiers": [
+        "example=api"
+      ],
+      "line": 14
     },
     {
       "name": "path",
@@ -76,8 +86,10 @@
       "description": "the remaining upstream path (the {path*} catch-all)",
       "isCore": false,
       "isExternal": false,
-      "modifiers": [],
-      "line": 14
+      "modifiers": [
+        "example=v1/users"
+      ],
+      "line": 16
     },
     {
       "name": "q",
@@ -86,9 +98,10 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [
-        "from=query"
+        "from=query",
+        "example=widgets"
       ],
-      "line": 16
+      "line": 18
     },
     {
       "name": "payload",
@@ -96,8 +109,10 @@
       "description": "the forwarded request body",
       "isCore": false,
       "isExternal": false,
-      "modifiers": [],
-      "line": 18
+      "modifiers": [
+        "example=hello"
+      ],
+      "line": 20
     },
     {
       "name": "status",
@@ -106,10 +121,23 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 20
+      "line": 22
     }
   ],
-  "nons": [],
+  "nons": [
+    {
+      "name": "upstream",
+      "description": "the service being proxied to",
+      "line": 25
+    }
+  ],
   "srvs": [],
+  "faultStatuses": {},
+  "bodyLines": [
+    3
+  ],
+  "faultLines": {
+    "unavailable": 7
+  },
   "errors": []
 }

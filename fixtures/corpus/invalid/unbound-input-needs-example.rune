@@ -1,0 +1,16 @@
+[MOD] shop
+[ENT] http.placeOrder(InDto): OutDto
+    [REQ] order.place(InDto): OutDto
+
+[REQ] order.place(InDto): OutDto
+    db:order.save(InDto): OutDto
+      ! timeout
+
+[DTO] InDto: sku
+    in
+[DTO] OutDto: id
+    out
+[TYP] sku: string
+    the sku nothing produces and no example seeds
+[TYP] id: string
+    the id

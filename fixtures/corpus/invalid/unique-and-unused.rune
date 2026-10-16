@@ -1,0 +1,19 @@
+[REQ] task.create(InDto): TaskDto
+    db:task.save(InDto): TaskDto
+
+[DTO] InDto: a
+    in
+[DTO] InDto: a
+    in again
+[DTO] TaskDto: a
+    a task
+[DTO] SpareDto: a
+    never referenced
+[TYP] a: string
+    a
+[TYP] a: string
+    a again
+[TYP] b: string
+    never referenced
+[NON] widget
+    never referenced

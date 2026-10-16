@@ -3,16 +3,15 @@
 [REQ] message.send(EmailDto): SentDto
     id::generate(): id
     [NEW] message
-    message.fill(address): message
+    message.fill(id, address, body): message
     mail:message.deliver(EmailDto): SentDto
-      timeout invalid-address
-    message.toDto(): SentDto
+      ! timeout invalid-address
 
 [TYP] id: string
     a unique message id
-[TYP] address: string
+[TYP:example=a@b.co] address: string
     the recipient email address
-[TYP] body: string
+[TYP:example=thanks] body: string
     the email body text
 [TYP] status: string
     the delivery status

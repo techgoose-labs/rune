@@ -41,10 +41,31 @@ import {
   toPascal,
 } from "@rune/domain/business/rune-sig/mod.ts";
 import {
-  type FieldSource,
-  TYP_MODIFIERS,
-} from "@rune/domain/business/rune-modifiers/mod.ts";
+  fixFor,
+  message,
+  modifiers as TYP_MODIFIERS,
+  severityOf,
+  wellKnownFault,
+} from "@rune/domain/business/registry/mod.ts";
+
+/** Where an input field is populated from at the HTTP boundary (`[TYP:from=…]`);
+ * body is the default. Path segments are bound by the [ENT]'s route template. */
+type FieldSource = "query" | "header";
 import type { Artifact } from "@rune/domain/business/artifact/mod.ts";
+import { checkSpec } from "@rune/domain/business/rune-checks/mod.ts";
+
+/** The ids this module emits (REQ-026): the cross-element rules that need the
+ * project — services, delegation, surfaces, cases. */
+export const EMITS = [
+  "mod-underivable",
+  "srv-outside-core",
+  "core-spec-missing",
+  "service-undeclared",
+  "ent-delegate-required",
+  "ent-delegate-undefined",
+  "surface-mixed",
+  "ply-cases",
+] as const;
 
 export interface FilePlan {
   path: string;
@@ -66,10 +87,29 @@ export interface ManifestPlan {
   errors: string[];
 }
 
-/** Render the findings into `errors` — the one place the view is produced. */
+/** Render the findings into `errors` — the one place the view is produced. The
+ * list is the ERROR-severity findings: warnings never stop a sync. */
 function finish(plan: ManifestPlan): ManifestPlan {
-  plan.errors = plan.findings.map(renderFinding);
+  plan.errors = plan.findings.filter((f) => f.severity === "error").map(renderFinding);
   return plan;
+}
+
+/** One finding, rendered from the registry rule (message, fix, severity). */
+function finding(
+  id: string,
+  path: string,
+  line: number,
+  vars: Record<string, unknown> = {},
+): Finding {
+  const fix = fixFor(id, vars);
+  return {
+    id,
+    severity: severityOf(id),
+    path,
+    line,
+    message: message(id, vars),
+    ...(fix ? { fix } : {}),
+  };
 }
 
 /** How a generated file behaves across re-runs. */
@@ -164,13 +204,19 @@ export function planManifest(
   activePolicies = opts.policies ?? null;
   const ast = parse(runeText);
   const module = ast.module ?? moduleFromSpecPath(runePath);
-  const findings: Finding[] = ast.errors.map((e) => ({
-    id: e.id,
-    severity: "error",
-    path: runePath,
-    line: e.line + 1,
-    message: e.message,
-  }));
+  // Every finding — the parser's and the checks' — carries the registry's
+  // severity; `fix` rides along when the rule declares one.
+  const findings: Finding[] = [
+    ...ast.errors.map((e) => ({
+      id: e.id,
+      severity: severityOf(e.id),
+      path: runePath,
+      line: e.line + 1,
+      message: e.message,
+      ...(e.fix ? { fix: e.fix } : {}),
+    })),
+    ...checkSpec(ast, runeText).map((f) => ({ ...f, path: runePath })),
+  ].sort((a, b) => a.line - b.line || a.id.localeCompare(b.id));
   const plan: ManifestPlan = {
     module: module ?? "",
     rune: runePath,
@@ -181,20 +227,18 @@ export function planManifest(
     errors: [],
   };
   if (!module) {
-    plan.findings.push({
-      id: "mod-underivable",
-      severity: "error",
-      path: runePath,
-      line: 0,
-      message: "no [MOD] directive and could not derive module name",
-    });
+    plan.findings.push(finding("mod-underivable", runePath, 0));
     return finish(plan);
   }
 
   const wantedFiles = new Map<string, string>(); // create-if-absent (lifecycle: create-once)
   const regenFiles = new Map<string, string>(); // spec-owned, always (re)written (lifecycle: regenerate)
   const emitted = new Set<string>(); // first writer wins — replaces the per-adder de-dupe guards
-  const nounMethods = collectNounMethods(ast);
+  // REQ-022: the business class carries a noun's untagged-step methods only;
+  // the data adapter its boundary-step methods only. One noun may have both
+  // (`task.fill` in business, `db:task.save` in data) — two classes, two lists.
+  const businessMethods = collectNounMethods(ast, "step");
+  const adapterMethods = collectNounMethods(ast, "boundary");
 
   // Route an emitted file into create-once vs regenerate by its role's policy.
   const emit: Emit = (role, path, content) => {
@@ -241,16 +285,11 @@ export function planManifest(
     const canonical = canonicalSpecPath(runePath);
     if (isProjectSpec(canonical) && !isCoreSpec(canonical)) {
       for (const s of ast.srvs) {
-        plan.findings.push({
-          id: "srv-outside-core",
-          severity: "error",
-          path: runePath,
-          line: s.line + 1,
-          message:
-            `[SRV] (${s.transport})${s.name} declared in a module spec — shared ` +
-            `services must be declared once in ${CORE_SPEC_REL} (rune-service-core-only)`,
-          fix: `move the [SRV] to ${CORE_SPEC_REL} and delete it here`,
-        });
+        plan.findings.push(finding("srv-outside-core", runePath, s.line + 1, {
+          transport: s.transport,
+          service: s.name,
+          core: CORE_SPEC_REL,
+        }));
       }
     }
   }
@@ -294,36 +333,14 @@ export function planManifest(
       // the per-service errors below.)
       const root = opts.projectRoot ?? ".";
       const names = undeclared.map(([s]) => `"${s}"`).join(", ");
-      const plural = undeclared.length > 1;
-      plan.findings.push({
-        id: "core-spec-missing",
-        severity: "error",
-        path: runePath,
-        line: 0,
-        message: `no core.rune found under the resolved project root ` +
-          `"${root}" — shared services live in its src/core/core.rune and none ` +
-          `was found there, so the boundary service${
-            plural ? "s" : ""
-          } ${names} ` +
-          `cannot be resolved. The root is usually mis-resolved here (e.g. the ` +
-          `spec is staged above the rune project): pass \`--root <project-dir>\` ` +
-          `— the dir whose src/core/core.rune declares ${
-            plural ? "them" : "it"
-          } ` +
-          `— or move the spec into that project. rune resolves the root from the ` +
-          `spec's path; see \`rune sync --help\`.`,
-      });
+      plan.findings.push(finding("core-spec-missing", runePath, 0, {
+        root,
+        plural: undeclared.length > 1 ? "s" : "",
+        services: names,
+      }));
     } else {
       for (const [service, line] of undeclared) {
-        plan.findings.push({
-          id: "service-undeclared",
-          severity: "error",
-          path: runePath,
-          line: line + 1,
-          message: `undeclared service "${service}"`,
-          fix:
-            `declare it as \`[SRV] (TRANSPORT)${service}: <ENV,…>\` in src/core/core.rune`,
-        });
+        plan.findings.push(finding("service-undeclared", runePath, line + 1, { service }));
       }
     }
   }
@@ -349,7 +366,8 @@ export function planManifest(
       req.steps,
       module,
       emit,
-      nounMethods,
+      businessMethods,
+      adapterMethods,
       polyNouns,
       runePath,
       boundaryFaults,
@@ -362,6 +380,7 @@ export function planManifest(
     addDto(emit, module, dto, runePath, types);
   }
   for (const typ of ast.typs) addTyp(emit, module, typ, runePath, types);
+  addFaults(emit, module, ast, runePath);
   // Shared service clients: only the core module (src/core/core.rune) declares
   // `[SRV]`, and it generates one create-once client per service into
   // src/core/data/<name>. Module specs reference these through their data
@@ -383,46 +402,43 @@ export function planManifest(
     // The process graph (order/dependsOn/bind) is an HTTP-flow concept — WS topics are
     // independent message handlers, so only the HTTP ents participate.
     const entProcess = computeEntProcess(httpEnts, dtoByName, externalTypes);
-    // Ambiguous ENT→[REQ] delegation: a [REQ] is chosen by its (input, output) DTO pair, so two
-    // [REQ]s with the SAME signature make the pick silent and type-correct-but-wrong. Reject it
-    // rather than first-wins — the spec must disambiguate.
+    // ENT→[REQ] delegation is explicit only (REQ-019): the body [REQ] names the
+    // coordinator. An [ENT] without one is an error whose fix names the [REQ](s)
+    // whose signature matches — the migration aid, never a silent pick.
     for (const ent of ast.ents) {
       if (ent.delegate) {
-        // Explicit delegation ([ENT] body [REQ]) resolves the pick — no ambiguity; just confirm
-        // the named [REQ] exists.
         const found = ast.reqs.some((r) =>
           r.noun === ent.delegate!.noun && r.verb === ent.delegate!.verb
         );
         if (!found) {
-          plan.findings.push({
-            id: "ent-delegate-undefined",
-            severity: "error",
-            path: runePath,
-            line: ent.line + 1,
-            message: `[ENT] ${ent.surface}.${ent.action} delegates to [REQ] ` +
-              `${ent.delegate.noun}.${ent.delegate.verb}, which is not defined`,
-          });
+          plan.findings.push(finding("ent-delegate-undefined", runePath, ent.line + 1, {
+            surface: ent.surface,
+            action: ent.action,
+            noun: ent.delegate.noun,
+            verb: ent.delegate.verb,
+          }));
         }
         continue;
       }
       const matches = ast.reqs.filter(
         (r) => r.input === ent.input && r.output === ent.output,
       );
-      if (matches.length > 1) {
-        plan.findings.push({
-          id: "ent-ambiguous",
-          severity: "error",
-          path: runePath,
-          line: ent.line + 1,
-          message:
-            `[ENT] ${ent.surface}.${ent.action}(${ent.input}): ${ent.output} is ` +
-            `ambiguous — ${matches.length} [REQ]s share that signature (${
-              matches.map((r) => `${r.noun}.${r.verb}`).join(", ")
-            })`,
-          fix:
-            "give them distinct (input): output signatures, or name the [REQ] on an indented line under the [ENT]",
-        });
-      }
+      const candidates = matches.length
+        ? ` — by signature: ${matches.map((r) => `${r.noun}.${r.verb}`).join(", ")}`
+        : "";
+      const fix = matches.length === 1
+        ? `add \`    [REQ] ${matches[0].noun}.${matches[0].verb}(${ent.input}): ${ent.output}\` under the [ENT]`
+        : matches.length > 1
+        ? `name one of ${matches.map((r) => `${r.noun}.${r.verb}`).join(", ")} on an indented [REQ] line under the [ENT]`
+        : `declare the [REQ] and name it on an indented [REQ] line under the [ENT]`;
+      plan.findings.push(finding("ent-delegate-required", runePath, ent.line + 1, {
+        surface: ent.surface,
+        action: ent.action,
+        input: ent.input,
+        output: ent.output,
+        candidates,
+        fix,
+      }));
     }
     const bySurface = new Map<string, EntNode[]>();
     for (const ent of httpEnts) {
@@ -439,15 +455,7 @@ export function planManifest(
     // A surface can't be both an HTTP controller and a WebSocket socket.
     for (const surface of wsBySurface.keys()) {
       if (bySurface.has(surface)) {
-        plan.findings.push({
-          id: "surface-mixed",
-          severity: "error",
-          path: runePath,
-          line: wsBySurface.get(surface)![0].line + 1,
-          message:
-            `surface "${surface}" is declared as both an HTTP [ENT] and a WebSocket [ENT:ws]`,
-          fix: "give them distinct surfaces",
-        });
+        plan.findings.push(finding("surface-mixed", runePath, wsBySurface.get(surface)![0].line + 1, { surface }));
       }
     }
     for (const [surface, ents] of bySurface) {
@@ -481,7 +489,7 @@ export function planManifest(
     // once in core.rune, not here.
     const usedSrvs: SrvNode[] = [];
     const seenSrv = new Set<string>();
-    for (const methods of nounMethods.values()) {
+    for (const methods of adapterMethods.values()) {
       for (const m of methods) {
         if (m.service && !seenSrv.has(m.service) && srvByName.has(m.service)) {
           seenSrv.add(m.service);
@@ -542,7 +550,8 @@ function walkStepsForFiles(
   steps: StepLike[] | CseNode["steps"],
   module: string,
   emit: Emit,
-  nounMethods: Map<string, MethodSig[]>,
+  businessMethods: Map<string, MethodSig[]>,
+  adapterMethods: Map<string, MethodSig[]>,
   polyNouns: Set<string>,
   runePath: string,
   boundaryFaults: Map<string, string[]>,
@@ -558,7 +567,7 @@ function walkStepsForFiles(
           emit,
           module,
           step.noun,
-          nounMethods.get(step.noun) ?? [],
+          businessMethods.get(step.noun) ?? [],
           businessFaults.get(step.noun) ?? step.faults,
           runePath,
           types,
@@ -569,7 +578,7 @@ function walkStepsForFiles(
         emit,
         module,
         step,
-        nounMethods.get(step.noun) ?? [],
+        adapterMethods.get(step.noun) ?? [],
         runePath,
         boundaryFaults.get(step.noun) ?? step.faults,
         types,
@@ -582,7 +591,8 @@ function walkStepsForFiles(
           cse.steps,
           module,
           emit,
-          nounMethods,
+          businessMethods,
+          adapterMethods,
           polyNouns,
           runePath,
           boundaryFaults,
@@ -682,14 +692,7 @@ function addPolyFeature(
   // emitted), and firstVariant would be "" — the generated project fails to
   // resolve. Surface it as a manifest error and emit nothing for this PLY.
   if (ply.cases.length === 0) {
-    findings.push({
-      id: "ply-cases",
-      severity: "error",
-      path: runePath,
-      line: ply.line + 1,
-      message: `[PLY] ${ply.noun}.${ply.verb} requires at least one [CSE] ` +
-        "(a polymorphic step needs ≥1 variant case)",
-    });
+    findings.push(finding("ply-cases", runePath, ply.line + 1, { noun: ply.noun, verb: ply.verb }));
     return;
   }
   const noun = applyCase(ply.noun, "kebab");
@@ -831,7 +834,69 @@ function addTyp(
     .map((d) => d.name);
   const fileName = typFileName(typ.name, dtoNamesSameDir, types.nameBinding);
   const dir = typ.isCore ? "src/core/dto" : `src/${module}/dto`;
-  emit("typ", `${dir}/${fileName}.ts`, renderTyp(typ, runePath, module, types));
+  emit("typ", `${dir}/${fileName}.ts`, renderTyp(typ, runePath));
+}
+
+// The module's typed fault classes (REQ-018): one class per fault its steps
+// declare, carrying the name and the HTTP status the runtime answers with — a
+// well-known name's status from the registry, a custom name's from its `=NNN`.
+// Spec-owned (regenerated on every sync) so the set always matches the spec;
+// lives in dto/ because every layer may import it.
+function addFaults(
+  emit: Emit,
+  module: string,
+  ast: ReturnType<typeof parse>,
+  runePath: string,
+): void {
+  const names: string[] = [];
+  const walk = (steps: StepLike[] | CseNode["steps"]): void => {
+    for (const s of steps) {
+      if (s.kind === "step" || s.kind === "boundary") {
+        for (const f of s.faults) if (!names.includes(f)) names.push(f);
+      } else if (s.kind === "ply") for (const c of s.cases) walk(c.steps);
+    }
+  };
+  for (const req of ast.reqs) walk(req.steps);
+  if (names.length === 0) return;
+  const L: string[] = [
+    REGEN_HEADER.trimEnd(),
+    `// The faults ${runePath} declares, as typed classes: throw one from a`,
+    "// coordinator and the runtime answers with its status.",
+    "",
+    `import { RuneFault } from "@techgoose-labs/rune";`,
+  ];
+  for (const name of names) {
+    const status = wellKnownFault(name) ?? ast.faultStatuses[name];
+    const cls = `${toPascal(name)}Fault`;
+    L.push("");
+    L.push(`/** \`! ${name}\` — HTTP ${status ?? "500 (no status declared)"}. */`);
+    L.push(`export class ${cls} extends RuneFault {`);
+    L.push(`  constructor(message?: string) {`);
+    L.push(`    super(${JSON.stringify(name)}, ${status ?? 500}, message);`);
+    L.push("  }");
+    L.push("}");
+  }
+  L.push("");
+  emit("faults", `src/${module}/dto/faults.ts`, L.join("\n"));
+}
+
+/** The dto/ file the module's fault classes live in (predicted by sync and the
+ * orphan rule the same way the generator emits it). */
+export function faultsFilePath(module: string): string {
+  return `src/${module}/dto/faults.ts`;
+}
+
+/** Whether a spec declares any fault (so a faults.ts is emitted for it). */
+export function declaresFaults(ast: ReturnType<typeof parse>): boolean {
+  const any = (steps: StepLike[] | CseNode["steps"]): boolean =>
+    steps.some((s) =>
+      (s.kind === "step" || s.kind === "boundary")
+        ? s.faults.length > 0
+        : s.kind === "ply"
+        ? s.cases.some((c) => any(c.steps))
+        : false
+    );
+  return ast.reqs.some((r) => any(r.steps));
 }
 
 // The shared client for one `[SRV]`, generated ONCE from core.rune into the
@@ -914,22 +979,23 @@ const TS_TYPE_TOKENS = new Set([
   "Date",
 ]);
 
-// A bare-word union like `GET | POST | DELETE` (or `draft | sent | declinedBot`)
-// is a STRING-LITERAL ENUM: each member is a value, not a TS type reference, so
-// it must be quoted — emitted bare it compiles to `Cannot find name 'GET'`
-// (TS2304). Returns the members when `typeName` is such an enum, else null: a
-// real type union (`string | number`, `FooDto | BarDto`), an already-quoted
-// union, or any non-union passes through verbatim.
+// A string enum is a union of QUOTED values — `"GET" | "POST" | "DELETE"` — the
+// one form the language documents (REQ-024): each member is a value, emitted as
+// the quoted TS union and validated with @IsIn. Returns the members when
+// `typeName` is such an enum, else null: a real type union (`string | number`),
+// a union of DTO references, or any non-union passes through verbatim (a
+// bare-word union is an undefined-ref finding, never silently quoted).
 function enumMembers(typeName: string): string[] | null {
   if (!typeName.includes("|")) return null;
   const parts = typeName.split("|").map((p) => p.trim());
   if (parts.length < 2) return null;
+  const members: string[] = [];
   for (const p of parts) {
-    if (!/^[A-Za-z_$][\w$]*$/.test(p)) return null; // quoted / numeric / generic
-    if (TS_TYPE_TOKENS.has(p)) return null; // a real primitive union
-    if (/Dto$/.test(p)) return null; // a union of DTO references
+    const m = p.match(/^"([^"]*)"$/);
+    if (!m) return null;
+    members.push(m[1]);
   }
-  return parts;
+  return members;
 }
 
 // The members of an enum [TYP] as a TS array literal: `["GET", "POST", …]` —
@@ -1283,14 +1349,11 @@ function renderDto(
   return lines.join("\n");
 }
 
-// A [TYP] is a named alias for its declared primitive — or for a [DTO]
-// (resolution case (c)), in which case the class must be imported or the
-// alias would not type-check.
+// A [TYP] is a named alias for its declared primitive (never a [DTO]: that is
+// the type-not-dto rule).
 function renderTyp(
   typ: TypNode,
   runePath: string,
-  module: string,
-  types: TypeContext,
 ): string {
   const { ts } = tsFor(typ.typeName);
   const tag = typ.modifiers.length > 0
@@ -1302,15 +1365,6 @@ function renderTyp(
     "// Edit the body. Re-running manifest will not overwrite this file.",
     "",
   ];
-  if (types.dtoByName.has(typ.typeName)) {
-    const file = transformName(typ.typeName, types.nameBinding);
-    lines.push(
-      `import type { ${typ.typeName} } from "@/${
-        dtoDir(typ.typeName, module, types)
-      }/${file}.ts";`,
-      "",
-    );
-  }
   // E29: description as JSDoc (guarded — undescribed [TYP] emits no /** */).
   if (typ.description) lines.push(`/** ${jsdocSafe(typ.description)} */`);
   lines.push(`// rune declares: ${tag} ${typ.name}: ${typ.typeName}`);
@@ -1532,6 +1586,16 @@ function renderCoordinator(
   types: TypeContext,
 ): string {
   const { typMap } = types;
+  // REQ-020: a step may name the value it yields (`: TaskDto as stored`) and a
+  // later step refers to it by that name — `typeOf` maps a name to its type.
+  const values = new Map<string, string>();
+  for (const s of req.steps) {
+    if ((s.kind === "step" || s.kind === "boundary" || s.kind === "ply") && s.valueName) {
+      values.set(s.valueName, s.output);
+    }
+  }
+  const typeOf = (p: string): string => values.get(p) ?? p;
+  const isDtoRef = (p: string): boolean => /Dto$/.test(typeOf(p));
   const isBoundary = (s: StepLike): s is BoundaryStepNode =>
     s.kind === "boundary";
   const boundaries = req.steps.filter(isBoundary);
@@ -1555,7 +1619,7 @@ function renderCoordinator(
   // "input-fed" only when every DTO param IS the request input (TYP params are
   // input fields).
   const isInputRead = (r: BoundaryStepNode): boolean =>
-    r.params.every((p) => !/Dto$/.test(p) || p === req.input);
+    r.params.every((p) => !isDtoRef(p) || p === req.input);
   const inputReads = readSteps.filter(isInputRead);
   const coreReads = readSteps.filter((r) => !isInputRead(r));
   const boundaryNouns = [...new Set(boundaries.map((s) => s.noun))];
@@ -1593,6 +1657,7 @@ function renderCoordinator(
   const readVars = inputReads.map((r) => ({
     name: camel(`${r.noun}-${r.verb}`),
     type: r.output,
+    valueName: r.valueName,
     noun: r.noun,
     verb: r.verb,
     params: r.params,
@@ -1649,9 +1714,14 @@ function renderCoordinator(
   // When a post-core step produces the REQ's own output, IT is the result
   // source — the core no longer returns `result` (it can't build the output a
   // boundary produces); the coordinator returns that step's asserted value.
-  const resultRead =
+  // A [RET] naming a value picks that value; otherwise the last post-core
+  // step producing the output type.
+  const lastRet = [...req.steps].reverse().find((s) => s.kind === "ret");
+  const resultRead = (lastRet && lastRet.kind === "ret" && values.has(lastRet.value)
+    ? produces.find((r) => r.step.valueName === lastRet.value)
+    : undefined) ??
     [...produces].reverse().find((r) => r.type === req.output) ??
-      null;
+    null;
 
   const inputSeam = seamFor(req.input, typMap);
   const outputSeam = seamFor(req.output, typMap);
@@ -1665,13 +1735,16 @@ function renderCoordinator(
   // go through the post-core read path instead). A boundary param that is neither
   // a request-input field nor a DTO is one of these produced mid-flow values —
   // `settingsKey` from a `settingsKey::current()` step, say.
+  // Keyed by the name a later param uses: the value name when the step gives
+  // one, else the output type.
   const producers = new Map<string, StepNode>();
   for (const s of req.steps) {
     if (
       s.kind === "step" && s.output && s.output !== "void" &&
       !/Dto$/.test(s.output)
     ) {
-      if (!producers.has(s.output)) producers.set(s.output, s);
+      const key = s.valueName ?? s.output;
+      if (!producers.has(key)) producers.set(key, s);
     }
   }
   // Which produced values the SHELL boundaries actually consume — transitively,
@@ -1682,7 +1755,7 @@ function renderCoordinator(
   const queue: string[] = [];
   const consider = (p: string) => {
     if (
-      !/Dto$/.test(p) && !inputFields.has(p) && producers.has(p) &&
+      !isDtoRef(p) && !inputFields.has(p) && producers.has(p) &&
       !hoisted.has(p)
     ) {
       hoisted.add(p);
@@ -1704,9 +1777,10 @@ function renderCoordinator(
   // producer carries is a spec gap: emitted as a typed TODO (`undefined as never`) so the
   // gap stays visible without breaking the tree's type-check. An opaque input (no [DTO]
   // decl to consult) keeps the residual `inputRef.<p>`, unchanged from before.
+  type Prior = { name: string; type: string; valueName?: string };
   const priorReadRef = (
     p: string,
-    prior: readonly { name: string; type: string }[],
+    prior: readonly Prior[],
   ): string | null => {
     for (let i = prior.length - 1; i >= 0; i--) {
       const d = types.dtoByName.get(prior[i].type);
@@ -1716,10 +1790,12 @@ function renderCoordinator(
   };
   const scalarRef = (
     p: string,
-    prior: readonly { name: string; type: string }[],
+    prior: readonly Prior[],
   ): string => {
     if (inputFields.has(p)) return `${inputRef}.${p}`;
     if (hoisted.has(p)) return p;
+    const named = prior.find((r) => r.valueName === p);
+    if (named) return named.name;
     const chained = priorReadRef(p, prior);
     if (chained) return chained;
     if (inputDto) {
@@ -1730,10 +1806,14 @@ function renderCoordinator(
   };
   const stepArgs = (
     params: string[],
-    prior: readonly { name: string; type: string }[] = [],
+    prior: readonly Prior[] = [],
   ): string =>
     params
-      .map((p) => /Dto$/.test(p) ? inputRef : scalarRef(p, prior))
+      .map((p) =>
+        isDtoRef(p)
+          ? (prior.find((r) => r.valueName === p)?.name ?? inputRef)
+          : scalarRef(p, prior)
+      )
       .join(", ");
   // ---- post-core argument resolution (the shared name-resolution table) ----
   //
@@ -1773,9 +1853,10 @@ function renderCoordinator(
     if (hoisted.has(p)) return p;
     const chained = lastPostLocal(p);
     if (chained) return chained;
-    const readLocal = readVars.find((r) => r.type === p);
+    const readLocal = readVars.find((r) => r.valueName === p) ??
+      readVars.find((r) => r.type === p);
     if (readLocal) return readLocal.name;
-    return `out.${extraFieldFor(p, seamTs(p, typMap))}`;
+    return `out.${extraFieldFor(p, seamTs(typeOf(p), typMap))}`;
   };
   // A DTO param of a post-core step: the validated request input, a chained
   // post-core result (already asserted), else a core-built DTO asserted at the
@@ -1784,13 +1865,15 @@ function renderCoordinator(
     if (p === req.input) return inputRef;
     const chained = lastPostLocal(p);
     if (chained) return chained;
-    const f = extraFieldFor(camel(p), seamTs(p, typMap));
-    return `assert(${p}, out.${f}, ${ctx})`;
+    const read = readVars.find((r) => r.valueName === p);
+    if (read) return read.name;
+    const f = extraFieldFor(camel(p), seamTs(typeOf(p), typMap));
+    return `assert(${typeOf(p)}, out.${f}, ${ctx})`;
   };
   const postArgs = (step: BoundaryStepNode): string =>
     step.params
       .map((p) =>
-        /Dto$/.test(p)
+        isDtoRef(p)
           ? postDto(p, `"${step.noun}.${step.verb} ${camel(p)}"`)
           : postScalar(p)
       )
@@ -1811,20 +1894,22 @@ function renderCoordinator(
       // is the value the core builds for it, returned under the verb-named
       // field — unless an earlier post-core step already produced that exact
       // value (then the write consumes the real, already-asserted result).
-      const dtoIdx = w.params.findIndex((p) => /Dto$/.test(p));
+      const dtoIdx = w.params.findIndex((p) => isDtoRef(p));
       const primaryIdx = dtoIdx === -1 ? 0 : dtoIdx;
       const args = w.params.map((p, i) => {
         if (i !== primaryIdx) {
-          return /Dto$/.test(p)
+          return isDtoRef(p)
             ? postDto(p, `"${w.noun}.${w.verb} ${camel(p)}"`)
             : postScalar(p);
         }
         const chained = lastPostLocal(p);
         if (chained) return chained;
-        const seam: Seam = seamFor(p, typMap);
+        const named = readVars.find((r) => r.valueName === p);
+        if (named) return named.name;
+        const seam: Seam = seamFor(typeOf(p), typMap);
         coreWriteRet.push({
           field: a.field,
-          type: seam.kind === "opaque" ? "unknown" : seamTs(p, typMap),
+          type: seam.kind === "opaque" ? "unknown" : seamTs(typeOf(p), typMap),
         });
         return seam.kind === "dto"
           ? `assert(${seam.cls}, out.${a.field}, ${ctx})`
@@ -1851,6 +1936,7 @@ function renderCoordinator(
         );
       }
       postLocals.push({ output: a.type, local: a.name });
+      if (a.step.valueName) postLocals.push({ output: a.step.valueName, local: a.name });
     }
   }
 
@@ -2028,7 +2114,7 @@ function renderCoordinator(
     [
       req.input,
       req.output,
-      ...boundaries.flatMap((s) => [s.output, ...s.params]),
+      ...boundaries.flatMap((s) => [s.output, ...s.params.map(typeOf)]),
     ],
     module,
     types,
@@ -2236,25 +2322,16 @@ function inputFieldSources(
   return out;
 }
 
-// The HTTP sub-path for an [ENT] under its controller surface. The base is the kebab action;
-// each path-sourced field appends a `:field` segment in declaration order, and a `path*`
-// (catch-all remainder) appends a trailing `:field{.+}` — Hono's slash-capturing named param. It
-// always trails (a catch-all must be last) regardless of where the path* field sits in the DTO.
-// keep's doc builder rewrites `{.+}` to the paren form for swagger (path-to-regexp can't parse the
-// brace form) while Hono serves the brace form, so the route is both routable and documentable.
-function entRoutePath(
-  action: string,
-  sources: Array<{ field: string; source: FieldSource }>,
-): string {
-  const segs = [applyCase(action, "kebab")];
-  let catchAll: string | null = null;
-  for (const { field, source } of sources) {
-    if (source === "path") segs.push(`:${field}`);
-    else if (source === "path*") catchAll = field;
-  }
-  if (catchAll) segs.push(`:${catchAll}{.+}`);
-  return segs.join("/");
+// The HTTP sub-path for an [ENT] under its controller surface when it declares no
+// route template: the kebab action. Path segments come only from an explicit
+// `@ METHOD /template` (REQ-021); query/header fields never touch the route.
+function entRoutePath(action: string): string {
+  return applyCase(action, "kebab");
 }
+
+/** Where an emitted field is bound from: a `[TYP:from=…]` source, or a route
+ * template's `{name}` / `{name*}` segment. */
+type EmittedSource = FieldSource | "path" | "path*";
 
 // Translate an explicit `[ENT]` path template to the served (Hono) sub-path. `{name}` → `:name`,
 // `{name*}` (catch-all) → `:name{.+}`; literal segments pass through; a leading `/` is dropped
@@ -2274,8 +2351,8 @@ function translateTemplate(tpl: string): string {
 
 // The path/path* sources a `{name}` / `{name*}` template declares (so a field needn't repeat
 // `[TYP:from=path]` when the template already names it).
-function templateSources(tpl: string): Record<string, FieldSource> {
-  const out: Record<string, FieldSource> = {};
+function templateSources(tpl: string): Record<string, EmittedSource> {
+  const out: Record<string, EmittedSource> = {};
   for (const seg of tpl.split("/")) {
     const m = seg.match(/^\{(\w+)(\*?)\}$/);
     if (m) out[m[1]] = m[2] ? "path*" : "path";
@@ -2311,13 +2388,13 @@ function renderEntrypointController(
   const entCoord = new Map<EntNode, string | null>();
   const entReqNode = new Map<EntNode, ReqNode | null>();
   for (const ent of ents) {
-    // An explicit `[ENT]` body `[REQ]` names the exact coordinator; otherwise fall back to the
-    // (input, output) signature match.
+    // The `[ENT]` body `[REQ]` names the exact coordinator (REQ-019) — there is no
+    // signature matching; an [ENT] without a body line is a finding, not a guess.
     const req = ent.delegate
       ? reqs.find((r) =>
         r.noun === ent.delegate!.noun && r.verb === ent.delegate!.verb
       )
-      : reqs.find((r) => r.input === ent.input && r.output === ent.output);
+      : undefined;
     entReqNode.set(ent, req ?? null);
     if (!req) {
       entCoord.set(ent, null);
@@ -2358,13 +2435,13 @@ function renderEntrypointController(
     // instead of the JSON body. `sources` (declaration order) drives the route segments, keep's
     // generic binder, the swagger params, and the cake's per-field rendering.
     const fieldSources = noInput ? [] : inputFieldSources(ent.input, types);
-    const sources: Record<string, FieldSource> = {};
+    const sources: Record<string, EmittedSource> = {};
     for (const fs of fieldSources) sources[fs.field] = fs.source;
     // An explicit `@ METHOD /template` defines the route + verb and contributes its `{name}` /
-    // `{name*}` path sources; otherwise the route is auto-derived from the from= path fields.
+    // `{name*}` path sources; otherwise the route is the action.
     const routePath = ent.pathTemplate
       ? translateTemplate(ent.pathTemplate)
-      : entRoutePath(ent.action, fieldSources);
+      : entRoutePath(ent.action);
     if (ent.pathTemplate) {
       Object.assign(sources, templateSources(ent.pathTemplate));
     }
@@ -2405,11 +2482,8 @@ function renderEntrypointController(
       types.dtoByName.get(n)?.description ?? "";
     const jsdoc: string[] = [];
     if (matched) {
-      const how = ent.delegate
-        ? "named by the [ENT] body"
-        : "matched by input/output signature";
       jsdoc.push(
-        `Delegates to coordinator ${matched.noun}.${matched.verb} (${how}).`,
+        `Delegates to coordinator ${matched.noun}.${matched.verb} (named by the [ENT] body).`,
       );
     } else {
       jsdoc.push("No coordinator wired — see the handler body.");
@@ -2655,7 +2729,7 @@ function renderWsController(
       ? reqs.find((r) =>
         r.noun === ent.delegate!.noun && r.verb === ent.delegate!.verb
       )
-      : reqs.find((r) => r.input === ent.input && r.output === ent.output);
+      : undefined;
     entReqNode.set(ent, req ?? null);
     if (!req) {
       entCoord.set(ent, null);
@@ -2704,11 +2778,8 @@ function renderWsController(
       types.dtoByName.get(n)?.description ?? "";
     const jsdoc: string[] = [];
     if (matched) {
-      const how = ent.delegate
-        ? "named by the [ENT:ws] body"
-        : "matched by input/output signature";
       jsdoc.push(
-        `Topic "${ent.action}" → coordinator ${matched.noun}.${matched.verb} (${how}).`,
+        `Topic "${ent.action}" → coordinator ${matched.noun}.${matched.verb} (named by the body [REQ]).`,
       );
     } else {
       jsdoc.push(
@@ -3125,6 +3196,8 @@ export const DEFAULT_POLICIES: Record<string, TemplatePolicy> = {
   "poly-impl-test": { lifecycle: "create-once", prunable: true },
   "dto": { lifecycle: "create-once", prunable: true },
   "typ": { lifecycle: "create-once", prunable: true },
+  // The module's fault classes follow the spec: regenerated on every sync.
+  "faults": { lifecycle: "regenerate", prunable: true },
   // Shared service clients (src/core/data/<name>/mod.ts) + their smoke tests are
   // dev-owned once scaffolded; prunable:false keeps a filled-in client safe even
   // if a `[SRV]` is removed from core.rune (delete the orphan client by hand).

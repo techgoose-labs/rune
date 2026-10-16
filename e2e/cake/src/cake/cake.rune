@@ -1,11 +1,17 @@
 [MOD] cake
 
 [ENT] http.driveToStore(DriveDto): ArrivalDto
+    [REQ] arrival.reach(DriveDto): ArrivalDto
 [ENT] http.groceryShop(ShopDto): CartDto
+    [REQ] cart.fill(ShopDto): CartDto
 [ENT] http.checkout(CheckoutDto): ReceiptDto
+    [REQ] receipt.pay(CheckoutDto): ReceiptDto
 [ENT] http.mixIngredients(MixDto): BatterDto
+    [REQ] batter.mix(MixDto): BatterDto
 [ENT] http.bake(BakeDto): CakeDto
+    [REQ] confection.bake(BakeDto): CakeDto
 [ENT] http.cut(CutDto): SlicesDto
+    [REQ] slices.cut(CutDto): SlicesDto
 
 [REQ] arrival.reach(DriveDto): ArrivalDto
     [NEW] arrival
@@ -56,7 +62,7 @@
 [DTO] SlicesDto: sliceCount
     how many slices the cake yielded
 
-[TYP] destination: string
+[TYP:example=corner-store] destination: string
     a place to drive to
 [TYP] storeId: string
     a grocery store identifier
@@ -70,3 +76,16 @@
     a baked-cake identifier
 [TYP] sliceCount: number
     a count of cake slices
+
+[NON] arrival
+    reaching the store
+[NON] cart
+    the shopping cart
+[NON] receipt
+    proof of purchase
+[NON] batter
+    the mixed ingredients
+[NON] confection
+    the cake in the oven
+[NON] slices
+    the cut cake

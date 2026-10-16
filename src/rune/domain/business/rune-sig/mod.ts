@@ -35,6 +35,9 @@ export interface MethodSig {
   /** For a boundary method, the declared [SRV] service it calls — drives the
    * service/transport/env doc on the adapter method (E20). */
   service?: string;
+  /** The type behind each parameter that names a value (`: TaskDto as stored`
+   * → `stored` is a TaskDto), REQ-020. Unnamed parameters are their own type. */
+  paramTypes?: Record<string, string>;
 }
 
 /** Type resolution + signature shape for renderImpl. All optional: with no
@@ -70,7 +73,13 @@ export interface RenderImplOptions {
 // boundary for another, e.g. gateway.authorize [PLY] + gateway.capture). The
 // poly noun's BUSINESS class is suppressed by the caller (walkStepsForFiles),
 // not here — deleting the whole noun starved its adapter (a TS2339 bug).
-export function collectNounMethods(ast: RuneAst): Map<string, MethodSig[]> {
+export function collectNounMethods(
+  ast: RuneAst,
+  // REQ-022: the business class gets untagged-step methods only, the adapter
+  // boundary-step methods only; the default (both) serves callers that want
+  // every method a noun answers to.
+  kind: "step" | "boundary" | "both" = "both",
+): Map<string, MethodSig[]> {
   const byNoun = new Map<string, MethodSig[]>();
 
   const add = (noun: string, sig: MethodSig): void => {
@@ -86,15 +95,31 @@ export function collectNounMethods(ast: RuneAst): Map<string, MethodSig[]> {
         if (!existing.faults.includes(f)) existing.faults.push(f);
       }
       if (!existing.service && sig.service) existing.service = sig.service;
+      if (sig.paramTypes) existing.paramTypes = { ...sig.paramTypes, ...existing.paramTypes };
     } else {
       list.push({ ...sig, faults: [...sig.faults] });
     }
     byNoun.set(noun, list);
   };
 
-  const walk = (steps: StepLike[] | CseNode["steps"]): void => {
+  // The value names a [REQ] declares (`: Type as name`), so a parameter naming
+  // one resolves to its type in the generated signature.
+  const valuesOf = (steps: StepLike[] | CseNode["steps"], into: Record<string, string>): void => {
+    for (const s of steps) {
+      if ((s.kind === "step" || s.kind === "boundary" || s.kind === "ply") && s.valueName) {
+        into[s.valueName] = s.output;
+      }
+      if (s.kind === "ply") for (const c of s.cases) valuesOf(c.steps, into);
+    }
+  };
+  const walk = (steps: StepLike[] | CseNode["steps"], values: Record<string, string>): void => {
     for (const step of steps) {
-      if (step.kind === "step" || step.kind === "boundary") {
+      if (
+        (step.kind === "step" || step.kind === "boundary") &&
+        (kind === "both" || step.kind === kind)
+      ) {
+        const paramTypes: Record<string, string> = {};
+        for (const p of step.params) if (values[p] !== undefined) paramTypes[p] = values[p];
         add(step.noun, {
           verb: step.verb,
           params: step.params,
@@ -102,17 +127,22 @@ export function collectNounMethods(ast: RuneAst): Map<string, MethodSig[]> {
           isStatic: step.isStatic,
           faults: step.faults ?? [],
           service: step.kind === "boundary" ? step.service : undefined,
+          ...(Object.keys(paramTypes).length ? { paramTypes } : {}),
         });
       } else if (step.kind === "ply") {
         // The [PLY] verb itself is the abstract base/variants (not a concrete
         // method here); but its CASE steps (often boundary calls on the same
         // noun) still need adapter methods, so walk them.
-        for (const cse of step.cases) walk(cse.steps);
+        for (const cse of step.cases) walk(cse.steps, values);
       }
     }
   };
 
-  for (const req of ast.reqs) walk(req.steps);
+  for (const req of ast.reqs) {
+    const values: Record<string, string> = {};
+    valuesOf(req.steps, values);
+    walk(req.steps, values);
+  }
   return byNoun;
 }
 
@@ -149,8 +179,10 @@ export function renderImpl(
     return p.length ? p[0].toLowerCase() + p.slice(1) : p;
   };
 
+  // A parameter that names a value resolves through the value's type.
+  let paramTypes: Record<string, string> = {};
   const resolve = (name: string): string =>
-    resolveType(name, opts, usedDtos) ?? "unknown";
+    resolveType(paramTypes[name] ?? name, opts, usedDtos) ?? "unknown";
   const ret = (m: MethodSig): string => {
     const t = resolveOutput(noun, m.output, opts, usedDtos);
     return opts.async ? `Promise<${t}>` : t;
@@ -164,9 +196,10 @@ export function renderImpl(
   // One method, with a JSDoc block carrying @param (typed-field prose), @returns,
   // and @throws (declared faults). Empty block is omitted entirely.
   const emitMethod = (m: MethodSig, isStaticKw: boolean): void => {
+    paramTypes = m.paramTypes ?? {};
     const doc: string[] = [];
     for (const { ident, source } of paramIdentList(m.params)) {
-      const d = descFor(source);
+      const d = descFor(paramTypes[source] ?? source);
       if (d) doc.push(`@param ${ident} ${d}`);
     }
     const rd = descFor(m.output);

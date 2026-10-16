@@ -68,6 +68,10 @@ export {
 // validation for rune-generated code. bootstrapServer maps a thrown
 // RuneAssertError to HTTP 422.
 export { assert, RuneAssertError } from "../assert/mod.ts";
+// Faults (REQ-018): the base class codegen's typed fault classes extend, and
+// the duck-typed mapper the bootstrap answers HTTP with.
+export { faultResponse, RuneFault } from "../faults/mod.ts";
+export type { FaultBody } from "../faults/mod.ts";
 export type { Assert, AssertFailure } from "../assert/mod.ts";
 export type {
   Access,

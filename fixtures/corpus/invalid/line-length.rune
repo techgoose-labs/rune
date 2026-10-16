@@ -1,0 +1,9 @@
+[REQ] task.create(InDto): TaskDto
+    db:task.save(InDto): TaskDto
+
+[DTO] InDto: a
+    a description that runs on and on past the eightieth column of the line, sadly
+[DTO] TaskDto: a
+    a task
+[TYP] a: string
+    a

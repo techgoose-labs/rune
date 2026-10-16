@@ -1,5 +1,6 @@
 ; Rune syntax highlighting
-; GENERATED from new/keywords.json by new/generate.mjs — do not edit by hand.
+; GENERATED from lang/keywords.json by scripts/generate.mjs — do not edit by hand.
+; Edit the registry and regenerate.
 ; Capture names match the @rune.* groups defined in the editor ftplugin;
 ; every pattern references a node that exists in the generated grammar.
 
@@ -19,7 +20,7 @@
 ; Nouns: subjects (before . or ::) and declared names
 (req_line (identifier) @rune.noun)
 (signature (identifier) @rune.noun)
-(mod_line (identifier) @rune.noun)
+(mod_line (mod_name) @rune.noun)
 (cse_line (identifier) @rune.noun)
 (new_line (identifier) @rune.noun)
 (non_line (identifier) @rune.noun)
@@ -41,16 +42,18 @@
 ; String enum values
 (typ_enum_value) @rune.fault
 
-; Parameters, DTO properties, and declared type names
+; Parameters, DTO properties, declared type names and value names
 (param_name) @rune.param
 (property_name) @rune.param
 (typ_name) @rune.param
+(value_name (identifier) @rune.param)
 
 ; Boundaries: system edges (service: prefix)
 (service_prefix) @rune.boundary
 
 ; Faults
-(fault_line) @rune.fault
+(fault_marker) @rune.fault
+(fault_list) @rune.fault
 
 ; Punctuation / chrome
 (dto_optional_marker) @rune.chrome

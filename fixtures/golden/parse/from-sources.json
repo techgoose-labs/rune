@@ -3,86 +3,71 @@
   "moduleDescription": null,
   "reqs": [
     {
-      "noun": "proxy",
+      "noun": "search",
       "verb": "run",
-      "input": "ProxyReqDto",
-      "output": "ProxyResDto",
+      "input": "SearchReqDto",
+      "output": "SearchResDto",
       "steps": [
         {
           "kind": "step",
-          "noun": "noop",
-          "verb": "run",
-          "params": [],
-          "output": "void",
+          "noun": "index",
+          "verb": "query",
+          "params": [
+            "q",
+            "limit",
+            "tenant"
+          ],
+          "output": "SearchResDto",
           "isStatic": true,
           "faults": [],
-          "line": 5
+          "line": 6
         }
       ],
       "isOpen": false,
-      "line": 4
+      "line": 5
     }
   ],
   "ents": [
     {
       "surface": "http",
-      "action": "proxy",
-      "input": "ProxyReqDto",
-      "output": "ProxyResDto",
+      "action": "search",
+      "input": "SearchReqDto",
+      "output": "SearchResDto",
       "modifier": null,
       "line": 2,
-      "method": null,
-      "pathTemplate": null
+      "method": "get",
+      "pathTemplate": "",
+      "delegate": {
+        "noun": "search",
+        "verb": "run"
+      }
     }
   ],
   "dtos": [
     {
-      "name": "ProxyReqDto",
+      "name": "SearchReqDto",
       "properties": [
-        "target",
-        "rest",
         "q",
-        "payload"
+        "limit",
+        "tenant"
       ],
-      "description": "a request proxied to an upstream service",
+      "description": "a search, its fields read from the query string and a header",
       "isCore": false,
       "isOpen": false,
-      "line": 7
+      "line": 8
     },
     {
-      "name": "ProxyResDto",
+      "name": "SearchResDto",
       "properties": [
-        "status"
+        "hits"
       ],
-      "description": "the upstream response",
+      "description": "the search result",
       "isCore": false,
       "isOpen": false,
-      "line": 9
+      "line": 10
     }
   ],
   "typs": [
-    {
-      "name": "target",
-      "typeName": "string",
-      "description": "the upstream host segment, taken from the URL path",
-      "isCore": false,
-      "isExternal": false,
-      "modifiers": [
-        "from=path"
-      ],
-      "line": 12
-    },
-    {
-      "name": "rest",
-      "typeName": "string",
-      "description": "the remaining upstream path (catch-all)",
-      "isCore": false,
-      "isExternal": false,
-      "modifiers": [
-        "from=path*"
-      ],
-      "line": 14
-    },
     {
       "name": "q",
       "typeName": "string",
@@ -93,28 +78,55 @@
         "from=query",
         "example=widgets"
       ],
-      "line": 16
+      "line": 13
     },
     {
-      "name": "payload",
-      "typeName": "string",
-      "description": "the forwarded request body",
-      "isCore": false,
-      "isExternal": false,
-      "modifiers": [],
-      "line": 18
-    },
-    {
-      "name": "status",
+      "name": "limit",
       "typeName": "number",
-      "description": "the upstream status code",
+      "description": "the page size, from the query string",
+      "isCore": false,
+      "isExternal": false,
+      "modifiers": [
+        "from=query",
+        "int",
+        "example=10"
+      ],
+      "line": 15
+    },
+    {
+      "name": "tenant",
+      "typeName": "string",
+      "description": "the tenant, from a request header",
+      "isCore": false,
+      "isExternal": false,
+      "modifiers": [
+        "from=header",
+        "example=acme"
+      ],
+      "line": 17
+    },
+    {
+      "name": "hits",
+      "typeName": "number",
+      "description": "how many documents matched",
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 20
+      "line": 19
     }
   ],
-  "nons": [],
+  "nons": [
+    {
+      "name": "index",
+      "description": "the search index",
+      "line": 22
+    }
+  ],
   "srvs": [],
+  "faultStatuses": {},
+  "bodyLines": [
+    3
+  ],
+  "faultLines": {},
   "errors": []
 }

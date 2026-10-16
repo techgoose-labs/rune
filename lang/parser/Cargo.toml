@@ -1,7 +1,0 @@
-[package]
-name = "rune-parser"
-version = "0.1.0"
-edition = "2024"
-description = "Parser for rune specification files"
-
-[dependencies]

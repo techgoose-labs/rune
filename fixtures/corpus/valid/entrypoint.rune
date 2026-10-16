@@ -1,17 +1,20 @@
 [MOD] checkout
 
 [ENT] http.createOrder(NewOrderDto): OrderDto
+    [REQ] order.create(NewOrderDto): OrderDto
 [ENT] http.payOrder(PayDto): ReceiptDto
+    [REQ] payment.pay(PayDto): ReceiptDto
 
 [REQ] order.create(NewOrderDto): OrderDto
+    [NEW] order
+    order.open(item): OrderDto
     db:order.save(OrderDto): void
-      timeout
+      ! timeout
     [RET] OrderDto
 
 [REQ] payment.pay(PayDto): ReceiptDto
-    db:payment.charge(PayDto): ReceiptDto
-      timeout
-    [RET] ReceiptDto
+    db:payment.charge(id): ReceiptDto
+      ! timeout
 
 [DTO] NewOrderDto: item
     a new order to create
@@ -22,14 +25,16 @@
 [DTO] ReceiptDto: receipt
     a receipt for a payment
 
-[TYP] item: string
+[TYP:example=lamp] item: string
     the item to order
 [TYP] id: string
     the order id
 [TYP] receipt: string
     the receipt code
 
+[NON] order
+    a customer order
+
 [SRV] (SIDECAR)db: DB_URL
     the primary datastore
     @docs https://docs.example.com/db
-

@@ -2,8 +2,7 @@
 
 [REQ] invoice.issue(IssueDto): InvoiceDto
     db:invoice.save(IssueDto): InvoiceDto
-      timeout
-    [RET] InvoiceDto
+      ! timeout
 
 [DTO] IssueDto: customerId, amount
     a request to issue an invoice
@@ -21,4 +20,3 @@
 [SRV] (SIDECAR)db: DB_URL
     the primary datastore
     @docs https://docs.example.com/db
-

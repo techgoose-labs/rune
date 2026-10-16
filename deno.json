@@ -12,8 +12,8 @@
     "dev": "deno run --allow-read --allow-write --allow-net --allow-env --allow-run src/bootstrap/mod.ts",
     "gen": "deno run --allow-read --allow-write scripts/generate.mjs",
     "studio": "cd rune-studio && deno task dev",
-    "build:rust": "cd lang && PATH=\"$HOME/.cargo/bin:$PATH\" cargo build --release",
-    "compile": "deno task setup && deno compile --allow-read --allow-write --allow-net --allow-env --allow-run -o dist/rune src/bootstrap/mod.ts",
+    "build:rust": "sh scripts/build-rust.sh",
+    "compile": "deno task setup && deno compile --include lang/grammar/rune.wasm --allow-read --allow-write --allow-net --allow-env --allow-run -o dist/rune src/bootstrap/mod.ts",
     "build": "deno task compile && deno task build:rust && mkdir -p dist && cp lang/target/release/rune-lsp lang/target/release/rune-syntax dist/",
     "install": "sh scripts/install.sh --dev",
     "install:release": "sh scripts/install.sh",
@@ -36,7 +36,7 @@
     },
     "test:e2e": "deno test -A --parallel --unstable-raw-imports --config e2e/cake/deno.json e2e/cake/ && deno test -A --parallel --unstable-raw-imports --config e2e/checkout/deno.json e2e/checkout/",
     "serve": {
-      "description": "REQ-278 — the cake app test:e2e drives, on PORT (the gate sets it)",
+      "description": "REQ-278 \u2014 the cake app test:e2e drives, on PORT (the gate sets it)",
       "command": "deno run -A --unstable-raw-imports --config e2e/cake/deno.json e2e/cake/server.ts"
     },
     "test:e2e:checkout": "deno test -A --unstable-raw-imports --config e2e/checkout/deno.json e2e/checkout/",
@@ -48,6 +48,8 @@
     "@core/": "./src/core/",
     "@rune/": "./src/rune/",
     "@keywords": "./lang/keywords.json",
+    "@grammar/": "./lang/grammar/",
+    "#tree-sitter": "npm:web-tree-sitter@0.25.10",
     "#zod": "npm:zod",
     "#std/assert": "jsr:@std/assert",
     "#std/path": "jsr:@std/path",

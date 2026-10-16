@@ -22,11 +22,6 @@
             "timeout"
           ],
           "line": 3
-        },
-        {
-          "kind": "ret",
-          "value": "ProductsDto",
-          "line": 5
         }
       ],
       "isOpen": false,
@@ -43,7 +38,7 @@
       "description": "a paged product listing request",
       "isCore": false,
       "isOpen": false,
-      "line": 7
+      "line": 6
     },
     {
       "name": "ProductsDto",
@@ -53,7 +48,7 @@
       "description": "a page of products",
       "isCore": false,
       "isOpen": false,
-      "line": 10
+      "line": 9
     }
   ],
   "typs": [
@@ -64,7 +59,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 13
+      "line": 12
     },
     {
       "name": "items",
@@ -73,7 +68,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 15
+      "line": 14
     }
   ],
   "nons": [],
@@ -86,8 +81,13 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 18
+      "line": 17
     }
   ],
+  "faultStatuses": {},
+  "bodyLines": [],
+  "faultLines": {
+    "timeout": 4
+  },
   "errors": []
 }

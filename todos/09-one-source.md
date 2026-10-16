@@ -81,72 +81,72 @@ duplicate parser. Dispatch in that order.
 
 ## Phase 2 — DSL changes (each ships with a `rune fmt` migration)
 
-- [ ] **2.1 Fault marker + fault vocabulary.** Faults are `! name name` under a
+- [x] **2.1 Fault marker + fault vocabulary.** (REQ-018) Faults are `! name name` under a
       step; indent becomes cosmetic. Registry table of well-known faults with
       HTTP status (`not-found` 404, `conflict` 409, `timeout` 504, `unavailable`
       503, `declined` 402, `unauthorized` 401, `forbidden` 403, `invalid-*` 422);
       custom faults carry a status (`! card-expired=402`). Codegen emits typed
       fault classes; the runtime maps them. `rune fmt` rewrites old bare faults
       to the marked form. `[DECIDE]` the glyph — default `!`.
-- [ ] **2.2 Explicit-only `[ENT]` → `[REQ]` link.** The indented `[REQ]` body
+- [x] **2.2 Explicit-only `[ENT]` → `[REQ]` link.** (REQ-019) The indented `[REQ]` body
       line is required; signature matching and its ambiguity error are removed.
-- [ ] **2.3 Value model + scope enforcement.** One live value per type per REQ,
+- [x] **2.3 Value model + scope enforcement.** (REQ-020) One live value per type per REQ,
       enforced; a second value of the same type must be named (`[DECIDE]` syntax,
       default `: TaskDto as loaded`). Port `noun-in-scope`, `param-scope`,
       `undefined-ref`, `signature-consistency`, `last-step-returns-output` into
       the engine keyed by registry ids (closes `todos/08`). `[RET]` takes a value
       name, resolved through the same scope.
-- [ ] **2.4 Retire duplicates.** Drop `[CTR]`. Keep `[NON]`, drop `Class` as a
+- [x] **2.4 Retire duplicates.** (REQ-021) Drop `[CTR]`. Keep `[NON]`, drop `Class` as a
       `[TYP]` primitive. Lint redundant `[RET]` after a step that already returns
       the output. `[DECIDE]` path binding: keep `@ METHOD /template` on `[ENT]`
       and drop `[TYP:from=path|path*]` (recommended; query/header `from=` stay).
-- [ ] **2.5 Codegen partition by step kind.** Business class gets untagged-step
+- [x] **2.5 Codegen partition by step kind.** (REQ-022) Business class gets untagged-step
       methods only; adapter gets boundary-step methods only. No DSL change.
-- [ ] **2.6 Prose rules → lints.** `unbound-input-needs-example` (a required
+- [x] **2.6 Prose rules → lints.** (REQ-023) `unbound-input-needs-example` (a required
       input field with no producer, bind, or `example=`), `edit-record-endpoint`
       (PUT/PATCH on a record = waist-rule violation, warning), `reserved-verb`,
       `duplicate-req-signature`, `srv-outside-core` already exists.
-- [ ] **2.7 Doc the undocumented.** Decide and document or reject: optional `?`
+- [x] **2.7 Doc the undocumented.** (REQ-024) Decide and document or reject: optional `?`
       on DTO props, string enums in `[TYP]`, `[DTO:open]`.
 
 ## Phase 3 — The registry is the single source
 
-- [ ] **3.1 Tables into `lang/keywords.json`.** Modifiers with full spec (base,
+- [x] **3.1 Tables into `lang/keywords.json`.** (REQ-025) Modifiers with full spec (base,
       value kind, closed set, decorator, each-form), transports, fault vocabulary,
       indent table (incl. "fault is N deeper than step"), column limit, builtins.
       Engine loads them at runtime (it already loads the artifact). Delete the
       TS `rune-modifiers` table, the LSP and Rust-parser copies, the studio copy.
-- [ ] **3.2 Registry schema hardening.** Every `lint` entry is either a shape
+- [x] **3.2 Registry schema hardening.** (REQ-026) Every `lint` entry is either a shape
       rule fully specified by params or names a `checker` id. A startup/CI test
       asserts engine implementations ↔ registry ids, both directions. Prose-only
       `rules: []` strings on tags move to `summary` or become real rules.
-- [ ] **3.3 Remove stale registry content.** `boundaries.prefixes`, the
+- [x] **3.3 Remove stale registry content.** (REQ-027) `boundaries.prefixes`, the
       `new/generate.mjs` references (registry description, `grammar.js` and
       `highlights.scm` headers).
-- [ ] **3.4 Generated doc tables.** Tags, modifiers, transports, faults, indent,
+- [x] **3.4 Generated doc tables.** (REQ-028) Tags, modifiers, transports, faults, indent,
       rule catalogue rendered between markers in `lang/docs/spec.md` and
       `constraints.md` by a `scripts/gen-lang-docs.ts`; the drift gate diffs.
       Make `lang/docs/example.rune` check-clean and part of the valid corpus.
-- [ ] **3.5 Generated LLM language card.** One file: grammar by example (valid
+- [x] **3.5 Generated LLM language card.** (REQ-029) One file: grammar by example (valid
       corpus), the tables, the rule catalogue with messages and fixes, the
       invalid corpus rendered as error → fix pairs. `sync-spec-skill-refs.ts`
       ships the card instead of `spec.md` + `constraints.md`; `cookbook.md`
       stays hand-written. Prove cost/correctness with the llmify quiz harness.
-- [ ] **3.6 `rune check --explain <id>`** prints the registry's doc for a rule.
+- [x] **3.6 `rune check --explain <id>`** (REQ-030) prints the registry's doc for a rule.
 
 ## Phase 4 — One parser of record
 
-`[DECIDE]` tree-sitter everywhere (recommended) vs. TS hand-written parser as
-record with tree-sitter editor-only.
+Decided: tree-sitter everywhere (ADR 0009, supersedes 0003) — landed on
+`source-phases` with Phases 2 and 3, 2026-10-16.
 
-- [ ] **4.1 Engine parses via `lang/grammar/rune.wasm`** (web-tree-sitter in
+- [x] **4.1 Engine parses via `lang/grammar/rune.wasm`** (REQ-031) (web-tree-sitter in
       Deno); `rune-parse/mod.ts` becomes a CST → AST lowering keyed by tag ids.
-- [ ] **4.2 Rust side links the generated `parser.c`** for `rune fmt`, hover,
+- [x] **4.2 Rust side links the generated `parser.c`** (REQ-032) for `rune fmt`, hover,
       defs; delete `lang/parser/src/lib.rs`.
-- [ ] **4.3 Scanner constants generated** from the registry's indent table.
-- [ ] **4.4 Error reporting over ERROR/MISSING nodes** with per-line-shape
+- [x] **4.3 Scanner constants generated** (REQ-033) from the registry's indent table.
+- [x] **4.4 Error reporting over ERROR/MISSING nodes** (REQ-034) with per-line-shape
       messages from the registry, so malformed drafts still yield id'd diagnostics.
-- [ ] **4.5 Studio parses with the same wasm** (closes gaps.md G6/G9 for parse).
+- [x] **4.5 Studio parses with the same wasm** (REQ-035) (closes gaps.md G6/G9 for parse).
 
 ## Order
 
@@ -156,6 +156,8 @@ unable to lie; Phase 4 deletes the last duplicate. Each phase lands as its own
 worktree(s) with `requirements.md` entries and the four gate lanes green.
 
 ## Open decisions
+
+All six landed with their recommended default (2026-10-16).
 
 | # | Decision | Recommended default |
 |---|----------|---------------------|

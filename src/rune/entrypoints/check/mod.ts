@@ -9,6 +9,7 @@ import {
   loadCoreSrvs,
   resolveRoot,
 } from "@rune/entrypoints/spec-root.ts";
+import { explain, registry } from "@rune/domain/business/registry/mod.ts";
 
 const RED = "\x1b[31m";
 const GREEN = "\x1b[32m";
@@ -16,7 +17,7 @@ const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
 const USAGE =
-  "Usage: rune check <rune-file> [--root <dir>] [--json]\n       rune check --stdin --path <rune-file> [--root <dir>] [--json]";
+  "Usage: rune check <rune-file> [--root <dir>] [--json]\n       rune check --stdin --path <rune-file> [--root <dir>] [--json]\n       rune check --explain <rule-id>";
 
 /** The channels `rune check` talks through — injectable so tests can capture them. */
 export interface CheckIo {
@@ -58,6 +59,29 @@ export async function runCheck(
   args: string[],
   io: CheckIo = defaultIo,
 ): Promise<number> {
+  // `--explain <id>` prints the registry's doc for one rule (REQ-030): what it
+  // says, what to change, and why it exists — the same text the language card
+  // carries, so an agent reading a finding can look its rule up.
+  const explainAt = args.indexOf("--explain");
+  if (explainAt !== -1) {
+    const id = args[explainAt + 1];
+    if (!id || id.startsWith("--")) {
+      io.error(USAGE);
+      return 2;
+    }
+    const doc = explain(id);
+    if (doc === null) {
+      io.error(
+        `${RED}unknown rule "${id}" — rules: ${
+          registry.lint.filter((r) => r.target === "spec").map((r) => r.id).join(", ")
+        }${RESET}`,
+      );
+      return 2;
+    }
+    io.log(doc);
+    return 0;
+  }
+
   let runePath: string | null = null;
   let rootArg: string | null = null;
   let json = false;
@@ -116,21 +140,29 @@ export async function runCheck(
   );
   // Findings are reported against the path the caller gave, not the root-relative one.
   const findings = plan.findings.map((f) => ({ ...f, path: runePath! }));
-  const ok = findings.length === 0;
+  // Warnings are reported but never fail the check: `ok` is "no errors".
+  const errors = findings.filter((f) => f.severity === "error").length;
+  const warnings = findings.length - errors;
+  const ok = errors === 0;
 
   if (json) {
     const report: CheckReport = { path: runePath, ok, findings };
     io.log(JSON.stringify(report, null, 2));
     return ok ? 0 : 2;
   }
-  if (ok) {
+  if (findings.length === 0) {
     io.log(`${GREEN}${runePath}: OK — no errors${RESET}`);
     return 0;
   }
-  io.error(`${BOLD}${RED}${findings.length} error(s) in ${runePath}:${RESET}`);
+  const count = [
+    errors ? `${errors} error(s)` : "",
+    warnings ? `${warnings} warning(s)` : "",
+  ].filter(Boolean).join(", ");
+  io.error(`${BOLD}${ok ? "" : RED}${count} in ${runePath}:${RESET}`);
   for (const f of findings) {
-    io.error(`  ${renderFinding(f)}`);
+    io.error(`  ${f.severity === "warning" ? "warning: " : ""}${renderFinding(f)}`);
     if (f.fix) io.error(`      fix: ${f.fix}`);
   }
-  return 2;
+  if (ok) io.log(`${GREEN}${runePath}: OK — no errors${RESET}`);
+  return ok ? 0 : 2;
 }

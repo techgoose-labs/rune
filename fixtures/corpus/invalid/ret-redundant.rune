@@ -1,0 +1,11 @@
+[REQ] invoice.issue(IssueDto): InvoiceDto
+    db:invoice.save(IssueDto): InvoiceDto
+      ! timeout
+    [RET] InvoiceDto
+
+[DTO] IssueDto: amount
+    a request
+[DTO] InvoiceDto: amount
+    an invoice
+[TYP] amount: number
+    the amount

@@ -1,10 +1,15 @@
 [MOD] checkout
 
 [ENT] http.start(StartDto): TicketDto
+    [REQ] ticket.open(StartDto): TicketDto
 [ENT:card] http.payCard(PayDto): PaymentDto
+    [REQ] payment.charge(PayDto): PaymentDto
 [ENT:cash] http.payCash(PayDto): PaymentDto
+    [REQ] payment.charge(PayDto): PaymentDto
 [ENT] http.fulfill(FulfillDto): DoneDto
+    [REQ] delivery.complete(FulfillDto): DoneDto
 [ENT:optional] http.survey(SurveyDto): ThanksDto
+    [REQ] feedback.collect(SurveyDto): ThanksDto
 
 [REQ] ticket.open(StartDto): TicketDto
     [NEW] ticket
@@ -41,7 +46,7 @@
 
 [TYP:ext] memberId: string
     minted by the members module
-[TYP] item: string
+[TYP:example=lamp] item: string
     a thing to buy
 [TYP] ticketId: string
     a checkout ticket identifier
@@ -49,7 +54,16 @@
     a payment identifier
 [TYP] delivered: boolean
     whether delivery completed
-[TYP] rating: number
+[TYP:example=5] rating: number
     a 1-5 satisfaction score
 [TYP] thanked: boolean
     whether the survey was acknowledged
+
+[NON] ticket
+    a checkout in progress
+[NON] payment
+    a settled charge
+[NON] delivery
+    the handover of the goods
+[NON] feedback
+    what the buyer thought

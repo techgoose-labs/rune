@@ -1,0 +1,4 @@
+[MOD] core
+[SRV] (CARRIER_PIGEON)db: DB_URL
+    the datastore
+    @docs https://docs.example.com/db

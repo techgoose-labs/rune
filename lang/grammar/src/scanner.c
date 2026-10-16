@@ -1,175 +1,129 @@
+// The external scanner: the two things a DFA cannot decide line by line.
+//
+//   service_prefix  `name:` with exactly ONE colon (not the `::` static separator)
+//   *_desc          an indented prose line that is not code
+//
+// Faults are no longer the scanner's business: a fault line declares itself with
+// the registry's marker (`! not-found`), so the grammar lexes it (REQ-018).
+// Indentation is presentation (REQ-033): prose is any indented line that is not
+// a tag, a fault, a doc link, a comment or a step — the exact column is `rune
+// fmt`'s, and the constants below come from the registry's indent table.
+
 #include "tree_sitter/parser.h"
+#include "scanner-config.h"
 #include <stdbool.h>
 
 enum TokenType {
   TYP_DESC,
   DTO_DESC,
   NON_DESC,
-  FAULT_LINE,
   SERVICE_PREFIX,
 };
 
-void *tree_sitter_rune_external_scanner_create() {
-  return NULL;
+void *tree_sitter_rune_external_scanner_create() { return NULL; }
+void tree_sitter_rune_external_scanner_destroy(void *payload) {}
+unsigned tree_sitter_rune_external_scanner_serialize(void *payload, char *buffer) { return 0; }
+void tree_sitter_rune_external_scanner_deserialize(void *payload, const char *buffer, unsigned length) {}
+
+static bool is_ident_start(int32_t c) {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-void tree_sitter_rune_external_scanner_destroy(void *payload) {
+static bool is_ident_char(int32_t c) {
+  return is_ident_start(c) || (c >= '0' && c <= '9');
 }
 
-unsigned tree_sitter_rune_external_scanner_serialize(void *payload, char *buffer) {
-  return 0;
+static bool is_verb_char(int32_t c) {
+  return is_ident_char(c) || c == '-';
 }
 
-void tree_sitter_rune_external_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
-}
-
-static bool is_at_line_start(TSLexer *lexer) {
-  return lexer->get_column(lexer) == 0;
-}
-
-// Check if line looks like code (has . followed by ( or boundary prefix like db:)
+// Does the line read as code — a step `noun.verb(` / `Noun::verb(` (with an
+// optional `@ METHOD /path` clause before the parens) or a ws topic
+// `verb(…):` — rather than prose? Prose like "e.g. put()" or "note(s) are kept"
+// does not: the step shape needs the separator and the paren contiguous with the
+// names, the topic shape needs `):` after the parens.
 static bool looks_like_code(const char *buf, int len) {
-  bool has_dot = false;
-  bool has_paren_after_dot = false;
-
-  // Check for boundary prefix at start (db:, ex:, os:, etc.)
-  if (len >= 3 && buf[2] == ':') {
-    return true;
+  int i = 0;
+  if (i >= len || !is_ident_start(buf[i])) return false;
+  while (i < len && is_ident_char(buf[i])) i++;
+  if (i < len && buf[i] == '(') {
+    // ws topic: verb(…): …
+    while (i < len && buf[i] != ')') i++;
+    if (i >= len) return false;
+    i++;
+    while (i < len && buf[i] == ' ') i++;
+    return i < len && buf[i] == ':';
   }
-
-  // Check for return( built-in step
-  if (len >= 7 && buf[0] == 'r' && buf[1] == 'e' && buf[2] == 't' &&
-      buf[3] == 'u' && buf[4] == 'r' && buf[5] == 'n' && buf[6] == '(') {
-    return true;
+  if (i < len && buf[i] == '.') i++;
+  else if (i + 1 < len && buf[i] == ':' && buf[i + 1] == ':') i += 2;
+  else return false;
+  if (i >= len || !is_ident_start(buf[i])) return false;
+  while (i < len && is_verb_char(buf[i])) i++;
+  while (i < len && buf[i] == ' ') i++;
+  if (i < len && buf[i] == '@') {
+    while (i < len && buf[i] != '(') i++;
   }
-
-  for (int i = 0; i < len; i++) {
-    if (buf[i] == '.') {
-      has_dot = true;
-    } else if (buf[i] == '(' && has_dot) {
-      has_paren_after_dot = true;
-      break;
-    } else if (buf[i] == ':' && !has_dot) {
-      // Colon before dot suggests boundary prefix
-      return true;
-    }
-  }
-
-  return has_paren_after_dot;
+  return i < len && buf[i] == '(';
 }
 
-// Check if a line contains only fault-like content:
-// lowercase letters, digits, hyphens, and spaces
-static bool is_fault_content(const char *buf, int len) {
-  if (len == 0) return false;
-
-  bool has_word_char = false;
-
-  for (int i = 0; i < len; i++) {
-    char c = buf[i];
-    if (c >= 'a' && c <= 'z') {
-      has_word_char = true;
-    } else if (c >= '0' && c <= '9') {
-      // digits ok
-    } else if (c == '-') {
-      // hyphens ok
-    } else if (c == ' ') {
-      // spaces ok
-    } else {
-      // Any other character (uppercase, dots, parens, colons, etc.) = not a fault line
-      return false;
-    }
-  }
-
-  return has_word_char;
-}
-
-bool tree_sitter_rune_external_scanner_scan(
-  void *payload,
-  TSLexer *lexer,
-  const bool *valid_symbols
-) {
+bool tree_sitter_rune_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
   bool want_typ_desc = valid_symbols[TYP_DESC];
   bool want_dto_desc = valid_symbols[DTO_DESC];
   bool want_non_desc = valid_symbols[NON_DESC];
-  bool want_fault_line = valid_symbols[FAULT_LINE];
+  bool want_desc = want_typ_desc || want_dto_desc || want_non_desc;
   bool want_service = valid_symbols[SERVICE_PREFIX];
-
-  if (!want_typ_desc && !want_dto_desc && !want_non_desc && !want_fault_line &&
-      !want_service) {
-    return false;
-  }
+  if (!want_desc && !want_service) return false;
 
   // The scanner is invoked at the raw line start (before the indent is consumed
-  // as extras), so all four externals share one entry point.
-  if (!is_at_line_start(lexer)) {
-    return false;
-  }
+  // as extras), so both externals share one entry point.
+  if (lexer->get_column(lexer) != 0) return false;
 
-  // Count leading spaces (kept in the token, matching the desc/fault tokens).
-  int spaces = 0;
-  while (lexer->lookahead == ' ') {
+  // Indentation, in columns: a tab is one indent unit (the registry's).
+  int columns = 0;
+  while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+    columns += lexer->lookahead == '\t' ? RUNE_INDENT_UNIT : 1;
     lexer->advance(lexer, false);
-    spaces++;
-  }
-
-  // Every external here starts with a lowercase letter.
-  if (lexer->lookahead < 'a' || lexer->lookahead > 'z') {
-    return false;
   }
 
   char buf[256];
-  int buf_len = 0;
+  int len = 0;
 
-  // Read the leading word [a-zA-Z0-9_]* — shared by the service-prefix probe
-  // and the desc/fault buffer.
-  while (((lexer->lookahead >= 'a' && lexer->lookahead <= 'z') ||
-          (lexer->lookahead >= 'A' && lexer->lookahead <= 'Z') ||
-          (lexer->lookahead >= '0' && lexer->lookahead <= '9') ||
-          lexer->lookahead == '_') &&
-         buf_len < 255) {
-    buf[buf_len++] = (char)lexer->lookahead;
+  // Service boundary prefix: an identifier + exactly ONE colon (not `::`).
+  if (is_ident_start(lexer->lookahead)) {
+    while (is_verb_char(lexer->lookahead) && len < 255) {
+      buf[len++] = (char)lexer->lookahead;
+      lexer->advance(lexer, false);
+    }
+    if (lexer->lookahead == ':') {
+      lexer->advance(lexer, false);
+      if (lexer->lookahead != ':') {
+        if (!want_service) return false;
+        lexer->result_symbol = SERVICE_PREFIX;
+        lexer->mark_end(lexer);
+        return true;
+      }
+      if (len < 255) buf[len++] = ':';
+    }
+  }
+
+  // Prose: indented, wanted, and not something else by its first token.
+  if (!want_desc || columns == 0) return false;
+  if (len == 0) {
+    int32_t c = lexer->lookahead;
+    if (c == '[' || c == RUNE_FAULT_MARKER || c == '@' || c == '/' ||
+        c == '\n' || c == '\r' || c == 0) {
+      return false;
+    }
+  }
+  while (lexer->lookahead != '\n' && lexer->lookahead != '\r' && lexer->lookahead != 0 && len < 255) {
+    buf[len++] = (char)lexer->lookahead;
     lexer->advance(lexer, false);
   }
+  buf[len] = '\0';
+  if (looks_like_code(buf, len)) return false;
 
-  // Service boundary prefix: word + exactly ONE colon (not the `::` static
-  // separator). The DFA can't express this lookahead; the scanner can.
-  if (want_service && lexer->lookahead == ':') {
-    lexer->advance(lexer, false); // consume ':'
-    if (lexer->lookahead != ':') {
-      lexer->result_symbol = SERVICE_PREFIX;
-      lexer->mark_end(lexer);
-      return true;
-    }
-    if (buf_len < 255) buf[buf_len++] = ':'; // `::` → code, keep for classify
-  }
-
-  // Not a service prefix — read the rest of the line and classify desc/fault.
-  while (lexer->lookahead != '\n' && lexer->lookahead != '\r' &&
-         lexer->lookahead != 0 && buf_len < 255) {
-    buf[buf_len++] = (char)lexer->lookahead;
-    lexer->advance(lexer, false);
-  }
-  buf[buf_len] = '\0';
-
-  // Fault lines: 6+ spaces, only lowercase/digits/hyphens/spaces.
-  if (want_fault_line && spaces >= 6 && is_fault_content(buf, buf_len)) {
-    lexer->result_symbol = FAULT_LINE;
-    return true;
-  }
-
-  // Description lines: exactly 4 spaces, prose (not code).
-  if (spaces == 4 && (want_typ_desc || want_dto_desc || want_non_desc) &&
-      !looks_like_code(buf, buf_len)) {
-    if (want_typ_desc) {
-      lexer->result_symbol = TYP_DESC;
-    } else if (want_dto_desc) {
-      lexer->result_symbol = DTO_DESC;
-    } else {
-      lexer->result_symbol = NON_DESC;
-    }
-    return true;
-  }
-
-  return false;
+  if (want_typ_desc) lexer->result_symbol = TYP_DESC;
+  else if (want_dto_desc) lexer->result_symbol = DTO_DESC;
+  else lexer->result_symbol = NON_DESC;
+  return true;
 }

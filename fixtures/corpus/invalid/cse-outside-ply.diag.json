@@ -4,6 +4,14 @@
     "line": 2
   },
   {
+    "id": "tag-indent",
+    "line": 2
+  },
+  {
+    "id": "ret-redundant",
+    "line": 5
+  },
+  {
     "id": "dto-prop-undefined",
     "line": 7
   },

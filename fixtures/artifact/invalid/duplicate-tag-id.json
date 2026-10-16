@@ -1,34 +1,38 @@
 {
   "name": "Test",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "2.0.0",
   "tags": [
     {
       "id": "dto",
       "tag": "[DTO]",
       "label": "DTO",
       "indent": 0,
-      "follows": "dtodef"
+      "follows": "dtodef",
+      "shapeRule": "dto-suffix"
     },
     {
       "id": "ply",
       "tag": "[PLY]",
       "label": "Poly",
       "indent": 4,
-      "follows": "poly"
+      "follows": "poly",
+      "shapeRule": "dto-suffix"
     },
     {
       "id": "cse",
       "tag": "[CSE]",
       "label": "Case",
       "indent": 8,
-      "follows": "case"
+      "follows": "case",
+      "shapeRule": "dto-suffix"
     },
     {
       "id": "dto",
       "tag": "[DTX]",
       "label": "Dup",
       "indent": 0,
-      "follows": "dtodef"
+      "follows": "dtodef",
+      "shapeRule": "dto-suffix"
     }
   ],
   "modifiers": [
@@ -37,14 +41,12 @@
       "token": ":core",
       "appliesTo": [
         "dto"
-      ]
+      ],
+      "kind": "routing",
+      "base": null,
+      "param": "none"
     }
   ],
-  "boundaries": {
-    "prefixes": [
-      "db:"
-    ]
-  },
   "builtins": [
     "string"
   ],
@@ -61,5 +63,38 @@
       },
       "message": "x"
     }
-  ]
+  ],
+  "transports": [
+    {
+      "id": "HTTP",
+      "summary": "http"
+    }
+  ],
+  "faults": {
+    "marker": "!",
+    "syntax": "! name",
+    "shape": "^[a-z][a-z0-9-]*$",
+    "summary": "faults",
+    "wellKnown": [
+      {
+        "id": "not-found",
+        "status": 404,
+        "summary": "missing"
+      }
+    ]
+  },
+  "indent": {
+    "unit": 4,
+    "step": 4,
+    "fault": 6,
+    "case": 8,
+    "caseStep": 8,
+    "caseFault": 10,
+    "description": 4,
+    "body": 4,
+    "faultOffset": 2
+  },
+  "columns": {
+    "max": 80
+  }
 }

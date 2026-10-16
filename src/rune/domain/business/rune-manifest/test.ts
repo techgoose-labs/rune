@@ -7,7 +7,8 @@ Deno.test("planManifest — coordinator + DTO + TYP for a simple rune", () => {
   const rune = `[MOD] recording
 
 [REQ] recording.set(InDto): OutDto
-    id::create(name): id
+    id::create(providerName): id
+    out::build(id): OutDto
 
 [DTO] InDto: providerName, externalId
     desc
@@ -146,15 +147,17 @@ Deno.test("planManifest — [ENT]s on one surface become one keep controller", (
   const rune = `[MOD] checkout
 
 [ENT] http.createOrder(NewOrderDto): OrderDto
+    [REQ] order.create(NewOrderDto): OrderDto
 [ENT] http.payOrder(PayDto): ReceiptDto
+    [REQ] payment.pay(PayDto): ReceiptDto
 
 [REQ] order.create(NewOrderDto): OrderDto
     [NEW] order
-    [RET] OrderDto
+    order.toDto(): OrderDto
 
 [REQ] payment.pay(PayDto): ReceiptDto
     [NEW] payment
-    [RET] ReceiptDto
+    payment.toDto(): ReceiptDto
 
 [DTO] NewOrderDto: item
     a new order
@@ -340,7 +343,14 @@ Deno.test("planManifest — process direction follows declaration order; later-m
   const rune = `[MOD] meta
 
 [ENT] http.enable(EnableDto): EnabledDto
+    [REQ] meta.enable(EnableDto): EnabledDto
 [ENT] http.select(SelectDto): SelectedDto
+    [REQ] meta.select(SelectDto): SelectedDto
+
+[REQ] meta.enable(EnableDto): EnabledDto
+    meta::enable(EnableDto): EnabledDto
+[REQ] meta.select(SelectDto): SelectedDto
+    meta::select(SelectDto): SelectedDto
 
 [DTO] EnableDto: selected
     needs the selection
@@ -375,6 +385,10 @@ Deno.test("planManifest — ({}) input omits @Endpoint input and makes a no-para
   const rune = `[MOD] ticker
 
 [ENT] http.refresh({}): StatusDto
+    [REQ] status.refresh({}): StatusDto
+
+[REQ] status.refresh({}): StatusDto
+    status::now(): StatusDto
 
 [DTO] StatusDto: count
     how many
@@ -392,31 +406,6 @@ Deno.test("planManifest — ({}) input omits @Endpoint input and makes a no-para
   assertStringIncludes(mod.content, "refresh(): Promise<StatusDto>");
 });
 
-Deno.test("planManifest — ambiguous ENT→[REQ] delegation (same signature) is an error", () => {
-  // Two [REQ]s share (InDto): CatalogDto, so the ent's (input, output) match is ambiguous.
-  const rune = `[MOD] catalog
-
-[ENT] http.fetch(InDto): CatalogDto
-
-[REQ] catalog.list(InDto): CatalogDto
-    items::compute(x): items
-[REQ] catalog.discover(InDto): CatalogDto
-    items::compute(x): items
-
-[DTO] InDto: x
-    in
-[DTO] CatalogDto: items
-    out
-
-[TYP] x: string
-    a
-[TYP] items: string
-    b`;
-  const plan = planManifest("specs/catalog.rune", rune, new Set());
-  assertEquals(plan.errors.length > 0, true);
-  assertStringIncludes(plan.errors.join("\n"), "ambiguous");
-});
-
 Deno.test("planManifest — documented [ENT] body [REQ] delegates (no stepless shadow)", () => {
   // The indented [REQ] is the ent's delegation target, NOT a second stepless coordinator.
   const rune = `[MOD] recording
@@ -426,6 +415,7 @@ Deno.test("planManifest — documented [ENT] body [REQ] delegates (no stepless s
 
 [REQ] recording.set(GetRecordingDto): IdDto
     db:store.lookup(name): id
+    id::wrap(id): IdDto
 
 [DTO] GetRecordingDto: name
     in
@@ -571,9 +561,9 @@ Deno.test("planManifest — int.test.ts has one Deno.test per fault", () => {
 
 [REQ] recording.set(InDto): OutDto
     id::create(name): id
-      invalid-id
+      ! invalid-id
     db:metadata.set(id, x): void
-      timed-out network-error`;
+      ! timed-out=504 network-error`;
   const plan = planManifest("specs/recording.rune", rune, new Set());
   const intTest = plan.toCreate.find((f) =>
     f.path.endsWith("recording-set/int.test.ts")
@@ -589,7 +579,7 @@ Deno.test("planManifest — adapter smk.test.ts has one Deno.test per fault", ()
 
 [REQ] recording.set(InDto): OutDto
     db:metadata.set(id, x): void
-      timed-out network-error`;
+      ! timed-out=504 network-error`;
   const plan = planManifest("specs/recording.rune", rune, new Set());
   const smk = plan.toCreate.find((f) =>
     f.path.endsWith("data/metadata/smk.test.ts")
@@ -714,17 +704,17 @@ Deno.test("planManifest — mod-root disambiguates same-verb REQs across nouns",
 
 [REQ] access.resolve(InDto): OutDto
     [NEW] access
-    access.run(InDto): OutDto
+    access.run(InDto): access
     access.toDto(): OutDto
 
 [REQ] rules.resolve(InDto): OutDto
     [NEW] rules
-    rules.run(InDto): OutDto
+    rules.run(InDto): rules
     rules.toDto(): OutDto
 
 [REQ] audit.scan(InDto): OutDto
     [NEW] audit
-    audit.run(InDto): OutDto
+    audit.run(InDto): audit
     audit.toDto(): OutDto
 
 [TYP] id: string
@@ -786,8 +776,6 @@ Deno.test("planManifest — nested DTO fields: convention, [TYP] alias, (s) arra
     q
 [TYP] sku: string
     s
-[TYP] payment: PaymentDto
-    alias to a dto
 [DTO] LineItemDto: sku, qty
     one line
 [DTO] PaymentDto: sku
@@ -829,7 +817,7 @@ Deno.test("planManifest — nested DTO fields: convention, [TYP] alias, (s) arra
     c,
     "  @IsArray()\n  @ValidateNested({ each: true })\n  @Type(() => LineItemDto)\n  lineItems!: LineItemDto[];",
   );
-  // [TYP] alias to a DTO resolves to the class (scalar form).
+  // A field named after a DTO (pascal+Dto) resolves to the class (scalar form).
   assertStringIncludes(
     c,
     "  @ValidateNested()\n  @Type(() => PaymentDto)\n  payment!: PaymentDto;",
@@ -878,7 +866,7 @@ Deno.test("planManifest — exact [TYP] beats a same-stem [DTO] (no self-nesting
 
 [REQ] access.resolve(PrincipalDto): OkDto
     [NEW] access
-    access.run(PrincipalDto): OkDto
+    access.run(PrincipalDto): access
     access.toDto(): OkDto
 
 [TYP] principal: string
@@ -914,7 +902,7 @@ Deno.test("planManifest — [TYP] fields and a convention-nested field coexist",
 
 [REQ] config.read(ScopeDto): OkDto
     [NEW] config
-    config.run(ScopeDto): OkDto
+    config.run(ScopeDto): config
     config.toDto(): OkDto
 
 [TYP] scope: string
@@ -1003,35 +991,6 @@ Deno.test("planManifest — [TYP] constraint modifiers become decorators; int re
   );
 });
 
-Deno.test("planManifest — a [TYP] aliasing a [DTO] imports the class it aliases", () => {
-  const rune = `[MOD] pay
-
-[TYP] sku: string
-    s
-[TYP] payment: PaymentDto
-    alias to a module dto
-[TYP] audit: AuditDto
-    alias to a core dto
-[DTO] PaymentDto: sku
-    pay info
-[DTO:core] AuditDto: sku
-    shared`;
-  const plan = planManifest("specs/pay.rune", rune, new Set());
-  assertEquals(plan.errors, []);
-  const payment = plan.toCreate.find((f) =>
-    f.path === "src/pay/dto/payment.ts"
-  );
-  // The DTO class wins the payment.ts slot (first writer); the alias files get
-  // their own slots and import the class so the alias type-checks.
-  assertStringIncludes(payment!.content, "export class PaymentDto");
-  const audit = plan.toCreate.find((f) => f.path === "src/pay/dto/audit.ts");
-  assertStringIncludes(
-    audit!.content,
-    'import type { AuditDto } from "@/src/core/dto/audit.ts";',
-  );
-  assertStringIncludes(audit!.content, "export type Audit = AuditDto;");
-});
-
 Deno.test("planManifest — renderTyp carries the modifiers in its declaration comment", () => {
   const rune = `[MOD] inv
 
@@ -1056,6 +1015,7 @@ const TASKS_RUNE = `[MOD] tasks
 [REQ] task.create(CreateTaskDto): TaskDto
     db:task.load(id): TaskDto
     db:task.save(TaskDto): void
+    [RET] TaskDto
 
 [DTO] CreateTaskDto: id, title
     in
@@ -1118,23 +1078,23 @@ Deno.test("planManifest — enum [TYP] becomes a quoted union + @IsIn, not bare 
   const rune = `[MOD] proxy
 
 [REQ] proxy.send(ReqDto): ResDto
-    noop::run(): void
+    upstream::send(ReqDto): ResDto
 
 [DTO] ReqDto: method, verb(s)
     a request
 [DTO] ResDto: status
     a response
 
-[TYP:example=POST] method: GET | POST | PUT | PATCH | DELETE
+[TYP:example=POST] method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
     the http method
-[TYP:example=GET] verb: GET | POST
+[TYP:example=GET] verb: "GET" | "POST"
     a verb
 [TYP] status: number
     a status`;
   const plan = planManifest("specs/proxy.rune", rune, new Set());
   assertEquals(plan.errors, []);
-  // Standalone [TYP] alias: members are QUOTED — bare `GET | POST` is a TS2304
-  // ("Cannot find name 'GET'"). The alias documents its field-level enforcement.
+  // Standalone [TYP] alias: the quoted members, as written (REQ-024). The alias
+  // documents its field-level enforcement.
   const alias =
     plan.toCreate.find((f) => f.path === "src/proxy/dto/method.ts")!.content;
   assertStringIncludes(
@@ -1168,60 +1128,44 @@ Deno.test("planManifest — enum [TYP] becomes a quoted union + @IsIn, not bare 
   assertStringIncludes(dto, 'import { IsArray, IsIn } from "class-validator";');
 });
 
-Deno.test("planManifest — [TYP:from=...] derives the route + emits @Endpoint sources", () => {
+Deno.test("planManifest — [TYP:from=query|header] emits @Endpoint sources; the route is the action (REQ-021)", () => {
   const rune = `[MOD] gateway
 
-[ENT] http.proxy(ProxyReqDto): ProxyResDto
+[ENT] http.search @ GET(SearchReqDto): SearchResDto
+    [REQ] search.run(SearchReqDto): SearchResDto
 
-[REQ] proxy.run(ProxyReqDto): ProxyResDto
-    noop::run(): void
+[REQ] search.run(SearchReqDto): SearchResDto
+    index::query(q, tenant): SearchResDto
 
-[DTO] ProxyReqDto: target, rest, q, payload
-    a proxied request
-[DTO] ProxyResDto: status
-    a proxied response
+[DTO] SearchReqDto: q, tenant
+    a search
+[DTO] SearchResDto: hits
+    the result
 
-[TYP:from=path] target: string
-    the upstream target
-[TYP:from=path*] rest: string
-    the remaining path
-[TYP:from=query] q: string
+[TYP:from=query,example=widgets] q: string
     a search query
-[TYP] payload: string
-    the forwarded body
-[TYP] status: number
-    the upstream status`;
+[TYP:from=header,example=acme] tenant: string
+    the tenant header
+[TYP] hits: number
+    how many matched`;
   const plan = planManifest("specs/gateway.rune", rune, new Set());
   assertEquals(plan.errors, []);
   const ctrl =
     plan.toCreate.find((f) => f.path === "src/gateway/entrypoints/http/mod.ts")!
       .content;
-  // Route is auto-derived: kebab action + a `:field` per path field (declaration order) + a
-  // trailing `*` for the path* catch-all. Query fields stay out of the path. sources map carries
-  // every non-body field for keep's binder, the swagger params, and the cake.
   assertStringIncludes(
     ctrl,
-    '@Endpoint({ path: "proxy/:target/:rest{.+}", input: ProxyReqDto, output: ProxyResDto, order: 1, sources: {"target":"path","rest":"path*","q":"query"} })',
+    '@Endpoint({ path: "search", method: "get", input: SearchReqDto, output: SearchResDto, order: 1, sources: {"q":"query","tenant":"header"} })',
   );
-  // The handler signature is unchanged — the binder reassembles the full DTO server-side.
-  assertStringIncludes(ctrl, "proxy(body: ProxyReqDto): Promise<ProxyResDto>");
-  // Every field (path/query/body) stays on the validated input DTO; from= rides in the provenance.
-  const dto =
-    plan.toCreate.find((f) => f.content.includes("export class ProxyReqDto"))!
-      .content;
-  for (const f of ["target", "rest", "q", "payload"]) {
-    assertStringIncludes(dto, `${f}!:`);
-  }
-  assertStringIncludes(dto, "// rune declares: [TYP:from=path] target: string");
 });
-
 Deno.test("planManifest — explicit [ENT] @ METHOD /template drives route + method + sources", () => {
   const rune = `[MOD] gateway
 
 [ENT] http.proxy @ GET /proxy/{target}/{path*}(ProxyReqDto): ProxyResDto
+    [REQ] proxy.run(ProxyReqDto): ProxyResDto
 
 [REQ] proxy.run(ProxyReqDto): ProxyResDto
-    noop::run(): void
+    upstream::call(ProxyReqDto): ProxyResDto
 
 [DTO] ProxyReqDto: target, path, q
     a proxied request
@@ -1281,9 +1225,10 @@ Deno.test("planManifest — a DTO with no from= emits no sources key (backward-c
   const rune = `[MOD] plain
 
 [ENT] http.make(MakeDto): DoneDto
+    [REQ] make.run(MakeDto): DoneDto
 
 [REQ] make.run(MakeDto): DoneDto
-    noop::run(): void
+    maker::run(MakeDto): DoneDto
 
 [DTO] MakeDto: name
     an input
@@ -1312,6 +1257,7 @@ Deno.test("planManifest — coordinator hoists a value-producer step feeding a r
 [REQ] settings.apply(ApplyDto): ResultDto
     settingsKey::current(): settingsKey
     db:settings.load(settingsKey): SettingsDto
+    result::of(SettingsDto): ResultDto
 
 [DTO] ApplyDto: mode
     the request — note: no settingsKey field, it is produced mid-flow
@@ -1395,7 +1341,9 @@ Deno.test("planManifest — coordinator weave: empty-output boundary is a write 
   const rune = `[MOD] audit
 
 [REQ] event.record(EventDto): ReceiptDto
-    db:log.append(message)
+    receipt::of(message): ReceiptDto
+    db:log.append(message): void
+    [RET] ReceiptDto
 
 [DTO] EventDto: message
     in
@@ -1414,11 +1362,11 @@ Deno.test("planManifest — coordinator weave: empty-output boundary is a write 
     c,
     "  // after the core — boundary calls in spec order (validated at the seam)",
   );
-  assertStringIncludes(c, "  await logData.append(validInput.message);");
-  // it contributes no read variable and no core-output field.
+  assertStringIncludes(c, "  await logData.append(assert.string(out.append, \"log.append input\"));");
+  // it contributes no read variable.
   assertEquals(c.includes("logAppend"), false);
   assertStringIncludes(c, "  const out = recordCore(validInput);");
-  assertStringIncludes(c, "): { result: ReceiptDto } {");
+  assertStringIncludes(c, "): { append: string; result: ReceiptDto } {");
 });
 
 Deno.test("planManifest — coordinator weave: primitive and opaque read seams", () => {
@@ -1467,7 +1415,7 @@ Deno.test("planManifest — multi-arg write seam binds every declared param (TS2
     widget::newId(): widgetId
     widget::build(DefineWidgetDto, widgetId): WidgetDto
     kv:widget.set(widgetId, WidgetDto): void
-      timeout
+      ! timeout
     [RET] WidgetDto
 
 [DTO] WidgetDto: widgetId, name
@@ -1515,13 +1463,13 @@ Deno.test("planManifest — value-returning mutation runs post-core, after the g
 
 [REQ] widget.attach(WidgetPartDto): WidgetDto
     kv:widget.get(widgetId): WidgetDto
-      not-found
+      ! not-found
     kv:part.get(partId): PartDto
-      not-found
-    kv:widget.addPart(widgetId, partId): WidgetDto
-      timeout
-    log:audit.widgetPartAttached(WidgetDto): void
-    [RET] WidgetDto
+      ! not-found
+    kv:widget.addPart(widgetId, partId): WidgetDto as attached
+      ! timeout
+    log:audit.widgetPartAttached(attached): void
+    [RET] attached
 
 [DTO] WidgetDto: widgetId, name
     a stored widget
@@ -1576,12 +1524,11 @@ Deno.test("planManifest — chained post-core mutations feed each other's result
   const rune = `[MOD] pay
 
 [REQ] payment.charge(ChargeDto): ChargeResultDto
-    card.validate(ChargeDto): ChargeDto
+    card::validate(ChargeDto): void
     ex:gateway.authorize(ChargeDto): AuthDto
-      declined
+      ! declined
     db:ledger.record(AuthDto): ChargeResultDto
-      timeout
-    [RET] ChargeResultDto
+      ! timeout
 
 [NON] card
     a payment card
@@ -1628,9 +1575,9 @@ Deno.test("planManifest — read arg missing on the input DTO chains from the pr
 
 [REQ] user.verify(VerifyUserDto): MemberDto
     kv:credential.getByEmail(appId, email): CredentialDto
-      unauthorized
+      ! unauthorized
     kv:member.get(memberId): MemberDto
-      not-found
+      ! not-found
     [RET] MemberDto
 
 [DTO] VerifyUserDto: appId, email
@@ -1671,13 +1618,12 @@ Deno.test("planManifest — nearest prior read wins; input-declared fields stay 
   const rune = `[MOD] graph
 
 [REQ] edge.link(LinkDto): EdgeDto
-    kv:alpha.get(alphaId): NodeDto
-      not-found
-    kv:beta.get(betaId): NodeDto
-      not-found
+    kv:alpha.get(alphaId): NodeDto as alpha
+      ! not-found
+    kv:beta.get(betaId): NodeDto as beta
+      ! not-found
     kv:edge.get(nodeId): EdgeDto
-      not-found
-    [RET] EdgeDto
+      ! not-found
 
 [DTO] LinkDto: alphaId, betaId
     link request — carries NO nodeId
@@ -1713,7 +1659,7 @@ Deno.test("planManifest — read arg nobody produces emits a typed TODO, not a t
 
 [REQ] thing.probe(ProbeDto): ThingDto
     kv:thing.get(ghostId): ThingDto
-      not-found
+      ! not-found
     [RET] ThingDto
 
 [DTO] ProbeDto: label
@@ -1746,11 +1692,10 @@ Deno.test("planManifest — boundary-only REQ noun emits no business import or `
 
 [REQ] cache.read(InDto): OutDto
     db:store.fetch(InDto): OutDto
-    [RET] OutDto
 
 [REQ] report.build(InDto): OutDto
     [NEW] report
-    report.compose(InDto): OutDto
+    report.compose(InDto): report
     report.toDto(): OutDto
 
 [TYP] id: string
@@ -1775,13 +1720,10 @@ Deno.test("planManifest — boundary-only REQ noun emits no business import or `
     cache,
     "  const out = readCore(validInput, storeFetch);",
   );
-  // the recipe lists the spec's non-boundary steps in order ([RET] here; the
-  // db: fetch is the shell's read, not a core step).
-  assertStringIncludes(
-    cache,
-    "  // Recipe from [REQ] cache.read (run in order):",
-  );
-  assertStringIncludes(cache, "  //   1. [RET] OutDto");
+  // no non-boundary step: the recipe is empty and the core says so (the db:
+  // fetch is the shell's read, not a core step).
+  assertEquals(cache.includes("// Recipe from [REQ] cache.read"), false);
+  assertStringIncludes(cache, "  // TODO: run the pure steps on the inputs, build the dtos");
 
   // a sibling REQ WITH an instance step DOES generate + use its business class.
   assertEquals(paths.includes("src/eng/domain/business/report/mod.ts"), true);
@@ -1794,7 +1736,7 @@ Deno.test("planManifest — boundary-only REQ noun emits no business import or `
   assertStringIncludes(report, "  const report = new Report();");
   // and the recipe walks [NEW] + the two instance steps in order.
   assertStringIncludes(report, "  //   1. [NEW] report");
-  assertStringIncludes(report, "  //   2. report.compose(InDto): OutDto");
+  assertStringIncludes(report, "  //   2. report.compose(InDto): report");
   assertStringIncludes(report, "  //   3. report.toDto(): OutDto");
 });
 
@@ -1802,10 +1744,11 @@ Deno.test("planManifest — :core DTOs import from src/core/dto in coordinator +
   const rune = `[MOD] billing
 
 [ENT] http.charge(ChargeDto): AuditDto
+    [REQ] charge.run(ChargeDto): AuditDto
 
 [REQ] charge.run(ChargeDto): AuditDto
     [NEW] charge
-    [RET] AuditDto
+    charge.toDto(): AuditDto
 
 [DTO] ChargeDto: amount
     in
@@ -2103,8 +2046,8 @@ Deno.test("planManifest — business test.ts scaffolds a Deno.test per untagged-
 [REQ] gate.evaluate(InputDto): OutputDto
     [NEW] gate
     gate.check(InputDto): OutputDto
-      invalid-input
-      out-of-range
+      ! invalid-input
+      ! out-of-range=400
 
 [DTO] InputDto: id
     in
@@ -2158,7 +2101,7 @@ Deno.test("planManifest — coordinator carries spec-line provenance + JSDoc", (
 
 [REQ] order.create(NewOrderDto): OrderDto
     db:order.save(OrderDto): void
-      timeout
+      ! timeout
     [RET] OrderDto
 
 [DTO] NewOrderDto: item
@@ -2243,7 +2186,7 @@ Deno.test("planManifest — @ApiProperty stays within #api-doc's Schema type (E2
   const rune = `[MOD] shop
 
 [REQ] order.make(MakeDto): MakeDto
-    id::gen(): id
+    order::make(MakeDto): MakeDto as made
 
 [DTO] MakeDto: id, tag?, label(s)
     an order
@@ -2458,7 +2401,6 @@ Deno.test("planManifest — strictServices flags a local [SRV] in a module spec 
   const rune = `[MOD] catalog
 [REQ] product.list(InDto): OutDto
     db:product.query(InDto): OutDto
-    [RET] OutDto
 [DTO] InDto: id
     x
 [DTO] OutDto: id
@@ -2478,7 +2420,7 @@ Deno.test("planManifest — strictServices flags a local [SRV] in a module spec 
   const strict = planManifest("src/catalog/catalog.rune", rune, new Set(), {
     strictServices: true,
   });
-  assert(strict.errors.some((e) => e.includes("rune-service-core-only")));
+  assert(strict.errors.some((e) => e.includes("[srv-outside-core]")));
   assert(strict.errors.some((e) => e.includes("src/core/core.rune")));
   // A DRAFT of a module spec is judged by its canonical name — authors catch
   // the misplacement at `rune check` time, before the build pays a heal round.
@@ -2488,7 +2430,7 @@ Deno.test("planManifest — strictServices flags a local [SRV] in a module spec 
     new Set(),
     { strictServices: true },
   );
-  assert(draft.errors.some((e) => e.includes("rune-service-core-only")));
+  assert(draft.errors.some((e) => e.includes("[srv-outside-core]")));
   // core.rune itself is the one allowed [SRV] site.
   const core = `[MOD] core
 [SRV] (SIDECAR)db: DB_URL
@@ -2600,8 +2542,11 @@ Deno.test("planManifest — (s?) lenient array keeps @IsArray, drops element val
 
 [REQ] webhook.ingest(InDto): OutDto
     id::create(name): id
+    out::of(id): OutDto
 
 [DTO] InDto: tag(s), pathwayTag(s?)
+    desc
+[DTO] OutDto: id
     desc
 
 [TYP] id: string
@@ -2639,9 +2584,12 @@ Deno.test("planManifest — [DTO:open] emits the keep-open marker + provenance, 
 
 [REQ] webhook.ingest(EventDto): OutDto
     id::create(callId): id
+    out::of(id): OutDto
 
 [DTO:open] EventDto: callId, status
     an opaque third-party webhook payload
+[DTO] OutDto: id
+    the result
 
 [TYP] id: string
     desc
@@ -2668,11 +2616,15 @@ Deno.test("planManifest — S1: `*/` in a [TYP]/[DTO] description is escaped in 
   const rune = `[MOD] billing
 
 [ENT] http.make(InvoiceDto): InvoiceDto
+    [REQ] invoice.make(InvoiceDto): InvoiceDto
+
+[REQ] invoice.make(InvoiceDto): InvoiceDto
+    invoice::make(InvoiceDto): InvoiceDto as made
 
 [DTO] InvoiceDto: amount
     The invoice */ payload.
 
-[TYP] amount: number
+[TYP:example=100] amount: number
     The amount in cents. End comment */ then more prose.`;
   const plan = planManifest("specs/billing.rune", rune, new Set());
   assertEquals(plan.errors, []);
@@ -2706,16 +2658,30 @@ Deno.test("planManifest — S2: two ENTs on different surfaces with the same act
   const rune = `[MOD] m
 
 [ENT] alpha.make(AInDto): AOutDto
+    [REQ] alpha.make(AInDto): AOutDto
 [ENT] beta.make(BInDto): BOutDto
+    [REQ] beta.make(BInDto): BOutDto
+
+[REQ] alpha.make(AInDto): AOutDto
+    alpha::make(AInDto): AOutDto
+[REQ] beta.make(BInDto): BOutDto
+    beta::make(BInDto): BOutDto
 
 [DTO] AInDto: seed
+    a
 [DTO] AOutDto: bar
+    a
 [DTO] BInDto: bar
+    b
 [DTO] BOutDto: result
+    b
 
-[TYP] seed: string
+[TYP:example=s] seed: string
+    s
 [TYP] bar: string
-[TYP] result: string`;
+    b
+[TYP] result: string
+    r`;
   const plan = planManifest("specs/m.rune", rune, new Set());
   assertEquals(plan.errors, []);
   const all = [...plan.toCreate, ...plan.toRegenerate];
@@ -2739,12 +2705,16 @@ Deno.test("planManifest — S6: array field min/max/int schema-hints nest under 
   const rune = `[MOD] m
 
 [ENT] http.make(ScoreDto): ScoreDto
+    [REQ] score.make(ScoreDto): ScoreDto
+
+[REQ] score.make(ScoreDto): ScoreDto
+    score::make(ScoreDto): ScoreDto as made
 
 [DTO] ScoreDto: score(s), qty(s)
-
-[TYP:min=0,max=100] score: number
+    scores
+[TYP:min=0,max=100,example=50] score: number
     a score
-[TYP:int] qty: number
+[TYP:int,example=3] qty: number
     a qty`;
   const plan = planManifest("specs/m.rune", rune, new Set());
   assertEquals(plan.errors, []);
@@ -2807,8 +2777,21 @@ Deno.test("planManifest — [ENT:ws] emits a WebSocket controller, not an HTTP o
 
 [ENT:ws] chat @ /rooms/{room}
     join(JoinDto): JoinedDto
+        [REQ] room.join(JoinDto): JoinedDto
     send(ChatDto): EchoDto
+        [REQ] room.send(ChatDto): EchoDto
     leave(LeaveDto): void
+        [REQ] room.leave(LeaveDto): JoinedDto
+
+[REQ] room.join(JoinDto): JoinedDto
+    lobby::admit(room): JoinedDto
+[REQ] room.send(ChatDto): EchoDto
+    lobby::echo(text): EchoDto
+[REQ] room.leave(LeaveDto): JoinedDto
+    lobby::release(room): JoinedDto
+
+[NON] lobby
+    the rooms
 
 [DTO] JoinDto: room
     join
@@ -2878,23 +2861,103 @@ Deno.test("REQ-013: plan.findings carry ids and plan.errors is their rendering",
 [ENT] http.fetch(InDto): CatalogDto
 
 [REQ] catalog.list(InDto): CatalogDto
-    items::compute(x): items
-[REQ] catalog.discover(InDto): CatalogDto
-    items::compute(x): items
+    catalog::list(x): CatalogDto
 
 [DTO] InDto: x
     in
 [DTO] CatalogDto: items
     out
 
-[TYP] x: string
+[TYP:example=x] x: string
     a
 [TYP] items: string
     b`;
   const plan = planManifest("specs/catalog.rune", rune, new Set());
-  assertEquals(plan.findings.map((f) => f.id), ["ent-ambiguous"]);
+  assertEquals(plan.findings.map((f) => f.id), ["ent-delegate-required"]);
   assertEquals(plan.findings[0].path, "specs/catalog.rune");
   assertEquals(plan.findings[0].line, 3);
   assertEquals(plan.findings[0].severity, "error");
   assertEquals(plan.errors, plan.findings.map(renderFinding));
+});
+
+// ---- REQ-018 / REQ-022 — typed faults and the business/adapter partition ----
+
+Deno.test("REQ-018: the module's faults.ts declares one typed class per fault with its status", () => {
+  const rune = `[MOD] billing
+
+[REQ] invoice.issue(IssueDto): InvoiceDto
+    [NEW] invoice
+    invoice.fill(amount): invoice
+      ! invalid-amount
+    invoice.toDto(): InvoiceDto
+    db:invoice.save(InvoiceDto): void
+      ! timeout card-expired=402
+    [RET] InvoiceDto
+
+[NON] invoice
+    a bill
+[DTO] IssueDto: amount
+    in
+[DTO] InvoiceDto: amount
+    out
+[TYP:example=100] amount: number
+    cents`;
+  const plan = planManifest("specs/billing.rune", rune, new Set());
+  assertEquals(plan.errors, []);
+  const faults = plan.toRegenerate.find((f) => f.path === "src/billing/dto/faults.ts");
+  assert(faults, "faults.ts is spec-owned (regenerated)");
+  assertStringIncludes(faults.content, 'import { RuneFault } from "@techgoose-labs/rune";');
+  assertStringIncludes(faults.content, "export class InvalidAmountFault extends RuneFault {");
+  assertStringIncludes(faults.content, 'super("invalid-amount", 422, message);');
+  assertStringIncludes(faults.content, 'super("timeout", 504, message);');
+  assertStringIncludes(faults.content, "export class CardExpiredFault extends RuneFault {");
+  assertStringIncludes(faults.content, 'super("card-expired", 402, message);');
+  // No faults, no file.
+  const quiet = planManifest("specs/q.rune", "[MOD] q\n[REQ] a.b(InDto): OutDto\n    a::b(InDto): OutDto\n[DTO] InDto: x\n    i\n[DTO] OutDto: x\n    o\n[TYP] x: string\n    x", new Set());
+  assertEquals(quiet.toRegenerate.some((f) => f.path.endsWith("/faults.ts")), false);
+});
+
+Deno.test("REQ-022: the business class carries only untagged-step methods and the adapter only boundary-step methods", () => {
+  const rune = `[MOD] tasks
+
+[REQ] task.create(CreateTaskDto): TaskDto
+    [NEW] task
+    task.fill(title): task
+    task.toDto(): TaskDto
+    db:task.save(TaskDto): void
+      ! timeout
+    [RET] TaskDto
+
+[REQ] task.complete(TaskRefDto): TaskDto
+    db:task.load(id): TaskDto as stored
+      ! not-found
+    task::fromDto(stored): task
+    task.markDone(): task
+    task.toDto(): TaskDto
+    db:task.save(TaskDto): void
+      ! timeout
+    [RET] TaskDto
+
+[NON] task
+    a todo item
+[DTO] CreateTaskDto: title
+    in
+[DTO] TaskRefDto: id
+    ref
+[DTO] TaskDto: id, title
+    a task
+[TYP:example=milk] title: string
+    t
+[TYP:example=t1] id: string
+    i`;
+  const plan = planManifest("specs/tasks.rune", rune, new Set());
+  assertEquals(plan.errors, []);
+  const business = plan.toCreate.find((f) => f.path === "src/tasks/domain/business/task/mod.ts")!.content;
+  const adapter = plan.toCreate.find((f) => f.path === "src/tasks/domain/data/task/mod.ts")!.content;
+  for (const m of ["fill(", "toDto(", "markDone(", "static fromDto("]) assertStringIncludes(business, m);
+  for (const m of ["save(", "load("]) assertEquals(business.includes(`  ${m}`), false, `business class must not carry ${m}`);
+  for (const m of ["save(", "load("]) assertStringIncludes(adapter, m);
+  for (const m of ["fill(", "toDto(", "markDone(", "fromDto("]) assertEquals(adapter.includes(m), false, `adapter must not carry ${m}`);
+  // A value-named parameter is typed by its value (REQ-020): fromDto(stored: TaskDto).
+  assertStringIncludes(business, "static fromDto(stored: TaskDto): Task");
 });

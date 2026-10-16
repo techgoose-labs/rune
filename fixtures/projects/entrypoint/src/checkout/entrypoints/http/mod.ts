@@ -12,7 +12,7 @@ import { pay as paymentPay } from "@/src/checkout/domain/coordinators/payment-pa
 @EndpointController("http")
 export class HttpController {
   /**
-   * Delegates to coordinator order.create (matched by input/output signature).
+   * Delegates to coordinator order.create (named by the [ENT] body).
    * @param body NewOrderDto — a new order to create
    * @returns OrderDto — a created order
    * @throws timeout (order.save)
@@ -24,14 +24,14 @@ export class HttpController {
   }
 
   /**
-   * Delegates to coordinator payment.pay (matched by input/output signature).
+   * Delegates to coordinator payment.pay (named by the [ENT] body).
    * @param body PayDto — a payment for an order
    * @returns ReceiptDto — a receipt for a payment
    * @throws timeout (payment.charge)
    */
   // id <- createOrder.id
   // Runs after: createOrder.
-  // from corpus/valid/entrypoint.rune:4
+  // from corpus/valid/entrypoint.rune:5
   @Endpoint({ path: "pay-order", input: PayDto, output: ReceiptDto, order: 2, dependsOn: ["createOrder"], bind: {"id":"createOrder.id"} })
   payOrder(body: PayDto): Promise<ReceiptDto> {
     return paymentPay(body);

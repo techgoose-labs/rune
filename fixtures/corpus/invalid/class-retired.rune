@@ -1,0 +1,12 @@
+[REQ] task.create(InDto): TaskDto
+    [NEW] task
+    task.toDto(): TaskDto
+
+[TYP] task: Class
+    a noun is a [NON], never a Class
+[TYP] a: string
+    a
+[DTO] InDto: a
+    in
+[DTO] TaskDto: a
+    a task

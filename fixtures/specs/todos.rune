@@ -3,41 +3,49 @@
 [REQ] todo.add(CreateTodoDto): TodoDto
     id::generate(): id
     [NEW] todo
-    todo.fill(title): todo
-    db:todo.save(TodoDto): void
-      timeout
+    todo.fill(id, title): todo
     todo.toDto(): TodoDto
+    db:todo.save(TodoDto): void
+      ! timeout
+    [RET] TodoDto
 
 [REQ] todo.complete(TodoRefDto): TodoDto
-    db:todo.load(id): TodoDto
-      not-found
+    db:todo.load(id): TodoDto as stored
+      ! not-found
+    todo::fromDto(stored): todo
     todo.markDone(): todo
-    db:todo.save(TodoDto): void
-      timeout
     todo.toDto(): TodoDto
+    db:todo.save(TodoDto): void
+      ! timeout
+    [RET] TodoDto
 
 [REQ] todo.discard(TodoRefDto): TodoDto
-    db:todo.load(id): TodoDto
-      not-found
+    db:todo.load(id): TodoDto as stored
+      ! not-found
+    todo::fromDto(stored): todo
     todo.archive(): todo
-    db:todo.save(TodoDto): void
-      timeout
     todo.toDto(): TodoDto
+    db:todo.save(TodoDto): void
+      ! timeout
+    [RET] TodoDto
 
 [REQ] list.create(CreateListDto): ListDto
     id::generate(): id
     [NEW] list
-    list.fill(name): list
-    db:list.save(ListDto): void
-      timeout
+    list.fill(id, name): list
     list.toDto(): ListDto
+    db:list.save(ListDto): void
+      ! timeout
+    [RET] ListDto
 
 [TYP] id: string
     a unique identifier
-[TYP] title: string
+[TYP:example=buy-milk] title: string
     the human-readable todo title
-[TYP] name: string
+[TYP:example=home] name: string
     the human-readable list name
+[TYP] done: boolean
+    whether the todo is done
 
 [DTO] CreateTodoDto: title
     input to create a new todo

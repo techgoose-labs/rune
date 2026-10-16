@@ -80,7 +80,8 @@ rediscover the binary or its surface.
      prebuilt asset for its platform it UNINSTALLS rune and leaves nothing (measured: one
      scaffold destroyed its own toolchain this way and spent ~10 calls rebuilding a wrapper).
    - **A generated file that fails `deno check` is a codegen gap to REPORT, not a toolchain
-     symptom.** Example: `[TYP] <field>: Class` emits `export type X = Class;` (TS2304). Record
+     symptom.** Example: a `[TYP]` whose primitive the emitter does not map lands as
+     `export type X = Widget;` (TS2304). Record
      the exact file + error in `traps_hit` so the orchestrator hands it to the impl stage as an
      explicit fix-this brief; do not chase it with updates or re-syncs.
 
@@ -219,7 +220,7 @@ have historically crawled the disk for is already at hand:
   `@Endpoint`, `HttpException`, `getIdentity`, heal-rules — is documented in the
   skill references installed alongside you. Read them directly instead of
   hunting the source:
-  - `~/.claude/skills/rune:spec/references/constraints.md` — the assert contract
+  - `~/.claude/skills/rune:framework/references/endpoints.md` — the assert contract
     & seams
   - `~/.claude/skills/rune:framework/references/{endpoints,auth,deployment}.md`
     — runtime, bootstrap, auth, and error mapping

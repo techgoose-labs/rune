@@ -1,0 +1,15 @@
+[REQ] task.create(CreateTaskDto): TaskDto
+    task.fill(title): task
+    id::mint(nonce): id
+    task.toDto(): WidgetDto
+
+[NON] task
+    a todo item
+[DTO] CreateTaskDto: title
+    input
+[DTO] TaskDto: id, title
+    a task
+[TYP] title: string
+    the title
+[TYP] id: string
+    the id

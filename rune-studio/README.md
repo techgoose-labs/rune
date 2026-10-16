@@ -56,15 +56,14 @@ data/keywords.json   ← the studio's bundled copy
 
 | Path                     | Purpose                                                                             |
 | ------------------------ | ----------------------------------------------------------------------------------- |
-| `../keywords.json`       | The single hand-edited registry (source of truth) — tags, modifiers, codegen, lint. |
-| `data/keywords.json`     | Generated copy of the registry bundled with the studio (do not hand-edit).          |
-| `lib/parse.ts`           | `.rune` → per-keyword data model.                                                   |
-| `lib/render.ts`          | Template engine + `renderAll(model, reg)`. No deps.                                 |
-| `lib/editor.ts`          | CodeMirror setup: registry-driven highlighter + linter.                             |
-| `lib/generate-core.ts`   | Registry → tree-sitter `grammar.js` / `highlights.scm`.                             |
+| `../lang/keywords.json`  | The single hand-edited registry (source of truth) — tags, modifiers, codegen, lint. |
+| `lib/engine.ts`          | The one door into the engine: check (the grammar wasm + the checks), generate, lint. |
+| `lib/editor.ts`          | CodeMirror setup: registry-driven highlighter.                                      |
+| `../scripts/generate-core.mjs` | Registry → tree-sitter `grammar.js` / `highlights.scm` / `scanner-config.h` (shared). |
 | `islands/Reference.tsx`  | The interactive studio (imported as `Studio` in `routes/index.tsx`).                |
 | `routes/index.tsx`       | SSR shell; loads the registry.                                                      |
-| `routes/api/generate.ts` | Bridge to the real `rune generate` binary.                                          |
+| `routes/api/check.ts`    | The engine, served: findings, generated files, generated-code lint (REQ-035).       |
+| `routes/api/generate.ts` | The engine's generate.                                                              |
 
 ## Notes
 

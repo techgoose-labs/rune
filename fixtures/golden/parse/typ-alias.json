@@ -22,11 +22,6 @@
             "conflict"
           ],
           "line": 3
-        },
-        {
-          "kind": "ret",
-          "value": "ItemDto",
-          "line": 5
         }
       ],
       "isOpen": false,
@@ -43,17 +38,18 @@
       "description": "a request to add an item to the catalog",
       "isCore": false,
       "isOpen": false,
-      "line": 16
+      "line": 12
     },
     {
       "name": "ItemDto",
       "properties": [
-        "name"
+        "name",
+        "label"
       ],
       "description": "a stored catalog item",
       "isCore": false,
       "isOpen": false,
-      "line": 19
+      "line": 15
     }
   ],
   "typs": [
@@ -64,16 +60,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 7
-    },
-    {
-      "name": "itemRef",
-      "typeName": "ItemDto",
-      "description": "an alias that references the ItemDto shape",
-      "isCore": false,
-      "isExternal": false,
-      "modifiers": [],
-      "line": 10
+      "line": 6
     },
     {
       "name": "label",
@@ -82,7 +69,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 13
+      "line": 9
     }
   ],
   "nons": [],
@@ -95,8 +82,13 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 22
+      "line": 18
     }
   ],
+  "faultStatuses": {},
+  "bodyLines": [],
+  "faultLines": {
+    "conflict": 4
+  },
   "errors": []
 }

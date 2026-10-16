@@ -1,15 +1,15 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 //
-// GENERATED from new/keywords.json by new/generate.mjs — do not edit by hand.
-// Edit the registry (or use the studio) and regenerate.
+// GENERATED from lang/keywords.json by scripts/generate.mjs — do not edit by hand.
+// Edit the registry and regenerate.
 
 module.exports = grammar({
   name: "rune",
 
   extras: ($) => [/ /, /\t/, $.comment],
 
-  externals: ($) => [$.typ_desc, $.dto_desc, $.non_desc, $.fault_line, $.service_prefix],
+  externals: ($) => [$.typ_desc, $.dto_desc, $.non_desc, $.service_prefix],
 
   rules: {
     source_file: ($) => repeat(choice($._line, /\r?\n/)),
@@ -39,27 +39,27 @@ module.exports = grammar({
 
     // ---- generated keyword rules --------------------------------------
     // [REQ] Requirement (indent 0)
-    req_tag: ($) => choice("[REQ]", "[REQ:open]"),
+    req_tag: ($) => token(seq("[REQ", optional(seq(":", /[^\]]+/)), "]")),
     req_line: ($) => seq($.req_tag, field("noun", $.identifier), optional(seq(choice(".", "::"), field("verb", $.method_name))), optional($.http_route), $.parameters, ":", $.return_type),
 
     // [MOD] Module (indent 0)
     mod_tag: ($) => "[MOD]",
-    mod_line: ($) => seq($.mod_tag, field("name", $.identifier)),
+    mod_line: ($) => seq($.mod_tag, field("name", $.mod_name), optional(seq(":", alias($.srv_spec, $.mod_desc)))),
 
     // [ENT] Entrypoint (indent 0)
-    ent_tag: ($) => token(seq("[ENT", optional(seq(":", /[^\]\s]+/)), "]")),
+    ent_tag: ($) => token(seq("[ENT", optional(seq(":", /[^\]]+/)), "]")),
     ent_line: ($) => choice(seq($.ent_tag, $.signature, ":", $.return_type), seq($.ent_tag, field("ws_surface", $.identifier), optional($.ws_route))),
 
     // [PLY] Polymorphic step (indent 4)
     ply_tag: ($) => "[PLY]",
-    ply_line: ($) => seq($.ply_tag, $.signature, ":", $.return_type),
+    ply_line: ($) => seq($.ply_tag, $.signature, ":", $.return_type, optional($.value_name)),
 
     // [CSE] Case (indent 8)
     cse_tag: ($) => "[CSE]",
     cse_line: ($) => seq($.cse_tag, field("name", $.identifier)),
 
     // [NEW] Constructor (indent 4)
-    new_tag: ($) => choice("[NEW]", "[CTR]"),
+    new_tag: ($) => "[NEW]",
     new_line: ($) => seq($.new_tag, field("name", $.identifier)),
 
     // [RET] Return (indent 4)
@@ -67,15 +67,15 @@ module.exports = grammar({
     ret_line: ($) => seq($.ret_tag, choice(prec(2, $.dto_reference), $.type_name)),
 
     // [TYP] Type definition (indent 0)
-    typ_tag: ($) => token(seq("[TYP", optional(seq(":", /[^\]\s]+/)), "]")),
+    typ_tag: ($) => token(seq("[TYP", optional(seq(":", /[^\]]+/)), "]")),
     typ_line: ($) => seq($.typ_tag, $.typ_name, ":", $.typ_type),
 
     // [DTO] DTO definition (indent 0)
-    dto_tag: ($) => token(seq("[DTO", optional(seq(":", /[^\]\s]+/)), "]")),
+    dto_tag: ($) => token(seq("[DTO", optional(seq(":", /[^\]]+/)), "]")),
     dto_line: ($) => seq($.dto_tag, $.dto_def_name, ":", $.dto_prop, repeat(seq(",", optional($._ws), $.dto_prop))),
 
     // [NON] Noun declaration (indent 0)
-    non_tag: ($) => token(seq("[NON", optional(seq(":", /[^\]\s]+/)), "]")),
+    non_tag: ($) => token(seq("[NON", optional(seq(":", /[^\]]+/)), "]")),
     non_line: ($) => seq($.non_tag, field("name", $.identifier)),
 
     // [SRV] Service declaration (indent 0)
@@ -98,17 +98,20 @@ module.exports = grammar({
 
     method_name: ($) => /[a-zA-Z][a-zA-Z0-9_-]*/,
 
-    // [ENT] field-source binding: an optional "@ METHOD /path/{seg}/{seg-star}" clause between the
-    // verb and the parameters. One anchored token (@ + space + verb + space + slash-led path), so
-    // it never collides with @docs (no space after the @) or // line comments.
-    http_route: ($) => token(seq("@", /\s+/, /[A-Za-z]+/, /\s+/, "/", /[^\s()]*/)),
+    // [ENT] route clause: an optional "@ METHOD [/path/{seg}/{seg-star}]" clause between the
+    // verb and the parameters — the verb alone overrides the method, a slash-led template the
+    // route too. One anchored token (@ + space + verb …), so it never collides with @docs (no
+    // space after the @) or // line comments.
+    http_route: ($) => token(seq("@", /\s+/, /[A-Za-z]+/, optional(seq(/\s+/, "/", /[^\s()]*/)))),
 
     // [ENT:ws] socket-header path: "@ /path" — like http_route but with no HTTP verb (a WS
     // handshake is always a GET). A distinct token so the lexer never confuses "@ /x" with
     // "@ VERB /x" (http_route) or "@docs" (no space after the @).
     ws_route: ($) => token(seq("@", /\s+/, "/", /[^\s()]*/)),
 
-    parameters: ($) => seq("(", optional($._param_list), ")"),
+    // A parameter list may span lines: whitespace (newlines included) is
+    // allowed after the opening paren and before the closing one.
+    parameters: ($) => seq("(", optional($._ws), optional($._param_list), optional($._ws), ")"),
 
     _param_list: ($) =>
       seq($._param, repeat(seq(",", optional($._ws), $._param))),
@@ -155,6 +158,7 @@ module.exports = grammar({
     _return_type_single: ($) =>
       prec.right(
         choice(
+          $.inline_dto,
           $.array_type,
           $.generic_type,
           prec(2, $.dto_reference),
@@ -174,7 +178,14 @@ module.exports = grammar({
         repeat(seq(",", choice(prec(2, $.dto_reference), $.type_name)))
       ),
 
-    step_line: ($) => seq($.signature, ":", $.return_type),
+    // A step's value name: "… : TaskDto as loaded" names the value it yields, so a
+    // second live value of one type can be told from the first (REQ-020).
+    value_name: ($) => seq("as", field("name", $.identifier)),
+
+    // A step yields a typed value: "… : Type [as name]". The return clause is
+    // optional in the grammar so a step that forgot it is still a step (the
+    // engine reports missing-return-type), never an unrecognized line.
+    step_line: ($) => seq($.signature, optional(seq(":", $.return_type, optional($.value_name)))),
 
     // [ENT:ws] topic line: a bare "verb(InputDto): OutputDto" (no noun. prefix) under a socket
     // header. step_line's signature requires a dotted noun.verb, so topics need their own rule.
@@ -187,7 +198,14 @@ module.exports = grammar({
     // single colon — distinct from the `::` static separator, which the DFA
     // can't tell apart without the scanner's lookahead).
     boundary_line: ($) =>
-      seq($.service_prefix, $.signature, ":", $.return_type),
+      seq($.service_prefix, $.signature, optional(seq(":", $.return_type, optional($.value_name)))),
+
+    // A fault line declares its kind by its first token, the registry's marker
+    // (REQ-018): "! not-found timeout card-expired=402".
+    // The names (each optionally =STATUS) are one line token: the engine's
+    // lowering splits and validates them against the registry's fault shape.
+    fault_marker: ($) => "!",
+    fault_line: ($) => seq($.fault_marker, alias($.srv_spec, $.fault_list)),
 
     // [SRV] body: <transport>:<name>: <ENV, ...> consumed as one line token.
     srv_spec: ($) => token(/[^\n]+/),
@@ -198,19 +216,22 @@ module.exports = grammar({
     // as a comment.
     srv_docs_line: ($) => seq("@docs", optional($.srv_spec)),
 
-    dto_def_name: ($) => /[A-Za-z_][A-Za-z0-9_]*Dto/,
+    // Any identifier: the Dto suffix is the engine's dto-suffix rule, so a
+    // misnamed contract is a precise finding, not a parse error.
+    dto_def_name: ($) => /[A-Za-z_][A-Za-z0-9_]*/,
 
+    // A property: a [TYP] name or a [DTO] name, optionally an array "(s)" /
+    // lenient array "(s?)", optionally "?" (optional property).
     dto_prop: ($) =>
       seq(
-        choice($.dto_array_prop, prec(2, $.dto_reference), $.property_name),
+        choice(prec(2, $.dto_reference), $.property_name),
+        optional($.dto_array_suffix),
         optional($.dto_optional_marker)
       ),
 
     dto_optional_marker: ($) => "?",
 
-    dto_array_prop: ($) => seq($.property_name, $.dto_array_suffix),
-
-    dto_array_suffix: ($) => /\([a-z]+\)/,
+    dto_array_suffix: ($) => /\([a-z]+\??\)/,
 
     typ_name: ($) => /[a-zA-Z_][a-zA-Z0-9_]*/,
 
@@ -233,5 +254,8 @@ module.exports = grammar({
     typ_enum_value: ($) => /"[^"]*"/,
 
     identifier: ($) => /[a-zA-Z_][a-zA-Z0-9_]*/,
+
+    // A module name is a directory name: kebab-case is allowed.
+    mod_name: ($) => /[a-zA-Z_][a-zA-Z0-9_-]*/,
   },
 });

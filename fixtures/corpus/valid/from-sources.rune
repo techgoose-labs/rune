@@ -1,22 +1,24 @@
 [MOD] gateway
 
-[ENT] http.proxy(ProxyReqDto): ProxyResDto
+[ENT] http.search @ GET(SearchReqDto): SearchResDto
+    [REQ] search.run(SearchReqDto): SearchResDto
 
-[REQ] proxy.run(ProxyReqDto): ProxyResDto
-    noop::run(): void
+[REQ] search.run(SearchReqDto): SearchResDto
+    index::query(q, limit, tenant): SearchResDto
 
-[DTO] ProxyReqDto: target, rest, q, payload
-    a request proxied to an upstream service
-[DTO] ProxyResDto: status
-    the upstream response
+[DTO] SearchReqDto: q, limit, tenant
+    a search, its fields read from the query string and a header
+[DTO] SearchResDto: hits
+    the search result
 
-[TYP:from=path] target: string
-    the upstream host segment, taken from the URL path
-[TYP:from=path*] rest: string
-    the remaining upstream path (catch-all)
 [TYP:from=query,example=widgets] q: string
     a forwarded query parameter
-[TYP] payload: string
-    the forwarded request body
-[TYP] status: number
-    the upstream status code
+[TYP:from=query,int,example=10] limit: number
+    the page size, from the query string
+[TYP:from=header,example=acme] tenant: string
+    the tenant, from a request header
+[TYP] hits: number
+    how many documents matched
+
+[NON] index
+    the search index

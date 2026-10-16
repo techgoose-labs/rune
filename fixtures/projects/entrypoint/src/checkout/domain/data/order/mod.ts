@@ -5,6 +5,7 @@ import { OrderDto } from "@/src/checkout/dto/order.ts";
 
 // Data adapter for `order` — the I/O boundary.
 // Coordinators await these methods; implement each one.
+// a customer order
 export class Order {
   /**
    * @param orderDto a created order

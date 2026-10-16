@@ -1,13 +1,17 @@
 [REQ] order.place(PlaceOrderDto): ReceiptDto
     [NEW] cart
-    cart.total(): PriceDto
-      empty-cart
+    cart.total(items): PriceDto
+      ! empty-cart=422
     db:order.save(PlaceOrderDto): IdDto
-      timeout network-error
+      ! timeout network-error
+    receipt::build(IdDto, PriceDto): ReceiptDto
+    db:receipt.log(ReceiptDto): void
     [RET] ReceiptDto
 
 [NON] cart
     a shopping cart holding line items before checkout
+[NON] receipt
+    the receipt handed to the customer
 
 [TYP] price: number
     a positive monetary amount
@@ -26,8 +30,9 @@
 
 [TYP] items: string
     the items
+[TYP] id: string
+    the id
 
 [SRV] (SIDECAR)db: DB_URL
     the primary datastore
     @docs https://docs.example.com/db
-

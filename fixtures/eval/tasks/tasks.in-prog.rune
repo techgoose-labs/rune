@@ -1,19 +1,22 @@
 [MOD] tasks
 
 [ENT] http.createTask(TaskCreateDto): TaskDto
+    [REQ] task.create(TaskCreateDto): TaskDto
 [ENT] http.completeTask(TaskCompleteDto): TaskDto
+    [REQ] task.complete(TaskCompleteDto): TaskDto
 [ENT] http.listTasks(TaskListDto): TasksDto
+    [REQ] task.list(TaskListDto): TasksDto
 
 [REQ] task.create(TaskCreateDto): TaskDto
     id::generate(): id
     [NEW] task
-    task.fill(title): task
+    task.fill(id, title): task
     task.toDto(): TaskDto
 
 
 [REQ] task.complete(TaskCompleteDto): TaskDto
     task::load(id): task
-      not-found
+      ! not-found
     task.markDone(): task
     task.toDto(): TaskDto
 
@@ -29,7 +32,8 @@
     the 1-based page number for listing tasks
 [TYP] done: boolean
     whether the task has been completed
-[TYP] task: Class
+
+[NON] task
     a single todo item
 
 [DTO] TaskCreateDto: title

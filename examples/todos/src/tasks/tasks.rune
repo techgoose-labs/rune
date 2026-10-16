@@ -3,22 +3,25 @@
 [REQ] task.create(CreateTaskDto): TaskDto
     id::generate(): id
     [NEW] task
-    task.fill(title): task
-    db:task.save(TaskDto): void
-      timeout
+    task.fill(id, title): task
     task.toDto(): TaskDto
+    db:task.save(TaskDto): void
+      ! timeout
+    [RET] TaskDto
 
 [REQ] task.complete(TaskRefDto): TaskDto
-    db:task.load(id): TaskDto
-      not-found
+    db:task.load(id): TaskDto as stored
+      ! not-found
+    task::fromDto(stored): task
     task.markDone(): task
-    db:task.save(TaskDto): void
-      timeout
     task.toDto(): TaskDto
+    db:task.save(TaskDto): void
+      ! timeout
+    [RET] TaskDto
 
 [TYP] id: string
     a unique task identifier
-[TYP] title: string
+[TYP:example=buy-milk] title: string
     the human-readable task title
 [TYP] done: boolean
     whether the task has been completed

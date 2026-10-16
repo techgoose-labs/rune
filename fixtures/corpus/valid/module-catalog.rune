@@ -2,8 +2,7 @@
 
 [REQ] product.list(ListDto): ProductsDto
     db:product.query(ListDto): ProductsDto
-      timeout
-    [RET] ProductsDto
+      ! timeout
 
 [DTO] ListDto: page
     a paged product listing request
@@ -19,4 +18,3 @@
 [SRV] (SIDECAR)db: DB_URL
     the primary datastore
     @docs https://docs.example.com/db
-

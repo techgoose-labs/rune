@@ -111,11 +111,12 @@ Deno.test("REQ-013: runCheck --json prints findings with ids", async () => {
     const report = JSON.parse(c.out.join(""));
     assertEquals(report.ok, false);
     assertEquals(report.path, file);
-    assertEquals(report.findings.length, 1);
-    assertEquals(report.findings[0].id, "dto-prop-undefined");
-    assertEquals(report.findings[0].severity, "error");
-    assertEquals(report.findings[0].line, 5);
-    assertEquals(typeof report.findings[0].message, "string");
+    // Warnings ride along in the report (an unused DTO here); `ok` is "no errors".
+    const errors = report.findings.filter((f: { severity: string }) => f.severity === "error");
+    assertEquals(errors.length, 1);
+    assertEquals(errors[0].id, "dto-prop-undefined");
+    assertEquals(errors[0].line, 5);
+    assertEquals(typeof errors[0].message, "string");
     assertEquals(c.err, []);
   } finally {
     await Deno.remove(dir, { recursive: true });
@@ -132,7 +133,7 @@ Deno.test("REQ-013: runCheck --stdin --path checks a buffer", async () => {
     assertEquals(await runCheck(["--stdin", "--path", file, "--json"], c.io), 0);
     const report = JSON.parse(c.out.join(""));
     assertEquals(report.ok, true);
-    assertEquals(report.findings, []);
+    assertEquals(report.findings.filter((f: { severity: string }) => f.severity === "error"), []);
     // --stdin without --path is a usage error.
     assertEquals(await runCheck(["--stdin"], capture().io), 2);
   } finally {

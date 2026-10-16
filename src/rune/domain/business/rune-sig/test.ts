@@ -202,10 +202,10 @@ Deno.test("collectNounMethods unions faults across calls of the same method", ()
   const spec = `[MOD] tasks
 [REQ] task.create(InDto): OutDto
     db:task.save(InDto): void
-      timeout
+      ! timeout
 [REQ] task.update(InDto): OutDto
     db:task.save(InDto): void
-      conflict
+      ! conflict
 `;
   const save = collectNounMethods(parse(spec)).get("task")!
     .find((m) => m.verb === "save")!;

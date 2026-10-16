@@ -6,5 +6,9 @@
   {
     "id": "dto-prop-undefined",
     "line": 3
+  },
+  {
+    "id": "dto-unused",
+    "line": 3
   }
 ]

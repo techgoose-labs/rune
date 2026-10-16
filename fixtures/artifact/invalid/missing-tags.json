@@ -1,20 +1,18 @@
 {
   "name": "Test",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "2.0.0",
   "modifiers": [
     {
       "id": "core",
       "token": ":core",
       "appliesTo": [
         "dto"
-      ]
+      ],
+      "kind": "routing",
+      "base": null,
+      "param": "none"
     }
   ],
-  "boundaries": {
-    "prefixes": [
-      "db:"
-    ]
-  },
   "builtins": [
     "string"
   ],
@@ -31,5 +29,38 @@
       },
       "message": "x"
     }
-  ]
+  ],
+  "transports": [
+    {
+      "id": "HTTP",
+      "summary": "http"
+    }
+  ],
+  "faults": {
+    "marker": "!",
+    "syntax": "! name",
+    "shape": "^[a-z][a-z0-9-]*$",
+    "summary": "faults",
+    "wellKnown": [
+      {
+        "id": "not-found",
+        "status": 404,
+        "summary": "missing"
+      }
+    ]
+  },
+  "indent": {
+    "unit": 4,
+    "step": 4,
+    "fault": 6,
+    "case": 8,
+    "caseStep": 8,
+    "caseFault": 10,
+    "description": 4,
+    "body": 4,
+    "faultOffset": 2
+  },
+  "columns": {
+    "max": 80
+  }
 }

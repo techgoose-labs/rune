@@ -4,7 +4,15 @@
     "line": 1
   },
   {
+    "id": "tag-indent",
+    "line": 1
+  },
+  {
     "id": "dto-prop-undefined",
+    "line": 3
+  },
+  {
+    "id": "dto-unused",
     "line": 3
   }
 ]

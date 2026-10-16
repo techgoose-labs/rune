@@ -1,0 +1,19 @@
+[package]
+name = "tree-sitter-rune"
+description = "The rune grammar, generated from lang/keywords.json, linked for the Rust binaries (REQ-032)"
+version = "0.1.0"
+edition = "2024"
+build = "bindings/rust/build.rs"
+include = ["bindings/rust/*", "grammar.js", "queries/*", "src/*", "tree-sitter.json"]
+
+[lib]
+path = "bindings/rust/lib.rs"
+
+[dependencies]
+tree-sitter-language = "0.1"
+
+[build-dependencies]
+cc = "1"
+
+[dev-dependencies]
+tree-sitter = "0.25"

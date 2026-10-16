@@ -1,3 +1,7 @@
+[REQ] audit.record(LocalDto): AuditDto
+    clock::now(): timestamp
+    audit::build(id, timestamp): AuditDto
+
 [TYP:core] id: string
     a globally shared identifier type
 
@@ -9,3 +13,8 @@
 
 [DTO] LocalDto: id
     a module-local contract that references a core type
+
+[NON] clock
+    the wall clock
+[NON] audit
+    an audit record in the making

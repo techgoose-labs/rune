@@ -1,0 +1,17 @@
+[REQ] card.open(OpenDto): CardDto
+    card::toDto(pan): CardDto
+[REQ] card.charge(ChargeDto): CardDto
+    card::toDto(pan, cvv): CardDto
+
+[NON] card
+    a card
+[DTO] OpenDto: pan
+    open
+[DTO] ChargeDto: pan, cvv
+    charge
+[DTO] CardDto: pan
+    a card
+[TYP] pan: string
+    the pan
+[TYP] cvv: string
+    the cvv

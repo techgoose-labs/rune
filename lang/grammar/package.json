@@ -10,7 +10,7 @@
     "node-gyp-build": "^4.8.4"
   },
   "devDependencies": {
-    "tree-sitter-cli": "^0.24.5"
+    "tree-sitter-cli": "^0.25.10"
   },
   "scripts": {
     "build": "tree-sitter generate && node-gyp rebuild",

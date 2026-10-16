@@ -1,0 +1,12 @@
+[REQ] task.create(InDto): TaskDto
+    db:task.save(InDto)
+    task::toDto(InDto): TaskDto
+
+[NON] task
+    a task
+[DTO] InDto: a
+    in
+[DTO] TaskDto: a
+    a task
+[TYP] a: string
+    a

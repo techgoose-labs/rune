@@ -3,17 +3,19 @@
 [REQ] order.place(PlaceOrderDto): OrderDto
     id::generate(): id
     [NEW] order
-    order.fill(amountCents): order
+    order.fill(id, amountCents): order
+    order.toCharge(): ChargeDto
     pay:order.charge(ChargeDto): ReceiptDto
-      card-declined timeout
+      ! declined timeout
     order.markPaid(): order
-    db:order.save(OrderDto): void
-      timeout
     order.toDto(): OrderDto
+    db:order.save(OrderDto): void
+      ! timeout
+    [RET] OrderDto
 
 [TYP] id: string
     a unique order identifier
-[TYP] amountCents: number
+[TYP:example=4200] amountCents: number
     the order total in cents
 [TYP] status: string
     the order lifecycle status

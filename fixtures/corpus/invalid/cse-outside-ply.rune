@@ -1,7 +1,7 @@
 [REQ] order.place(InDto): OutDto
     [CSE] stray
     db:order.save(InDto): OutDto
-      timeout
+      ! timeout
     [RET] OutDto
 
 [DTO] InDto: a

@@ -21,9 +21,9 @@ const RUNE = `[MOD] recording
 
 [REQ] recording.set(InDto): OutDto
     id::create(name): id
-      invalid-id
+      ! invalid-id
     db:metadata.set(id, x): void
-      timed-out network-error`;
+      ! timed-out=504 network-error`;
 
 Deno.test("check — passes when all fault tests exist", async () => {
   const intTest = `Deno.test("invalid-id", () => {});
@@ -112,7 +112,7 @@ Deno.test("check — collects faults from inside [PLY] cases", async () => {
     [PLY] provider.getRecording(id): data
         [CSE] genie
         ex:provider.search(id): SearchDto
-          not-found timed-out`;
+          ! not-found timed-out=504`;
   const intTest = ``; // missing both faults
   const adapterTest = ``; // missing both faults
   const ctx = ctxWith(rune, [

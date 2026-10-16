@@ -1,0 +1,12 @@
+[REQ] item.add(AddItemDto): ItemDto
+    db:item.save(AddItemDto): ItemDto
+
+[TYP] name: string
+    a name
+[TYP] itemRef: ItemDto
+    a [TYP] may not alias a [DTO]
+
+[DTO] AddItemDto: name
+    a request
+[DTO] ItemDto: name, itemRef
+    an item

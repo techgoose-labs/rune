@@ -1,0 +1,15 @@
+[REQ] search.run(QueryDto): ResultsDto
+    db:index.query(QueryDto): ResultsDto
+      ! timeout
+    db:audit.record(ResultsDto): AuditDto
+
+[DTO] QueryDto: query
+    a query
+[DTO] ResultsDto: items
+    results
+[DTO] AuditDto: items
+    an audit record
+[TYP] query: string
+    the query
+[TYP] items: string
+    an item

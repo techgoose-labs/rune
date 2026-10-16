@@ -1,10 +1,9 @@
 [REQ] payment.charge(ChargeDto): ChargeResultDto
-    card.validate(ChargeDto): ChargeDto
-    ex:gateway.authorize(ChargeDto): AuthDto
-      declined
+    card::validate(ChargeDto): ChargeDto as validated
+    ex:gateway.authorize(validated): AuthDto
+      ! declined
     db:ledger.record(AuthDto): ChargeResultDto
-      timeout network-error conflict
-    [RET] ChargeResultDto
+      ! timeout network-error conflict
 
 [NON] card
     a payment card presented by the customer
@@ -30,4 +29,3 @@
 [SRV] (SIDECAR)db: DB_URL
     the primary datastore
     @docs https://docs.example.com/db
-

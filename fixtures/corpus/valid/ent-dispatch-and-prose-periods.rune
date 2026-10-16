@@ -2,8 +2,7 @@
 
 [REQ] fragment.ingest(FragmentDto): AckDto
     db:fragment.save(FragmentDto): AckDto
-      write-failed
-    [RET] AckDto
+      ! write-failed=503
 
 [ENT] http.ingest(FragmentDto): AckDto
     [REQ] fragment.ingest(FragmentDto): AckDto

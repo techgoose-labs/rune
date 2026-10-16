@@ -1,11 +1,12 @@
 [REQ] order.place(InDto): OutDto
-    [CTR]
     db:order.save(InDto): OutDto
-      timeout
-    [RET] OutDto
+      ! card-expired timeout
 
 [DTO] InDto: a
     in
-
 [DTO] OutDto: b
     out
+[TYP] a: string
+    a
+[TYP] b: string
+    b

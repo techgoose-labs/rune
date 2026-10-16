@@ -51,6 +51,7 @@ export interface RuleSetting {
 export function resolveSettings(lint: LintRule[]): Map<string, RuleSetting> {
   const byType = new Map<string, RuleSetting>();
   for (const r of lint) {
+    if (!r.type) continue; // a coded spec rule has a checker, not a type
     byType.set(r.type, {
       enabled: r.enabled,
       severity: r.severity as Severity,

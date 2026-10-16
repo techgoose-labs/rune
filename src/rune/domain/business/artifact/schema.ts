@@ -1,4 +1,4 @@
-// The artifact contract (WO-3 / P2 / closes G8).
+// The artifact contract (WO-3 / P2 / closes G8; hardened by REQ-026).
 //
 // This zod schema is the SINGLE SOURCE for the artifact's shape: TS types come
 // from `z.infer` (one definition for engine + Studio), runtime structural
@@ -8,8 +8,9 @@
 //
 // The schema is intentionally lenient about unknown keys (zod strips them) so
 // it accepts the current registry as it grows; the required core is what every
-// consumer (parser, codegen, lint) depends on. Sections are grouped to mirror
-// the separable concerns of ADR 0008 (D7): language vs lint vs codegen profiles.
+// consumer (parser, codegen, lint, docs, grammar) depends on. Sections are
+// grouped to mirror the separable concerns of ADR 0008 (D7): language vs lint
+// vs codegen profiles.
 
 import * as z from "#zod";
 
@@ -47,7 +48,6 @@ export const TagSchema = z.object({
   label: z.string(),
   indent: z.number().int().nonnegative(),
   follows: z.enum(FOLLOWS),
-  synonyms: z.array(z.string()).optional(),
   allowFunctionName: z.boolean().optional(),
   color: z.string().optional(),
   description: z.string().optional(),
@@ -55,40 +55,84 @@ export const TagSchema = z.object({
   group: z.string().optional(),
   syntax: z.string().optional(),
   summary: z.string().optional(),
-  rules: z.array(z.string()).optional(),
+  /** The lint id reported when a line of this tag is malformed (REQ-034). */
+  shapeRule: z.string().min(1),
 });
 
+/** A modifier's full spec (REQ-025): what it applies to, its base primitive,
+ * its parameter kind, and the decorator it emits — the one table the parser,
+ * the codegen, the docs and the editor read. */
 export const ModifierSchema = z.object({
   id: z.string().min(1),
   token: z.string().regex(/^:[a-z]+$/, "modifier token must look like :core"),
   label: z.string().optional(),
   appliesTo: z.array(z.string()),
+  kind: z.enum(["routing", "source", "constraint", "doc", "binding"]),
+  /** The declared [TYP] primitive a constraint requires; null = any. */
+  base: z.enum(["string", "number"]).nullable(),
+  param: z.enum(["none", "number", "text"]),
+  /** For a text parameter, the closed set of accepted values. */
+  values: z.array(z.string()).optional(),
+  /** class-validator import name, when the modifier emits a decorator. */
+  decorator: z.string().optional(),
+  /** Decorator call for a scalar field, `{value}` substituted. */
+  call: z.string().optional(),
+  /** Decorator call for an `(s)` array field (each-form). */
+  eachCall: z.string().optional(),
   syntax: z.string().optional(),
   description: z.string().optional(),
-  // [TYP] constraint modifiers (validation tier 3): "constraint" entries carry
-  // the class-validator decorator they emit and whether they take a value
-  // ("min=0"). Optional so routing modifiers (core/ext) stay as they are.
-  kind: z.string().optional(),
-  decorator: z.string().optional(),
-  param: z.enum(["none", "number", "text"]).optional(),
 });
 
-export const BoundariesSchema = z.object({
-  color: z.string().optional(),
-  description: z.string().optional(),
-  prefixes: z.array(z.string()).min(1),
+export const TransportSchema = z.object({
+  id: z.string().regex(/^[A-Z]+$/),
+  summary: z.string(),
+});
+
+export const FaultsSchema = z.object({
+  marker: z.string().min(1),
+  syntax: z.string(),
+  /** The fault-name shape, as a regex source. */
+  shape: z.string(),
+  summary: z.string(),
+  wellKnown: z.array(z.object({
+    /** A name, or a `prefix-*` glob. */
+    id: z.string().min(1),
+    status: z.number().int().min(100).max(599),
+    summary: z.string(),
+  })).min(1),
+});
+
+export const IndentSchema = z.object({
+  unit: z.number().int().positive(),
+  step: z.number().int().nonnegative(),
+  fault: z.number().int().nonnegative(),
+  case: z.number().int().nonnegative(),
+  caseStep: z.number().int().nonnegative(),
+  caseFault: z.number().int().nonnegative(),
+  description: z.number().int().nonnegative(),
+  body: z.number().int().nonnegative(),
+  faultOffset: z.number().int().positive(),
+  summary: z.string().optional(),
 });
 
 // ---- lint section ----------------------------------------------------------
 
 export const LintRuleSchema = z.object({
   id: z.string().min(1),
-  type: z.string().min(1),
+  type: z.string().min(1).optional(),
   target: z.enum(["spec", "generated"]),
   severity: z.enum(["error", "warning", "info"]),
   enabled: z.boolean(),
   params: z.record(z.string(), z.unknown()).optional(),
+  /** The finding's message, `{var}` placeholders substituted by the engine. */
   message: z.string(),
+  /** What to change, when the rule can say so (`{var}` placeholders). */
+  fix: z.string().optional(),
+  /** The rule's explanation (`rune check --explain <id>`, the language card). */
+  doc: z.string().optional(),
+  /** A coded rule names the engine checker that emits it (REQ-026). A rule
+   * with no checker is a shape rule, fully specified by `type` + `params`. */
+  checker: z.string().min(1).optional(),
   // governance (D6): org-locked rules cannot be weakened by a project overlay.
   locked: z.boolean().optional(),
   owner: z.string().optional(),
@@ -151,8 +195,11 @@ export const ArtifactSchema = z.object({
   palette: z.record(z.string(), z.unknown()).optional(),
   // language (target-independent)
   tags: z.array(TagSchema).min(1),
-  modifiers: z.array(ModifierSchema).optional(),
-  boundaries: BoundariesSchema,
+  modifiers: z.array(ModifierSchema),
+  transports: z.array(TransportSchema).min(1),
+  faults: FaultsSchema,
+  indent: IndentSchema,
+  columns: z.object({ max: z.number().int().positive() }),
   builtins: z.array(z.string()),
   tokens: z.record(z.string(), z.unknown()),
   architecture: z.unknown().optional(),
@@ -173,6 +220,9 @@ export const ArtifactSchema = z.object({
 export type CodegenTemplate = z.infer<typeof CodegenTemplateSchema>;
 export type Tag = z.infer<typeof TagSchema>;
 export type Modifier = z.infer<typeof ModifierSchema>;
+export type Transport = z.infer<typeof TransportSchema>;
+export type Faults = z.infer<typeof FaultsSchema>;
+export type Indent = z.infer<typeof IndentSchema>;
 export type LintRule = z.infer<typeof LintRuleSchema>;
 export type Profile = z.infer<typeof ProfileSchema>;
 export type Binding = z.infer<typeof BindingSchema>;

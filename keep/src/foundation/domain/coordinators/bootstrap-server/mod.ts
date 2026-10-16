@@ -1,4 +1,5 @@
 import type { FetchHandler, SwaggerDocEntry, Type } from "@types";
+import { faultResponse } from "../../../../faults/mod.ts";
 import { Server } from "@foundation/domain/business/server/mod.ts";
 import { DanetHttpAdapter } from "@foundation/domain/data/http-adapter/mod.ts";
 import type { HttpContext } from "#danet/core";
@@ -786,6 +787,10 @@ export class BootstrapServer {
               422,
             );
           }
+          // A spec fault (`! not-found`, `! card-expired=402`) thrown by a
+          // coordinator answers with its declared status (REQ-018).
+          const fault = faultResponse(err);
+          if (fault) return ctx.json(fault.body, fault.status as 404);
           return undefined;
         },
       });

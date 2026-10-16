@@ -1,14 +1,12 @@
 [REQ] search.run({query, page}): ResultsDto
-    db:index.query(QueryDto): ResultsDto
-      timeout
-    [RET] ResultsDto
-
-[DTO] QueryDto: query, page
-    a search query with pagination
+    db:index.query(query, page): ResultsDto
+      ! timeout
 
 [DTO] ResultsDto: items
     the matched results
 
+[TYP] query: string
+    the query
 [TYP] page: number
     the page
 [TYP] items: string
@@ -17,4 +15,3 @@
 [SRV] (SIDECAR)db: DB_URL
     the primary datastore
     @docs https://docs.example.com/db
-

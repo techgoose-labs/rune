@@ -5,15 +5,15 @@
     [NEW] task
     task.fill(title): task
     db:task.save(TaskDto): void
-      timeout
+      ! timeout
     task.toDto(): TaskDto
 
 [REQ] task.complete(TaskRefDto): TaskDto
     db:task.load(id): TaskDto
-      not-found
+      ! not-found
     task.markDone(): task
     db:task.save(TaskDto): void
-      timeout
+      ! timeout
     task.toDto(): TaskDto
 
 [TYP] id: string

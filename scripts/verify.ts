@@ -28,6 +28,7 @@ import {
 } from "@rune/domain/business/governance/mod.ts";
 import { migrate } from "@rune/domain/business/migrate/mod.ts";
 import { generate as studioGenerate } from "../rune-studio/lib/engine.ts";
+import { buildGrammar } from "./generate-core.mjs";
 import type { EntryResult } from "@core/dto/types.ts";
 
 // Deterministic lint: never depend on whether the Rust LSP binary is present.
@@ -318,13 +319,9 @@ async function gateL7(): Promise<GateResult> {
       }`,
     );
   }
-  // It must still parse + generate under N (using the migrated artifact).
+  // It must still generate under N (using the migrated artifact).
   for (const name of GEN_FIXTURES) {
     const text = Deno.readTextFileSync(join(CORPUS, "valid", `${name}.rune`));
-    const ast = parse(text, { tags: migrated.tags });
-    if (ast.errors.length > 0) {
-      bad.push(`${name}: does not parse under migrated artifact`);
-    }
     const plan = planManifest("spec.rune", text, new Set(), {
       bindings: migrated.bindings,
       codegen: migrated.codegen.templates,
@@ -641,31 +638,25 @@ async function gateL6(): Promise<GateResult> {
     );
   }
 
-  // (c) PARSE recognition mutation (WO-4c). The parser recognises tag literals
-  // from the artifact's tags table; adding a synonym makes a new literal parse
-  // with no parser edit.
-  const consSpec =
-    "[REQ] x.do(InDto): OutDto\n    [CONS] widget\n    db:x.save(InDto): OutDto\n      timeout\n    [RET] OutDto\n[DTO] InDto: a\n    in\n[DTO] OutDto: b\n    out\n";
-  const defaultParse = parse(consSpec, { tags: artifact.tags });
-  const withCons = structuredClone(artifact.tags);
-  const newTag = withCons.find((t: { id: string }) => t.id === "new");
-  newTag.synonyms = [...(newTag.synonyms ?? []), "[CONS]"];
-  const mutatedParse = parse(consSpec, { tags: withCons });
-  const defaultRejects = defaultParse.errors.some((e: { message: string }) =>
-    e.message.includes("[CONS]") || e.message.includes("unrecognized")
-  );
-  const mutatedAccepts = !mutatedParse.errors.some((e: { message: string }) =>
-    e.message.includes("unrecognized")
-  );
-  if (!defaultRejects) {
-    bad.push(
-      "expected the default tag set to reject the unknown [CONS] literal",
-    );
+  // (c) GRAMMAR mutation (REQ-031). The parser of record is the grammar built
+  // from the artifact's tags table; adding a tag changes the generated grammar
+  // (and, after a wasm build, what the engine parses) with no parser edit.
+  const withCons = structuredClone(artifact);
+  withCons.tags.push({
+    id: "cons",
+    tag: "[CONS]",
+    label: "Construct",
+    indent: 4,
+    follows: "identifier",
+    shapeRule: "unrecognized-line",
+  });
+  const grammarDefault = buildGrammar(artifact);
+  const grammarMutated = buildGrammar(withCons);
+  if (grammarDefault.includes("[CONS]")) {
+    bad.push("expected the default tag set to produce no [CONS] rule");
   }
-  if (!mutatedAccepts) {
-    bad.push(
-      "adding [CONS] as a synonym in the artifact did not make it parse",
-    );
+  if (!grammarMutated.includes("cons_line") || !grammarMutated.includes("\"[CONS]\"")) {
+    bad.push("adding [CONS] to the artifact did not add a grammar rule for it");
   }
 
   // (d) LINT policy mutation (WO-4d). Rule enabled/severity comes from the

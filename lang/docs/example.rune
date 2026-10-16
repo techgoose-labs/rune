@@ -1,51 +1,52 @@
 [REQ] registerRecording(GetRecordingDto): IdDto
     id::create(providerName, externalId): id
     provider::pick(providerName): provider
-      not-found
+      ! not-found
     [PLY] provider.getRecording(externalId): data
         [CSE] genie
         ex:provider.search(externalId): SearchDto
-          not-found timeout invalid-id
-        ex:provider.download(url): data
-          not-found timeout
+          ! not-found timeout invalid-id
+        ex:provider.download(urls): data
+          ! not-found timeout
         [CSE] fiveNine
         ex:provider.search(externalId): SearchDto
-          not-found timeout invalid-id
-        ex:provider.download(url): data
-          not-found timeout
+          ! not-found timeout invalid-id
+        ex:provider.download(urls): data
+          ! not-found timeout
     [NEW] metadata
     metadata.toDto(): MetadataDto
+    id.toDto(): IdDto
     db:metadata.set(IdDto, MetadataDto): void
-      timeout network-error
+      ! timeout network-error
     [NEW] storage
     os:storage.save(IdDto, data): void
-      timeout network-error
-    id.toDto(): IdDto
+      ! timeout network-error
+    [RET] IdDto
 
 
 [REQ] getRecording(GetRecordingDto): RecordingDto
     id::create(providerName, externalId): id
-      invalid
-    [NEW] storage
+      ! invalid
     id.toDto(): IdDto
+    [NEW] storage
     os:storage.load(IdDto): DataDto
-      woof timeout network-error
+      ! not-found timeout network-error
     [NEW] metadata
     db:metadata.get(IdDto): MetadataDto
-      not-found timeout network-error
+      ! not-found timeout network-error
     recording::create(DataDto, MetadataDto): recording
-      invalid-data invalid-metadata
+      ! invalid-data invalid-metadata
     recording.toDto(): RecordingDto
 
 
 [REQ] setRecordingMetadata(SetMetadataDto): MetadataDto
     id::create(providerName, externalId): id
-      invalid
-    [NEW] metadata
-    db:metadata.get(IdDto): MetadataDto
-      not-found timeout network-error
+      ! invalid
+    id.toDto(): IdDto
+    db:metadata.get(IdDto): MetadataDto as stored
+      ! not-found timeout network-error
     db:metadata.set(IdDto, MetadataDto): void
-      timeout network-error
+      ! timeout network-error
     [RET] MetadataDto
 
 

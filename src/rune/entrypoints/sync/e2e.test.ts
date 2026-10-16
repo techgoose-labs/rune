@@ -4,8 +4,9 @@ import { runSync } from "./mod.ts";
 
 const SPEC = `[MOD] orders
 [REQ] orders.place(PlaceDto): OrderDto
-    cart.total(): money
-    [RET] OrderDto
+    [NEW] cart
+    cart.total(): money as total
+    cart.toDto(): OrderDto
 
 
 [NON] cart

@@ -3,26 +3,29 @@
 [REQ] product.add(NewProductDto): ProductDto
     id::generate(): id
     [NEW] product
-    product.fill(name): product
-    db:product.save(ProductDto): void
-      timeout
+    product.fill(id, name, priceCents): product
     product.toDto(): ProductDto
+    db:product.save(ProductDto): void
+      ! timeout
+    [RET] ProductDto
 
 [REQ] product.restock(StockDto): ProductDto
-    db:product.load(id): ProductDto
-      not-found
+    db:product.load(id): ProductDto as stored
+      ! not-found
+    product::fromDto(stored): product
     product.addStock(quantity): product
-    db:product.save(ProductDto): void
-      timeout
     product.toDto(): ProductDto
+    db:product.save(ProductDto): void
+      ! timeout
+    [RET] ProductDto
 
 [TYP] id: string
     a unique product identifier
-[TYP] name: string
+[TYP:example=lamp] name: string
     the product display name
-[TYP] priceCents: number
+[TYP:example=1999] priceCents: number
     unit price in cents
-[TYP] quantity: number
+[TYP:example=5] quantity: number
     a count of units in stock
 
 [DTO] NewProductDto: name, priceCents

@@ -2,14 +2,10 @@
 
 [REQ] item.add(AddItemDto): ItemDto
     db:item.save(AddItemDto): ItemDto
-      conflict
-    [RET] ItemDto
+      ! conflict
 
 [TYP] name: string
     a human-readable item name
-
-[TYP] itemRef: ItemDto
-    an alias that references the ItemDto shape
 
 [TYP] label: name
     an alias that references another [TYP]
@@ -17,7 +13,7 @@
 [DTO] AddItemDto: name
     a request to add an item to the catalog
 
-[DTO] ItemDto: name
+[DTO] ItemDto: name, label
     a stored catalog item
 
 [SRV] (SIDECAR)db: DB_URL

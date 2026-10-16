@@ -1,0 +1,22 @@
+[
+  {
+    "id": "dto-unique",
+    "line": 6
+  },
+  {
+    "id": "dto-unused",
+    "line": 10
+  },
+  {
+    "id": "typ-unique",
+    "line": 14
+  },
+  {
+    "id": "typ-unused",
+    "line": 16
+  },
+  {
+    "id": "non-unused",
+    "line": 18
+  }
+]

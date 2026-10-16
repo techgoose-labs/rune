@@ -12,18 +12,18 @@ const reg: any = JSON.parse(
 const EXAMPLE = `[REQ] registerRecording(GetRecordingDto): IdDto
     id::create(providerName, externalId): id
     provider::pick(providerName): provider
-      not-found
+      ! not-found
     [PLY] provider.getRecording(externalId): data
         [CSE] genie
         ex:provider.search(externalId): SearchDto
-          not-found timeout
+          ! not-found timeout
         [CSE] fiveNine
         ex:provider.fetch(externalId): data
-          timeout
+          ! timeout
     [NEW] metadata
     metadata.toDto(): MetadataDto
     db:metadata.set(IdDto, MetadataDto): void
-      timeout
+      ! timeout
     id.toDto(): IdDto
 
 

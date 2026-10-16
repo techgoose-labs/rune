@@ -3,33 +3,39 @@
 [REQ] book.add(AddBookDto): BookDto
     id::generate(): id
     [NEW] book
-    book.fill(title): book
-    db:book.save(BookDto): void
-      timeout
+    book.fill(id, title): book
     book.toDto(): BookDto
+    db:book.save(BookDto): void
+      ! timeout
+    [RET] BookDto
 
 [REQ] book.borrow(BorrowDto): BookDto
-    db:book.load(id): BookDto
-      not-found
+    db:book.load(id): BookDto as stored
+      ! not-found
+    book::fromDto(stored): book
     book.markBorrowed(): book
-    db:book.save(BookDto): void
-      timeout
     book.toDto(): BookDto
+    db:book.save(BookDto): void
+      ! timeout
+    [RET] BookDto
 
 [REQ] member.register(RegisterDto): MemberDto
     id::generate(): id
     [NEW] member
-    member.fill(name): member
-    db:member.save(MemberDto): void
-      timeout
+    member.fill(id, name): member
     member.toDto(): MemberDto
+    db:member.save(MemberDto): void
+      ! timeout
+    [RET] MemberDto
 
 [TYP] id: string
     a unique identifier
-[TYP] title: string
+[TYP:example=dune] title: string
     the book title
-[TYP] name: string
+[TYP:example=ada] name: string
     the member name
+[TYP] borrowed: boolean
+    whether the book is out on loan
 
 [DTO] AddBookDto: title
     input to add a new book

@@ -83,12 +83,12 @@ export const ModifierSchema = z.object({
   description: z.string().optional(),
 });
 
-export const TransportSchema = z.object({
+const TransportSchema = z.object({
   id: z.string().regex(/^[A-Z]+$/),
   summary: z.string(),
 });
 
-export const FaultsSchema = z.object({
+const FaultsSchema = z.object({
   marker: z.string().min(1),
   syntax: z.string(),
   /** The fault-name shape, as a regex source. */
@@ -102,7 +102,7 @@ export const FaultsSchema = z.object({
   })).min(1),
 });
 
-export const IndentSchema = z.object({
+const IndentSchema = z.object({
   unit: z.number().int().positive(),
   step: z.number().int().nonnegative(),
   fault: z.number().int().nonnegative(),

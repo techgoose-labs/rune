@@ -11,7 +11,7 @@ import { bindings as DEFAULT_BINDINGS } from "@rune/domain/business/rune-binding
 import { DEFAULT_TEMPLATES } from "@rune/domain/business/rune-manifest/mod.ts";
 import { registry, SHAPE_TYPES } from "@rune/domain/business/registry/mod.ts";
 
-export const CURRENT_SCHEMA_VERSION = "2.0.0";
+const CURRENT_SCHEMA_VERSION = "2.0.0";
 
 // deno-lint-ignore no-explicit-any
 type Artifact = Record<string, any>;
@@ -89,14 +89,14 @@ function to_2_0_0(a: Artifact, applied: string[]): Artifact {
     };
   });
   applied.push("expand modifiers to their full spec");
-  // The rule catalogue: the live spec rules replace the legacy spec entries (a
-  // legacy id that no longer exists was a prose-only policy); generated-code
+  // The rule catalogue: the live spec rules replace the 1.x spec entries (a
+  // 1.x id that no longer exists was a prose-only policy); generated-code
   // rules are kept, merged by id over the live ones.
-  const legacyGenerated = (out.lint ?? []).filter((r: Artifact) => r.target === "generated");
+  const oldGenerated = (out.lint ?? []).filter((r: Artifact) => r.target === "generated");
   const liveGenerated = new Map(
     registry.lint.filter((r) => r.target === "generated").map((r) => [r.id, r]),
   );
-  for (const r of legacyGenerated) liveGenerated.set(r.id, { ...liveGenerated.get(r.id), ...r });
+  for (const r of oldGenerated) liveGenerated.set(r.id, { ...liveGenerated.get(r.id), ...r });
   out.lint = [
     ...registry.lint.filter((r) => r.target === "spec" && (r.checker || SHAPE_TYPES.has(r.type ?? ""))).map((r) => structuredClone(r)),
     ...liveGenerated.values(),

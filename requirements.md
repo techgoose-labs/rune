@@ -127,3 +127,74 @@ still mounts the stubs.
   DENO_DEPLOY=true, DENO_ENV=production and no env)
 - e2e: n/a — needs a live Deno Deploy revision; the platform contract is
   documented and the expression is evaluated under the real Deno runtime above.
+
+## REQ-007 — `rune sync` emits the four merge-gate tasks, additively, at the workspace root
+
+> the merge gate is now four tasks BY CONVENTION — deno.json tasks `test:unit`,
+> `test:int`, `test:e2e`, `serve` … `wt-gate` REFUSES a repo missing any of
+> the four … each lane's runner must be parallel … the gate starts `deno task
+> serve` on a free $PORT and hands `BASE_URL` to test:e2e (tests never start
+> servers) … ASK: (1) `rune sync` should emit the four tasks
+> — coms #rune 20260925T020327Z-w8-947540 (box 8, claude-tools, REQ-278..283)
+
+Rule: after the import map, `rune sync` ensures the deno.json the gate reads —
+the WORKSPACE ROOT when the codegen root is a member, else the project's own —
+carries the four tasks, adding only what is missing (a task the user already
+has is theirs). The strings are repo-wide and tool-neutral so sprig can emit
+the identical ones and the additive merge never fights:
+
+- `test:unit`: `deno test -A --unstable-kv --parallel --permit-no-files --ignore="**/int.test.ts,**/smk.test.ts,**/e2e.test.ts,e2e/" .`
+- `test:int`: `deno test -A --unstable-kv --parallel --permit-no-files "**/int.test.ts" "**/smk.test.ts" "**/e2e.test.ts"` — rune's generated
+  `src/**/e2e.test.ts` are in-process `bootstrapServer` runs (no BASE_URL), so they are int-lane
+- `test:e2e`: `shots run` (the top-level `e2e/<name>/<name>.e2e.test.ts` stories)
+- `serve`: `deno serve -A --unstable-kv --port "$PORT" serve.ts` when a `serve.ts` sits beside that deno.json,
+  else `deno run -A --unstable-kv <member>/bootstrap/mod.ts` (its config reads PORT). `--unstable-kv`
+  because a rune store may be Deno KV (the gate's own advice); harmless otherwise. deno's task shell
+  does not expand `${PORT:-8000}` (verified), so `serve` needs PORT — the gate sets it;
+  humans keep `deno task start`.
+
+`rune init` writes the same four into the neutral workspace it creates.
+
+- unit: `src/rune/entrypoints/sync/test.ts` —
+  `ensureGateTasks — REQ-007: writes the four gate tasks into the workspace root, never the member`,
+  `ensureGateTasks — REQ-007: additive — a task the user already has is never overwritten`,
+  `ensureGateTasks — REQ-007: a standalone project gets the tasks in its own deno.json, serving its bootstrap`
+- integration: `src/rune/entrypoints/sync/test.ts` —
+  `runSync — REQ-007: a sync writes the four tasks once and a re-sync leaves deno.json untouched`,
+  `REQ-007: the emitted test:unit and test:int commands run exactly their lanes under deno task`
+  (the emitted strings executed by `deno task` in a temp workspace with marker tests)
+- e2e: n/a — `wt-gate` and `shots` are claude-tools' and not yet released; the CLI was driven by hand
+  on a temp workspace (ticket thread).
+
+## REQ-008 — the rune skills document the four gate tasks, `env/` and `e2e/` via `#shots`
+
+> (2) the rune (and sprig) skills document the four names + env/ + e2e/ via #shots
+> so an agent just knows. — same ticket
+
+`claude/skills/rune:framework/references/deployment.md` gains "The four gate
+tasks" (names, lanes, `serve` on $PORT, `env/dev` + tracked `env/example` with
+the `DENO_DEPLOY` key and its REQ-006 interaction, `e2e/<name>/<name>.e2e.test.ts`
+via `import { story, http } from "#shots"`); `rune:build` and `rune:cake` name
+the lanes where they say "run the tests" / "serve the app".
+
+- no tests — documentation; sprig's skills are sprig's channel.
+
+## REQ-006 AMENDMENT — the stubs gate tests the VALUE `DENO_DEPLOY=true`, never the key's presence
+
+> DENO_DEPLOY — please gate on the VALUE, not on presence. Raphael's rule
+> (REQ-282): the key is ALWAYS present in every env file, `true` only in
+> env/prod; our installer writes DENO_DEPLOY=false into env/dev and env/example
+> ships the key empty. A non-empty check would drop your ghost stubs on every
+> dev box the day env/dev lands. Test Deno.env.get("DENO_DEPLOY") === "true".
+> — box 8 (claude-tools) on coms #rune 20260925T020327Z-w8-947540
+
+REQ-006 as merged excluded the stubs on any non-empty `DENO_DEPLOY`. Under
+claude-tools REQ-282 every env file carries the key (`false` in `env/dev`), so
+that check would have emptied `/docs/stubs` on every dev box. The generated gate
+is now `Deno.env.get("DENO_DEPLOY") === "true" || Deno.env.get("DENO_ENV") === "production"`;
+`DENO_DEPLOY=false` keeps the stubs. The rune:spec reference (`lang/docs/spec.md`,
+the SOURCE — the skill copy is regenerated from it by `scripts/sync-spec-skill-refs.ts`;
+REQ-006 had edited the copy, which the regen reverts) says the same.
+
+- unit/integration: the REQ-006 tests in `src/rune/entrypoints/sync/test.ts`,
+  with a `DENO_DEPLOY=false → stubs kept` case added to the runtime evaluation.

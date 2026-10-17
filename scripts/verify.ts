@@ -14,6 +14,7 @@
 import { dirname, fromFileUrl, join, relative } from "#std/path";
 import { parse } from "@rune/domain/business/rune-parse/mod.ts";
 import { planManifest } from "@rune/domain/business/rune-manifest/mod.ts";
+import { corpusParity } from "@rune/domain/business/diagnostics/corpus.ts";
 import { rules, runPipeline } from "@rune/mod-root.ts";
 import { getIgnoredPaths } from "@rune/domain/data/project/mod.ts";
 import { validateArtifact } from "@rune/domain/business/artifact/validate.ts";
@@ -161,30 +162,16 @@ async function gateDrift(): Promise<GateResult> {
 
 // ---- corpus health ---------------------------------------------------------
 
-function gateCorpus(): GateResult {
-  const bad: string[] = [];
-  for (const p of validSpecs) {
-    const ast = parse(Deno.readTextFileSync(p));
-    if (ast.errors.length > 0) {
-      bad.push(
-        `valid/${stem(p)} parsed with ${ast.errors.length} error(s): ${
-          ast.errors.map((e) => e.message).join("; ")
-        }`,
-      );
-    }
-  }
-  for (const p of invalidSpecs) {
-    const ast = parse(Deno.readTextFileSync(p));
-    if (ast.errors.length === 0) {
-      bad.push(`invalid/${stem(p)} parsed clean (expected an error)`);
-    }
-  }
+async function gateCorpus(): Promise<GateResult> {
+  // REQ-014: exact parity — valid checks clean, invalid matches its .diag.json
+  // sidecar (id + line). `--update-goldens` captures MISSING sidecars only.
+  const bad = await corpusParity(CORPUS, { update });
   return bad.length === 0
     ? {
       name: "corpus",
       ok: true,
       detail:
-        `${validSpecs.length} valid + ${invalidSpecs.length} invalid specs; every verdict matches its tag`,
+        `${validSpecs.length} valid check clean; ${invalidSpecs.length} invalid match their .diag.json sidecars exactly`,
     }
     : { name: "corpus", ok: false, detail: bad.join("\n") };
 }

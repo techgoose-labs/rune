@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from "#std/assert";
 import { artifactToOptions, DEFAULT_TEMPLATES, planManifest } from "./mod.ts";
 import type { SrvNode } from "@rune/domain/business/rune-parse/mod.ts";
+import { renderFinding } from "@rune/domain/business/diagnostics/mod.ts";
 
 Deno.test("planManifest — coordinator + DTO + TYP for a simple rune", () => {
   const rune = `[MOD] recording
@@ -2869,4 +2870,31 @@ Deno.test("planManifest — [ENT:ws] emits a WebSocket controller, not an HTTP o
     ),
     false,
   );
+});
+
+Deno.test("REQ-013: plan.findings carry ids and plan.errors is their rendering", () => {
+  const rune = `[MOD] catalog
+
+[ENT] http.fetch(InDto): CatalogDto
+
+[REQ] catalog.list(InDto): CatalogDto
+    items::compute(x): items
+[REQ] catalog.discover(InDto): CatalogDto
+    items::compute(x): items
+
+[DTO] InDto: x
+    in
+[DTO] CatalogDto: items
+    out
+
+[TYP] x: string
+    a
+[TYP] items: string
+    b`;
+  const plan = planManifest("specs/catalog.rune", rune, new Set());
+  assertEquals(plan.findings.map((f) => f.id), ["ent-ambiguous"]);
+  assertEquals(plan.findings[0].path, "specs/catalog.rune");
+  assertEquals(plan.findings[0].line, 3);
+  assertEquals(plan.findings[0].severity, "error");
+  assertEquals(plan.errors, plan.findings.map(renderFinding));
 });

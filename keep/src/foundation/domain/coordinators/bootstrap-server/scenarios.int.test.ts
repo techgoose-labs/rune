@@ -283,3 +283,101 @@ Deno.test("/docs/_run - a slug the heal rules mark retryable is re-attempted, no
     await Deno.remove(dir, { recursive: true });
   }
 });
+
+// ── /docs/_fixtures ──────────────────────────────────────────────────────────
+// These tests redirect the fixtures store with the process-global KEEP_FIXTURES_DIR. Under
+// `deno test --parallel` (REQ-017: the int lane) modules share one process, so every test that
+// sets that variable lives in THIS module, where tests run one after another.
+
+const FIXTURES_PATH = "/api/docs/_fixtures";
+const getReq = () => new Request(`http://app${FIXTURES_PATH}`);
+const postInit = (body?: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+
+class OrderCreateDto {
+  @ApiProperty()
+  name!: string;
+}
+class OrderOutDto {
+  @ApiProperty()
+  id!: string;
+}
+
+@EndpointController("orders")
+class OrdersController {
+  @Endpoint({ input: OrderCreateDto, output: OrderOutDto, order: 1 })
+  create(_body: OrderCreateDto): OrderOutDto {
+    return { id: "o-1" };
+  }
+}
+const OrdersModule = endpointModule("Orders", [OrdersController]);
+
+Deno.test("/docs/_fixtures - POST writes cake.json, GET reads it back (in-process)", async () => {
+  const dir = await Deno.makeTempDir();
+  Deno.env.set("KEEP_FIXTURES_DIR", dir);
+  const server = await bootstrapServer("orders-app", OrdersModule);
+  try {
+    // Empty before anything is written.
+    const before = await (await server.backend.fetch(FIXTURES_PATH))
+      .json();
+    assertEquals(before, { v: 1, variables: {}, modules: {} });
+
+    // POST a page's slice — its setup plus the persisted variables.
+    const postRes = await server.backend.fetch(
+      FIXTURES_PATH,
+      postInit({
+        module: "orders",
+        setup: [{ id: "create", body: '{"name":"acme"}' }],
+        variables: { tenantId: "t-7" },
+      }),
+    );
+    assertEquals(postRes.status, 200);
+    const merged = await postRes.json();
+    assertEquals(merged.variables, { tenantId: "t-7" });
+    assertEquals(merged.modules.orders.setup, [
+      { id: "create", body: '{"name":"acme"}' },
+    ]);
+    assert(typeof merged.savedAt === "number", "savedAt is stamped on write");
+
+    // The file is really on disk, and GET returns the same artifact.
+    const onDisk = JSON.parse(await Deno.readTextFile(`${dir}/cake.json`));
+    assertEquals(onDisk.modules.orders.setup[0].id, "create");
+    const got = await (await server.backend.fetch(FIXTURES_PATH)).json();
+    assertEquals(got.variables, { tenantId: "t-7" });
+
+    // A second module's POST merges in without clobbering orders' slice.
+    await server.backend.fetch(
+      FIXTURES_PATH,
+      postInit({
+        module: "members",
+        setup: [{ id: "enroll" }],
+        variables: { tenantId: "t-7" },
+      }),
+    );
+    const both = await (await server.backend.fetch(FIXTURES_PATH)).json();
+    assertEquals(both.modules.orders.setup[0].id, "create");
+    assertEquals(both.modules.members.setup[0].id, "enroll");
+  } finally {
+    await server.stop();
+    Deno.env.delete("KEEP_FIXTURES_DIR");
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("/docs/_fixtures - open to network callers (zero built-in auth)", async () => {
+  const dir = await Deno.makeTempDir();
+  Deno.env.set("KEEP_FIXTURES_DIR", dir);
+  const server = await bootstrapServer("orders-app", OrdersModule);
+  try {
+    // keep ships no built-in gate: off-host and conn-less callers are served.
+    assertEquals((await server.handler(getReq(), conn(offhost))).status, 200);
+    assertEquals((await server.handler(getReq())).status, 200);
+  } finally {
+    await server.stop();
+    Deno.env.delete("KEEP_FIXTURES_DIR");
+    await Deno.remove(dir, { recursive: true });
+  }
+});

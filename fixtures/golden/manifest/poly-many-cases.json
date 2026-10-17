@@ -4,7 +4,16 @@
   "toCreate": [],
   "toRegenerate": [],
   "toSkip": [],
+  "findings": [
+    {
+      "id": "mod-underivable",
+      "severity": "error",
+      "path": "corpus/valid/poly-many-cases.rune",
+      "line": 0,
+      "message": "no [MOD] directive and could not derive module name"
+    }
+  ],
   "errors": [
-    "corpus/valid/poly-many-cases.rune: no [MOD] directive and could not derive module name"
+    "corpus/valid/poly-many-cases.rune: no [MOD] directive and could not derive module name [mod-underivable]"
   ]
 }

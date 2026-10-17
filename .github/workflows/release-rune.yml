@@ -142,10 +142,11 @@ jobs:
         # (install.sh extracts both dirs and base-level-replaces each entry). They
         # come from the repo's claude/ dir. evals/ is dev-only and not shipped.
         run: |
-          rm -rf dist/skill dist/agent && mkdir -p dist/skill dist/agent
+          rm -rf dist/skill dist/agent dist/plugin && mkdir -p dist/skill dist/agent dist/plugin
           cp -R claude/skills/. dist/skill/
           cp -R claude/agents/. dist/agent/
-          tar -C dist -czf "rune-${{ matrix.target }}.tar.gz" rune rune-lsp rune-syntax skill agent
+          cp -R claude/plugin/. dist/plugin/
+          tar -C dist -czf "rune-${{ matrix.target }}.tar.gz" rune rune-lsp rune-syntax skill agent plugin
           shasum -a 256 "rune-${{ matrix.target }}.tar.gz" > "rune-${{ matrix.target }}.tar.gz.sha256"
 
       - uses: actions/upload-artifact@v4

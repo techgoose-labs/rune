@@ -6,12 +6,12 @@
 # This hook exists because its absence is a silent hole: git runs `pre-commit`
 # for `git commit` but `pre-merge-commit` for a merge that creates a commit, so
 # a guard written only as `pre-commit` is bypassed entirely by
-# `git merge --no-ff` — which is what /worktree-merge does. Guarding one without
+# `git merge --no-ff` — which is what /wt:merge does. Guarding one without
 # the other guards nothing; that gap put 138 commits on this repo's main.
 #
 # A fast-forward merge creates no commit and runs no hook; that is fine, because
 # `promote` only ever fast-forwards the deploy lane and nothing else may write
-# to it (/worktree-merge refuses the deploy lane by name).
+# to it (/wt:merge refuses the deploy lane by name).
 
 branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0  # detached: allow
 
@@ -19,7 +19,11 @@ branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0  # detache
 [ "$(git config --get branch-model.enabled 2>/dev/null)" = "false" ] && exit 0
 
 deploy=$(git config --get branch-model.deploy-branch 2>/dev/null)
-[ -n "$deploy" ] || deploy=main
+if [ -z "$deploy" ]; then
+  # REQ-139: the same fallback `branch-model` uses — main if it exists, else master.
+  deploy=main
+  git show-ref --verify -q refs/heads/main || { git show-ref --verify -q refs/heads/master && deploy=master; }
+fi
 
 [ "$branch" = "$deploy" ] || exit 0
 

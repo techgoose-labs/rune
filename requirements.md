@@ -618,3 +618,18 @@ the sixteen agents that cited it point there.
   retired reference, and names only files that exist
 - integration: the Drift gate; `deno task check:spec-refs`
 - e2e: n/a — docs
+
+## REQ-041 — the tracked hooks are branch-model's current copies
+
+> Raphael, 2026-10-17: "merge all wip in develop" — the develop checkout
+> carried an uncommitted regeneration of `.githooks/pre-commit` and
+> `.githooks/pre-merge-commit` written by `branch-model` (REQ-139): the lane
+> names `/wt:new` → `/wt:merge` replace the retired `/worktree` commands, and
+> the deploy lane falls back main → master when `branch-model.deploy-branch`
+> is unset. Landed through a worktree, as trunk takes no direct edits.
+
+- unit: `scripts/githooks.test.ts` — `REQ-041: the hooks name the wt:new /
+  wt:merge flow, never the retired /worktree commands`; `REQ-041: the deploy
+  lane falls back main → master when branch-model.deploy-branch is unset`
+- integration: n/a — two shell hooks read as text; nothing composes them
+- e2e: n/a — no page; the hooks run inside git

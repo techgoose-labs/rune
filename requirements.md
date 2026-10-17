@@ -72,3 +72,31 @@ so it is committed as-is; no dependency version changed.
 
 - no tests — lockfile content, no behaviour; proven by running `deno test -A`
   then a second deno command and `cmp`-ing the lock (identical).
+
+## REQ-004 — `rune sync` never adds a root-only import to a workspace member's `deno.json`
+
+> rune sync re-adds "@techgoose-labs/bedrock": "jsr:@techgoose-labs/bedrock@^1"
+> to server/deno.json imports, which sprig says must be ROOT-ONLY … Expected:
+> rune sync leaves the member import map's bedrock line alone when the workspace
+> root already pins it (server/bootstrap/mod.ts resolves it through the root).
+> — coms #rune 20260923T000559Z-w208-103513 (box 208, ppwk-crm)
+
+Cause: `ensureImportMap` (sync) adds every `REQUIRED_IMPORTS` key a project's
+`deno.json` lacks, and `@techgoose-labs/bedrock` is in that list — while `rune
+init` and sprig both declare it `hoistOnly` (bedrock's `ensureWorkspace` strips
+it from every member: a member's own pin gives the composed app two composition
+roots). So every sync of a workspace member put the pin back.
+
+Rule: the specifiers in `HOIST_ONLY` are never written into a `deno.json` that
+is a workspace member (a parent `deno.json` whose `workspace` lists it). When
+the workspace root lacks the pin, it is added THERE (additively). A project that
+is not a member keeps the old behaviour.
+
+- unit: `src/rune/entrypoints/sync/test.ts` —
+  `ensureImportMap — REQ-004: a workspace member never receives the root-only bedrock import`,
+  `ensureImportMap — REQ-004: a workspace root missing the pin gets it there, the member still does not`,
+  `ensureImportMap — REQ-004: a standalone project still pins bedrock in its own deno.json`
+- integration: `src/rune/entrypoints/sync/test.ts` —
+  `runSync — REQ-004: syncing a workspace member leaves its deno.json without the bedrock import, twice`
+- e2e: n/a — `rune sync` is a direct dispatch to `runSync` (`src/bootstrap/mod.ts`);
+  the CLI was driven by hand on a temp workspace (see the ticket thread).

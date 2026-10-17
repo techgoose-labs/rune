@@ -2,8 +2,7 @@
 
 [REQ] product.list(ListDto): ProductsDto
     db:product.query(ListDto): ProductsDto
-      timeout
-    [RET] ProductsDto
+      ! timeout
 
 [DTO] ListDto: page
     a paged product listing request
@@ -15,4 +14,3 @@
     the page
 [TYP] items: string
     the items
-

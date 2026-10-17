@@ -22,11 +22,6 @@
             "timeout"
           ],
           "line": 3
-        },
-        {
-          "kind": "ret",
-          "value": "InvoiceDto",
-          "line": 5
         }
       ],
       "isOpen": false,
@@ -44,7 +39,7 @@
       "description": "a request to issue an invoice",
       "isCore": false,
       "isOpen": false,
-      "line": 7
+      "line": 6
     },
     {
       "name": "InvoiceDto",
@@ -55,7 +50,7 @@
       "description": "an issued invoice",
       "isCore": false,
       "isOpen": false,
-      "line": 10
+      "line": 9
     }
   ],
   "typs": [
@@ -66,7 +61,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 13
+      "line": 12
     },
     {
       "name": "amount",
@@ -75,7 +70,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 15
+      "line": 14
     },
     {
       "name": "id",
@@ -84,7 +79,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 17
+      "line": 16
     }
   ],
   "nons": [],
@@ -97,8 +92,13 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 20
+      "line": 19
     }
   ],
+  "faultStatuses": {},
+  "bodyLines": [],
+  "faultLines": {
+    "timeout": 4
+  },
   "errors": []
 }

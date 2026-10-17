@@ -1,22 +1,19 @@
 [REQ] sync.run(SyncDto): ResultDto
-    db:store.read(IdDto): RecordDto
-      not-found
-    fs:disk.load(IdDto): RecordDto
-      not-found
-    mq:queue.publish(RecordDto): void
-      timeout
-    ex:api.fetch(IdDto): RecordDto
-      timeout not-found
-    os:blob.put(RecordDto): void
-      timeout
-    lg:audit.write(RecordDto): void
-    [RET] ResultDto
+    db:store.read(id): RecordDto as stored
+      ! not-found
+    fs:disk.load(id): RecordDto as cached
+      ! not-found
+    mq:queue.publish(stored): void
+      ! timeout
+    ex:api.fetch(id): RecordDto as remote
+      ! timeout not-found
+    os:blob.put(cached): void
+      ! timeout
+    lg:audit.write(remote): void
+    result::of(id): ResultDto
 
 [DTO] SyncDto: id
     what to sync
-
-[DTO] IdDto: id
-    an identifier
 
 [DTO] RecordDto: id, payload
     a stored record
@@ -24,8 +21,13 @@
 [DTO] ResultDto: id
     the sync result
 
+[TYP] id: string
+    an identifier
 [TYP] payload: string
     the payload
+
+[NON] result
+    the outcome of a sync
 
 [SRV] (SIDECAR)db: DB_URL
     the primary datastore
@@ -50,4 +52,3 @@
 [SRV] (SIDECAR)lg: LOG_URL
     log sink
     @docs https://docs.example.com/lg
-

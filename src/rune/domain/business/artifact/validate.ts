@@ -51,18 +51,26 @@ export function semanticErrors(a: Artifact): ArtifactError[] {
     });
   }
 
-  // duplicate tag literals (counting synonyms): a literal must map to one tag
+  // duplicate tag literals: a literal must map to one tag
   const literalOwner = new Map<string, string>();
   for (const t of a.tags) {
-    for (const lit of [t.tag, ...(t.synonyms ?? [])]) {
-      const prev = literalOwner.get(lit);
-      if (prev && prev !== t.id) {
-        errors.push({
-          path: `tags.${t.id}`,
-          message: `tag literal "${lit}" is already used by tag "${prev}"`,
-        });
-      }
-      literalOwner.set(lit, t.id);
+    const prev = literalOwner.get(t.tag);
+    if (prev && prev !== t.id) {
+      errors.push({
+        path: `tags.${t.id}`,
+        message: `tag literal "${t.tag}" is already used by tag "${prev}"`,
+      });
+    }
+    literalOwner.set(t.tag, t.id);
+  }
+  // every tag's shape rule is a lint of the catalogue
+  const lintIds = new Set(a.lint.map((r) => r.id));
+  for (const t of a.tags) {
+    if (!lintIds.has(t.shapeRule)) {
+      errors.push({
+        path: `tags.${t.id}.shapeRule`,
+        message: `tag "${t.id}" names unknown shape rule "${t.shapeRule}"`,
+      });
     }
   }
 

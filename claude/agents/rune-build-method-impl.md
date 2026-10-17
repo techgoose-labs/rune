@@ -83,7 +83,7 @@ spurious TS2307.
    ERROR; coordinator-layer files only, test files exempt; message: `coordinator casts to "<X>Dto"
    — validate the seam with assert(<X>Dto, ...) instead of a blind cast`). The seam is asserted;
    `assert(XxxDto, …)` IS the validated cast. Don't reintroduce a cast by hand. Rule definitions
-   live in `~/.claude/skills/rune:spec/references/constraints.md`, NOT in the project — read that
+   live in `~/.claude/skills/rune:spec/references/card.md`, NOT in the project — read that
    file for a rule's meaning, never search for it.
 3. Replace `throw new Error("not implemented")` with the real body. Touch ONLY this method (and its
    `<verb>Core`); don't opportunistically refactor neighbors.
@@ -93,7 +93,7 @@ spurious TS2307.
    (965 `deno test` runs to build one 97-test module).
 
 **THE RECIPE (verified against a green, validator-confirmed build — this is ALL the assert-contract
-reference you need; never read constraints.md/package source for it):**
+reference you need; never read endpoints.md/package source for it):**
 
 ```ts
 import { ListDto } from "@/src/<module>/dto/list.ts";
@@ -167,7 +167,7 @@ have historically crawled the disk for is already at hand:
   `@Endpoint`, `HttpException`, `getIdentity`, heal-rules — is documented in the
   skill references installed alongside you. Read them directly instead of
   hunting the source:
-  - `~/.claude/skills/rune:spec/references/constraints.md` — the assert contract
+  - `~/.claude/skills/rune:framework/references/endpoints.md` — the assert contract
     & seams
   - `~/.claude/skills/rune:framework/references/{endpoints,auth,deployment}.md`
     — runtime, bootstrap, auth, and error mapping

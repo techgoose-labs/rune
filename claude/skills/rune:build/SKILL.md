@@ -182,7 +182,7 @@ result trustworthy.
 - **Prompts carry their own docs.** A subagent sees NONE of your skill references — if
   a prompt names a rule, helper, or idiom (`no-dto-cast`, the `#assert` API, a fault
   slug convention), embed its definition or the absolute path to its reference file
-  (e.g. `~/.claude/skills/rune:spec/references/constraints.md`) in the prompt. A named-
+  (e.g. `~/.claude/skills/rune:spec/references/card.md`) in the prompt. A named-
   but-undefined term sends the agent hunting — the 2026-07-09 incident (subagents
   escalating to full-disk `find /` scans that pinned the machine) started exactly
   there. Package locations are toolchain questions: `deno info <specifier>`, never a

@@ -37,6 +37,10 @@
         {
           "type": "signature",
           "named": true
+        },
+        {
+          "type": "value_name",
+          "named": true
         }
       ]
     }
@@ -66,30 +70,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "dto_array_prop",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "dto_array_suffix",
-          "named": true
-        },
-        {
-          "type": "property_name",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "dto_def_name",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "dto_line",
@@ -123,7 +103,7 @@
       "required": true,
       "types": [
         {
-          "type": "dto_array_prop",
+          "type": "dto_array_suffix",
           "named": true
         },
         {
@@ -155,11 +135,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "dto_reference",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "ent_line",
@@ -194,6 +169,25 @@
         },
         {
           "type": "ws_route",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "fault_line",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "fault_list",
+          "named": true
+        },
+        {
+          "type": "fault_marker",
           "named": true
         }
       ]
@@ -247,16 +241,20 @@
         "required": true,
         "types": [
           {
-            "type": "identifier",
+            "type": "mod_name",
             "named": true
           }
         ]
       }
     },
     "children": {
-      "multiple": false,
+      "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "mod_desc",
+          "named": true
+        },
         {
           "type": "mod_tag",
           "named": true
@@ -289,11 +287,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "new_tag",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "non_line",
@@ -371,6 +364,10 @@
         },
         {
           "type": "signature",
+          "named": true
+        },
+        {
+          "type": "value_name",
           "named": true
         }
       ]
@@ -470,6 +467,10 @@
         },
         {
           "type": "generic_type",
+          "named": true
+        },
+        {
+          "type": "inline_dto",
           "named": true
         },
         {
@@ -656,6 +657,10 @@
         {
           "type": "signature",
           "named": true
+        },
+        {
+          "type": "value_name",
+          "named": true
         }
       ]
     }
@@ -793,6 +798,22 @@
     }
   },
   {
+    "type": "value_name",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "ws_topic_line",
     "named": true,
     "fields": {
@@ -863,15 +884,11 @@
     "named": false
   },
   {
-    "type": "[CTR]",
-    "named": false
-  },
-  {
-    "type": "[NEW]",
-    "named": false
-  },
-  {
     "type": "]",
+    "named": false
+  },
+  {
+    "type": "as",
     "named": false
   },
   {
@@ -888,11 +905,19 @@
     "named": true
   },
   {
+    "type": "dto_def_name",
+    "named": true
+  },
+  {
     "type": "dto_desc",
     "named": true
   },
   {
     "type": "dto_optional_marker",
+    "named": true
+  },
+  {
+    "type": "dto_reference",
     "named": true
   },
   {
@@ -904,7 +929,11 @@
     "named": true
   },
   {
-    "type": "fault_line",
+    "type": "fault_list",
+    "named": true
+  },
+  {
+    "type": "fault_marker",
     "named": true
   },
   {
@@ -916,7 +945,19 @@
     "named": true
   },
   {
+    "type": "mod_desc",
+    "named": true
+  },
+  {
+    "type": "mod_name",
+    "named": true
+  },
+  {
     "type": "mod_tag",
+    "named": true
+  },
+  {
+    "type": "new_tag",
     "named": true
   },
   {

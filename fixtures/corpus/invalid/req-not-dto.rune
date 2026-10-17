@@ -1,0 +1,7 @@
+[REQ] task.create(a): b
+    db:task.save(a): b
+
+[TYP] a: string
+    a
+[TYP] b: string
+    b

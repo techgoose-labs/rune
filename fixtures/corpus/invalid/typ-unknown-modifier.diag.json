@@ -1,6 +1,10 @@
 [
   {
-    "id": "typ-modifier",
+    "id": "typ-modifier-unknown",
+    "line": 1
+  },
+  {
+    "id": "typ-unused",
     "line": 1
   }
 ]

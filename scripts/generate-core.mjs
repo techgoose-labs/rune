@@ -1,12 +1,9 @@
-// Derive tree-sitter artifacts from the keyword registry.
+// Derive the tree-sitter artifacts from the keyword registry.
 //
-// This is the ONE place keywords turn into a grammar. The studio keeps a
-// logic-equivalent sibling copy at rune-studio/lib/generate-core.ts (it differs
-// only in the //@ts-nocheck banner + Deno-fmt line wrapping) for its "Export"
-// buttons; generate.mjs imports this file to write the committed grammar. Keep
-// the two in lock-step — edit one, mirror the change in the other — so the studio
-// preview and the committed grammar can never drift. (A shared single source
-// would remove the hazard entirely; tracked as a follow-up.)
+// This is the ONE place keywords turn into a grammar. generate.mjs imports it
+// to write the committed grammar.js, highlights.scm and scanner-config.h; the
+// studio imports the same module for its "Export" buttons, so the preview and
+// the committed grammar can never drift.
 
 /** Map a tag's `follows` kind to the body of its tree-sitter line rule. */
 function lineRuleBody(tag) {
@@ -22,9 +19,9 @@ function lineRuleBody(tag) {
     {
       const sigForm = tag.allowFunctionName
         ? `seq(${t}, field("noun", $.identifier), optional(seq(choice(".", "::"), field("verb", $.method_name))), optional($.http_route), $.parameters, ":", $.return_type)`
-        : `seq(${t}, $.signature, ":", $.return_type)`;
+        : `seq(${t}, $.signature, ":", $.return_type${tag.follows === "poly" ? ", optional($.value_name)" : ""})`;
       // [ENT:ws] additionally accepts a socket header "[ENT:ws] <surface> @ /path" (no
-      // signature); its indented "verb(In): Out" topics parse as ordinary step_lines.
+      // signature); its indented "verb(In): Out" topics parse as ws_topic_lines.
       if (tag.id === "ent") {
         return `choice(${sigForm}, seq(${t}, field("ws_surface", $.identifier), optional($.ws_route)))`;
       }
@@ -36,12 +33,17 @@ function lineRuleBody(tag) {
       return `seq(${t}, $.dto_def_name, ":", $.dto_prop, repeat(seq(",", optional($._ws), $.dto_prop)))`;
     case "identifier":
     case "case": // a polymorphic case is followed by a bare case name
+      // [MOD] name: prose — the module's front-door description may follow the
+      // name after a colon (the rest of the line, like a [SRV] body).
+      if (tag.id === "mod") {
+        return `seq(${t}, field("name", $.mod_name), optional(seq(":", alias($.srv_spec, $.mod_desc))))`;
+      }
       return `seq(${t}, field("name", $.identifier))`;
     case "value":
       return `seq(${t}, choice(prec(2, $.dto_reference), $.type_name))`;
     case "service":
-      // [SRV] <transport>:<name>: <ENV, ENV2> — the spec body is consumed as one
-      // token (highlighting only; the TS parser does the real structural parse).
+      // [SRV] (TRANSPORT)<name>: <ENV, ENV2> — the spec body is consumed as one
+      // token; the engine's lowering does the structural parse of it.
       return `seq(${t}, $.srv_spec)`;
     case "none":
       return `${t}`;
@@ -52,57 +54,34 @@ function lineRuleBody(tag) {
   }
 }
 
-/** Insert a modifier token before a tag literal's closing bracket: [DTO] :core -> [DTO:core]. */
-function applyModifier(literal, token) {
-  return literal.replace(/\]$/, `${token}]`);
-}
-
-/**
- * Every literal a tag's `_tag` rule must accept: its primary spelling, any
- * synonyms ([NEW]/[CTR]), and any :core-style modifier variants ([DTO:core]).
- */
-function tagLiterals(tag, modifiers) {
-  const base = [tag.tag, ...(tag.synonyms ?? [])];
-  const variants = [];
-  for (const mod of modifiers) {
-    if ((mod.appliesTo ?? []).includes(tag.id)) {
-      for (const b of base) variants.push(applyModifier(b, mod.token));
-    }
-  }
-  return [...base, ...variants];
-}
-
 // Modifier-aware tags take an open-ended modifier list ([TYP:ext,uuid],
-// [TYP:min=0,max=100], [ENT:card]) — enumerating every literal can't cover
-// valued/composed modifiers, so these tags get a token PATTERN rule instead.
-// [REQ] (and the rest) stay literal-only: a modifier there is a spec error the
-// parser must surface, not silently accept.
-const MODIFIER_PATTERN_TAGS = new Set(["ent", "dto", "typ", "non"]);
+// [TYP:min=0,max=100], [ENT:card], [REQ:open]) — enumerating every literal
+// can't cover valued/composed modifiers, so these tags get a token PATTERN
+// rule, and the engine's lowering validates the modifier (so a wrong one is a
+// precise finding, never a parse error that loses the line). The rest stay
+// literal-only.
+const MODIFIER_PATTERN_TAGS = new Set(["req", "ent", "dto", "typ", "non"]);
 
 /** A `[TAG]`/`[TAG:mods]` token pattern: [TYP] -> token(seq("[TYP", …, "]")). */
 function tagTokenPattern(literal) {
   const head = literal.replace(/\]$/, "");
+  // A modifier value may carry spaces (`[TYP:example=Buy groceries]`): the
+  // slot runs to the closing bracket.
   return `token(seq(${
     JSON.stringify(head)
-  }, optional(seq(":", /[^\\]\\s]+/)), "]"))`;
+  }, optional(seq(":", /[^\\]]+/)), "]"))`;
 }
+
+const HEADER = (comment) =>
+  `${comment} GENERATED from lang/keywords.json by scripts/generate.mjs — do not edit by hand.\n${comment} Edit the registry and regenerate.`;
 
 /** Build the contents of grammar.js from the registry. */
 export function buildGrammar(reg) {
-  const modifiers = reg.modifiers ?? [];
-
   const tagRules = reg.tags
     .map((tag) => {
-      let tagRule;
-      if (MODIFIER_PATTERN_TAGS.has(tag.id)) {
-        const pats = [tag.tag, ...(tag.synonyms ?? [])].map(tagTokenPattern);
-        tagRule = pats.length === 1 ? pats[0] : `choice(${pats.join(", ")})`;
-      } else {
-        const lits = tagLiterals(tag, modifiers);
-        tagRule = lits.length === 1
-          ? JSON.stringify(lits[0])
-          : `choice(${lits.map((l) => JSON.stringify(l)).join(", ")})`;
-      }
+      const tagRule = MODIFIER_PATTERN_TAGS.has(tag.id)
+        ? tagTokenPattern(tag.tag)
+        : JSON.stringify(tag.tag);
       return (
         `    // ${tag.tag} ${tag.label} (indent ${tag.indent})\n` +
         `    ${tag.id}_tag: ($) => ${tagRule},\n` +
@@ -125,18 +104,19 @@ export function buildGrammar(reg) {
     .map((r) => `        ${r},`)
     .join("\n");
 
+  const marker = JSON.stringify(reg.faults.marker);
+
   return `/// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 //
-// GENERATED from new/keywords.json by new/generate.mjs — do not edit by hand.
-// Edit the registry (or use the studio) and regenerate.
+${HEADER("//")}
 
 module.exports = grammar({
   name: "rune",
 
   extras: ($) => [/ /, /\\t/, $.comment],
 
-  externals: ($) => [$.typ_desc, $.dto_desc, $.non_desc, $.fault_line, $.service_prefix],
+  externals: ($) => [$.typ_desc, $.dto_desc, $.non_desc, $.service_prefix],
 
   rules: {
     source_file: ($) => repeat(choice($._line, /\\r?\\n/)),
@@ -165,17 +145,20 @@ ${tagRules}
 
     method_name: ($) => /[a-zA-Z][a-zA-Z0-9_-]*/,
 
-    // [ENT] field-source binding: an optional "@ METHOD /path/{seg}/{seg-star}" clause between the
-    // verb and the parameters. One anchored token (@ + space + verb + space + slash-led path), so
-    // it never collides with @docs (no space after the @) or // line comments.
-    http_route: ($) => token(seq("@", /\\s+/, /[A-Za-z]+/, /\\s+/, "/", /[^\\s()]*/)),
+    // [ENT] route clause: an optional "@ METHOD [/path/{seg}/{seg-star}]" clause between the
+    // verb and the parameters — the verb alone overrides the method, a slash-led template the
+    // route too. One anchored token (@ + space + verb …), so it never collides with @docs (no
+    // space after the @) or // line comments.
+    http_route: ($) => token(seq("@", /\\s+/, /[A-Za-z]+/, optional(seq(/\\s+/, "/", /[^\\s()]*/)))),
 
     // [ENT:ws] socket-header path: "@ /path" — like http_route but with no HTTP verb (a WS
     // handshake is always a GET). A distinct token so the lexer never confuses "@ /x" with
     // "@ VERB /x" (http_route) or "@docs" (no space after the @).
     ws_route: ($) => token(seq("@", /\\s+/, "/", /[^\\s()]*/)),
 
-    parameters: ($) => seq("(", optional($._param_list), ")"),
+    // A parameter list may span lines: whitespace (newlines included) is
+    // allowed after the opening paren and before the closing one.
+    parameters: ($) => seq("(", optional($._ws), optional($._param_list), optional($._ws), ")"),
 
     _param_list: ($) =>
       seq($._param, repeat(seq(",", optional($._ws), $._param))),
@@ -222,6 +205,7 @@ ${tagRules}
     _return_type_single: ($) =>
       prec.right(
         choice(
+          $.inline_dto,
           $.array_type,
           $.generic_type,
           prec(2, $.dto_reference),
@@ -241,7 +225,14 @@ ${tagRules}
         repeat(seq(",", choice(prec(2, $.dto_reference), $.type_name)))
       ),
 
-    step_line: ($) => seq($.signature, ":", $.return_type),
+    // A step's value name: "… : TaskDto as loaded" names the value it yields, so a
+    // second live value of one type can be told from the first (REQ-020).
+    value_name: ($) => seq("as", field("name", $.identifier)),
+
+    // A step yields a typed value: "… : Type [as name]". The return clause is
+    // optional in the grammar so a step that forgot it is still a step (the
+    // engine reports missing-return-type), never an unrecognized line.
+    step_line: ($) => seq($.signature, optional(seq(":", $.return_type, optional($.value_name)))),
 
     // [ENT:ws] topic line: a bare "verb(InputDto): OutputDto" (no noun. prefix) under a socket
     // header. step_line's signature requires a dotted noun.verb, so topics need their own rule.
@@ -254,7 +245,14 @@ ${tagRules}
     // single colon — distinct from the \`::\` static separator, which the DFA
     // can't tell apart without the scanner's lookahead).
     boundary_line: ($) =>
-      seq($.service_prefix, $.signature, ":", $.return_type),
+      seq($.service_prefix, $.signature, optional(seq(":", $.return_type, optional($.value_name)))),
+
+    // A fault line declares its kind by its first token, the registry's marker
+    // (REQ-018): "! not-found timeout card-expired=402".
+    // The names (each optionally =STATUS) are one line token: the engine's
+    // lowering splits and validates them against the registry's fault shape.
+    fault_marker: ($) => ${marker},
+    fault_line: ($) => seq($.fault_marker, alias($.srv_spec, $.fault_list)),
 
     // [SRV] body: <transport>:<name>: <ENV, ...> consumed as one line token.
     srv_spec: ($) => token(/[^\\n]+/),
@@ -265,19 +263,22 @@ ${tagRules}
     // as a comment.
     srv_docs_line: ($) => seq("@docs", optional($.srv_spec)),
 
-    dto_def_name: ($) => /[A-Za-z_][A-Za-z0-9_]*Dto/,
+    // Any identifier: the Dto suffix is the engine's dto-suffix rule, so a
+    // misnamed contract is a precise finding, not a parse error.
+    dto_def_name: ($) => /[A-Za-z_][A-Za-z0-9_]*/,
 
+    // A property: a [TYP] name or a [DTO] name, optionally an array "(s)" /
+    // lenient array "(s?)", optionally "?" (optional property).
     dto_prop: ($) =>
       seq(
-        choice($.dto_array_prop, prec(2, $.dto_reference), $.property_name),
+        choice(prec(2, $.dto_reference), $.property_name),
+        optional($.dto_array_suffix),
         optional($.dto_optional_marker)
       ),
 
     dto_optional_marker: ($) => "?",
 
-    dto_array_prop: ($) => seq($.property_name, $.dto_array_suffix),
-
-    dto_array_suffix: ($) => /\\([a-z]+\\)/,
+    dto_array_suffix: ($) => /\\([a-z]+\\??\\)/,
 
     typ_name: ($) => /[a-zA-Z_][a-zA-Z0-9_]*/,
 
@@ -300,6 +301,9 @@ ${tagRules}
     typ_enum_value: ($) => /"[^"]*"/,
 
     identifier: ($) => /[a-zA-Z_][a-zA-Z0-9_]*/,
+
+    // A module name is a directory name: kebab-case is allowed.
+    mod_name: ($) => /[a-zA-Z_][a-zA-Z0-9_-]*/,
   },
 });
 `;
@@ -309,7 +313,7 @@ ${tagRules}
 export function buildHighlights(reg) {
   const lines = [
     "; Rune syntax highlighting",
-    "; GENERATED from new/keywords.json by new/generate.mjs — do not edit by hand.",
+    ...HEADER(";").split("\n"),
     "; Capture names match the @rune.* groups defined in the editor ftplugin;",
     "; every pattern references a node that exists in the generated grammar.",
     "",
@@ -321,7 +325,9 @@ export function buildHighlights(reg) {
   lines.push("", "; Nouns: subjects (before . or ::) and declared names");
   lines.push("(req_line (identifier) @rune.noun)");
   lines.push("(signature (identifier) @rune.noun)");
+  lines.push("(mod_line (mod_name) @rune.noun)");
   for (const tag of reg.tags) {
+    if (tag.id === "mod") continue;
     if (tag.follows === "identifier" || tag.follows === "case") {
       lines.push(`(${tag.id}_line (identifier) @rune.noun)`);
     }
@@ -346,16 +352,18 @@ export function buildHighlights(reg) {
     "; String enum values",
     "(typ_enum_value) @rune.fault",
     "",
-    "; Parameters, DTO properties, and declared type names",
+    "; Parameters, DTO properties, declared type names and value names",
     "(param_name) @rune.param",
     "(property_name) @rune.param",
     "(typ_name) @rune.param",
+    "(value_name (identifier) @rune.param)",
     "",
     "; Boundaries: system edges (service: prefix)",
     "(service_prefix) @rune.boundary",
     "",
     "; Faults",
-    "(fault_line) @rune.fault",
+    "(fault_marker) @rune.fault",
+    "(fault_list) @rune.fault",
     "",
     "; Punctuation / chrome",
     "(dto_optional_marker) @rune.chrome",
@@ -370,6 +378,36 @@ export function buildHighlights(reg) {
   );
 
   return lines.join("\n") + "\n";
+}
+
+/** Build the external scanner's configuration header from the registry's
+ * indent table and fault marker (REQ-033): the scanner reads these, never a
+ * literal of its own. */
+export function buildScannerConfig(reg) {
+  const i = reg.indent;
+  const define = (k, v) => `#define ${k} ${v}`;
+  return [
+    HEADER("//"),
+    "#ifndef RUNE_SCANNER_CONFIG_H",
+    "#define RUNE_SCANNER_CONFIG_H",
+    "",
+    "// The registry's indent table (the columns `rune fmt` writes).",
+    define("RUNE_INDENT_UNIT", i.unit),
+    define("RUNE_INDENT_STEP", i.step),
+    define("RUNE_INDENT_FAULT", i.fault),
+    define("RUNE_INDENT_CASE", i.case),
+    define("RUNE_INDENT_CASE_STEP", i.caseStep),
+    define("RUNE_INDENT_CASE_FAULT", i.caseFault),
+    define("RUNE_INDENT_DESCRIPTION", i.description),
+    define("RUNE_INDENT_BODY", i.body),
+    define("RUNE_INDENT_FAULT_OFFSET", i.faultOffset),
+    "",
+    "// The fault marker: a line starting with it is never prose.",
+    define("RUNE_FAULT_MARKER", `'${reg.faults.marker}'`),
+    "",
+    "#endif",
+    "",
+  ].join("\n");
 }
 
 /** Map registry palette keys to the @rune.* capture names used in highlights. */

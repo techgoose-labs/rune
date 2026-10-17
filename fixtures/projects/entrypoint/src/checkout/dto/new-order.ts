@@ -11,8 +11,8 @@ import { ApiProperty } from "#api-doc";
 // rune declares: [DTO] NewOrderDto: item
 export class NewOrderDto {
   /** the item to order */
-  // rune declares: [TYP] item: string
-  @ApiProperty({ description: "the item to order" })
+  // rune declares: [TYP:example=lamp] item: string
+  @ApiProperty({ description: "the item to order", example: "lamp" })
   @IsString()
   item!: string;
 }

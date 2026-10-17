@@ -22,11 +22,6 @@
             "write-failed"
           ],
           "line": 3
-        },
-        {
-          "kind": "ret",
-          "value": "AckDto",
-          "line": 5
         }
       ],
       "isOpen": false,
@@ -40,7 +35,7 @@
       "input": "FragmentDto",
       "output": "AckDto",
       "modifier": null,
-      "line": 7,
+      "line": 6,
       "method": null,
       "pathTemplate": null,
       "delegate": {
@@ -58,7 +53,7 @@
       "description": "one tier's fragment, posted to the collector (e.g. web, backend)",
       "isCore": false,
       "isOpen": false,
-      "line": 10
+      "line": 9
     },
     {
       "name": "AckDto",
@@ -68,7 +63,7 @@
       "description": "acknowledgement that the fragment was stored",
       "isCore": false,
       "isOpen": false,
-      "line": 12
+      "line": 11
     }
   ],
   "typs": [
@@ -81,7 +76,7 @@
       "modifiers": [
         "example=backend"
       ],
-      "line": 15
+      "line": 14
     },
     {
       "name": "ok",
@@ -90,14 +85,14 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 17
+      "line": 16
     }
   ],
   "nons": [
     {
       "name": "fragment",
       "description": "a profiler trace fragment from one tier (e.g. web)",
-      "line": 20
+      "line": 19
     }
   ],
   "srvs": [
@@ -109,8 +104,17 @@
       ],
       "description": "the datastore, e.g. a local sqlite file",
       "docsLink": "https://docs.example.com/db",
-      "line": 23
+      "line": 22
     }
   ],
+  "faultStatuses": {
+    "write-failed": 503
+  },
+  "bodyLines": [
+    7
+  ],
+  "faultLines": {
+    "write-failed": 4
+  },
   "errors": []
 }

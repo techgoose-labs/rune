@@ -12,6 +12,8 @@ use inquire::{MultiSelect, Select};
 // Embed grammar source files at compile time
 const PARSER_C: &str = include_str!("../../../grammar/src/parser.c");
 const SCANNER_C: &str = include_str!("../../../grammar/src/scanner.c");
+// The scanner reads its constants from the registry-generated header (REQ-033).
+const SCANNER_CONFIG_H: &str = include_str!("../../../grammar/src/scanner-config.h");
 const PARSER_H: &str = include_str!("../../../grammar/src/tree_sitter/parser.h");
 const ALLOC_H: &str = include_str!("../../../grammar/src/tree_sitter/alloc.h");
 const ARRAY_H: &str = include_str!("../../../grammar/src/tree_sitter/array.h");
@@ -296,6 +298,8 @@ fn build_parser(data: &PathBuf) -> Result<(), String> {
     let scanner_c = temp_dir.join("scanner.c");
     fs::write(&parser_c, PARSER_C).map_err(|e| format!("Failed to write parser.c: {}", e))?;
     fs::write(&scanner_c, SCANNER_C).map_err(|e| format!("Failed to write scanner.c: {}", e))?;
+    fs::write(temp_dir.join("scanner-config.h"), SCANNER_CONFIG_H)
+        .map_err(|e| format!("Failed to write scanner-config.h: {}", e))?;
     fs::write(tree_sitter_dir.join("parser.h"), PARSER_H)
         .map_err(|e| format!("Failed to write parser.h: {}", e))?;
     fs::write(tree_sitter_dir.join("alloc.h"), ALLOC_H)

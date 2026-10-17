@@ -17,8 +17,8 @@ export class OrderDto {
   id!: string;
 
   /** the item to order */
-  // rune declares: [TYP] item: string
-  @ApiProperty({ description: "the item to order" })
+  // rune declares: [TYP:example=lamp] item: string
+  @ApiProperty({ description: "the item to order", example: "lamp" })
   @IsString()
   item!: string;
 }

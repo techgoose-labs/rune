@@ -1,0 +1,18 @@
+[MOD] gateway
+[ENT] http.proxy(ProxyReqDto): ProxyResDto
+    [REQ] proxy.run(ProxyReqDto): ProxyResDto
+
+[REQ] proxy.run(ProxyReqDto): ProxyResDto
+    upstream::call(ProxyReqDto): ProxyResDto
+
+[DTO] ProxyReqDto: target
+    a request
+[DTO] ProxyResDto: status
+    the response
+
+[TYP:from=path,example=api] target: string
+    the upstream host segment
+[TYP] status: number
+    the status
+[NON] upstream
+    the upstream

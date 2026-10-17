@@ -3,24 +3,27 @@
 [REQ] note.create(CreateNoteDto): NoteDto
     id::generate(): id
     [NEW] note
-    note.fill(body): note
-    db:note.save(NoteDto): void
-      timeout
+    note.fill(id, body): note
     note.toDto(): NoteDto
+    db:note.save(NoteDto): void
+      ! timeout
+    [RET] NoteDto
 
 
 [REQ] note.archive(NoteRefDto): NoteDto
-    db:note.load(id): NoteDto
-      not-found
+    db:note.load(id): NoteDto as stored
+      ! not-found
+    note::fromDto(stored): note
     note.markArchived(): note
-    db:note.save(NoteDto): void
-      timeout
     note.toDto(): NoteDto
+    db:note.save(NoteDto): void
+      ! timeout
+    [RET] NoteDto
 
 
 [TYP] id: string
     a unique note identifier
-[TYP] body: string
+[TYP:example=remember-the-milk] body: string
     the note body text
 [TYP] archived: boolean
     whether the note has been archived

@@ -2,8 +2,8 @@
 
 Patterns that aren't obvious from the syntax but make a module's process model
 work the way the cake (emulator) and headless runner expect. The rules below are
-about *how you shape DTOs and steps*, not parser constraints (those live in
-`constraints.md`).
+about *how you shape DTOs and steps*, not the checker's rules (the language card
+carries every rule with its message and fix).
 
 ## Outputs mint, they don't echo
 
@@ -72,7 +72,7 @@ a 4xx), not as a step that silently can't run.
 # precondition — "ticket not already paid" is a fault on the write, not a dep
 [REQ] checkout.payCard(PayDto): PaymentDto
     db:payments.charge(ChargeDto): ReceiptDto   // boundary: service:noun.verb
-        already-paid
+      ! already-paid=409                        // a fault, with its status
 
 [SRV] (SIDECAR)db: DB_URL                             // declares service "db" (sidecar)
     the project's primary datastore
@@ -134,12 +134,15 @@ don't need a union DTO:
 ```
 [ENT:ws] chat @ /rooms/{room}
     join(JoinDto): JoinedDto      # client sends {topic:"join", data:{…}}; reply → sender
+        [REQ] room.join(JoinDto): JoinedDto
     send(ChatDto): EchoDto
+        [REQ] room.send(ChatDto): EchoDto
     leave(LeaveDto): void         # void ⇒ no reply
+        [REQ] room.leave(LeaveDto): LeftDto
 ```
 
-Each topic dispatches to its `[REQ]` by `(input, output)` just like an HTTP `[ENT]`,
-and a non-`void` return is sent back **to the sender**. Two things to remember: the
+Each topic names the `[REQ]` it dispatches to on an indented body line, just like
+an HTTP `[ENT]`, and a non-`void` return is sent back **to the sender**. Two things to remember: the
 handshake bindings (`{room}`, and a `[TYP:from=query]` auth token — a WS handshake
 can't set an `Authorization` header) are read once at connect, not per message; and a
 handler can only reply to its own sender — fan-out/broadcast to other clients isn't

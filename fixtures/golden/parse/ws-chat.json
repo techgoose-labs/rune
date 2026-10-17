@@ -1,7 +1,74 @@
 {
   "module": "chat",
   "moduleDescription": null,
-  "reqs": [],
+  "reqs": [
+    {
+      "noun": "room",
+      "verb": "join",
+      "input": "JoinDto",
+      "output": "JoinedDto",
+      "steps": [
+        {
+          "kind": "step",
+          "noun": "lobby",
+          "verb": "admit",
+          "params": [
+            "room"
+          ],
+          "output": "JoinedDto",
+          "isStatic": true,
+          "faults": [],
+          "line": 11
+        }
+      ],
+      "isOpen": false,
+      "line": 10
+    },
+    {
+      "noun": "room",
+      "verb": "send",
+      "input": "ChatDto",
+      "output": "EchoDto",
+      "steps": [
+        {
+          "kind": "step",
+          "noun": "lobby",
+          "verb": "echo",
+          "params": [
+            "text"
+          ],
+          "output": "EchoDto",
+          "isStatic": true,
+          "faults": [],
+          "line": 13
+        }
+      ],
+      "isOpen": false,
+      "line": 12
+    },
+    {
+      "noun": "room",
+      "verb": "leave",
+      "input": "LeaveDto",
+      "output": "LeftDto",
+      "steps": [
+        {
+          "kind": "step",
+          "noun": "lobby",
+          "verb": "release",
+          "params": [
+            "room"
+          ],
+          "output": "LeftDto",
+          "isStatic": true,
+          "faults": [],
+          "line": 15
+        }
+      ],
+      "isOpen": false,
+      "line": 14
+    }
+  ],
   "ents": [
     {
       "surface": "chat",
@@ -12,7 +79,11 @@
       "line": 3,
       "method": null,
       "pathTemplate": "/rooms/{room}",
-      "kind": "ws"
+      "kind": "ws",
+      "delegate": {
+        "noun": "room",
+        "verb": "join"
+      }
     },
     {
       "surface": "chat",
@@ -20,21 +91,29 @@
       "input": "ChatDto",
       "output": "EchoDto",
       "modifier": null,
-      "line": 4,
+      "line": 5,
       "method": null,
       "pathTemplate": "/rooms/{room}",
-      "kind": "ws"
+      "kind": "ws",
+      "delegate": {
+        "noun": "room",
+        "verb": "send"
+      }
     },
     {
       "surface": "chat",
       "action": "leave",
       "input": "LeaveDto",
-      "output": "void",
+      "output": "LeftDto",
       "modifier": null,
-      "line": 5,
+      "line": 7,
       "method": null,
       "pathTemplate": "/rooms/{room}",
-      "kind": "ws"
+      "kind": "ws",
+      "delegate": {
+        "noun": "room",
+        "verb": "leave"
+      }
     }
   ],
   "dtos": [
@@ -46,7 +125,7 @@
       "description": "a request to join a room",
       "isCore": false,
       "isOpen": false,
-      "line": 7
+      "line": 17
     },
     {
       "name": "JoinedDto",
@@ -57,7 +136,7 @@
       "description": "the join acknowledgement",
       "isCore": false,
       "isOpen": false,
-      "line": 9
+      "line": 19
     },
     {
       "name": "ChatDto",
@@ -67,7 +146,7 @@
       "description": "a chat line typed by a member",
       "isCore": false,
       "isOpen": false,
-      "line": 11
+      "line": 21
     },
     {
       "name": "EchoDto",
@@ -78,7 +157,7 @@
       "description": "the line echoed back with a server timestamp",
       "isCore": false,
       "isOpen": false,
-      "line": 13
+      "line": 23
     },
     {
       "name": "LeaveDto",
@@ -88,7 +167,17 @@
       "description": "a request to leave a room",
       "isCore": false,
       "isOpen": false,
-      "line": 15
+      "line": 25
+    },
+    {
+      "name": "LeftDto",
+      "properties": [
+        "room"
+      ],
+      "description": "the leave acknowledgement",
+      "isCore": false,
+      "isOpen": false,
+      "line": 27
     }
   ],
   "typs": [
@@ -99,7 +188,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 18
+      "line": 30
     },
     {
       "name": "members",
@@ -108,7 +197,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 20
+      "line": 32
     },
     {
       "name": "text",
@@ -117,7 +206,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 22
+      "line": 34
     },
     {
       "name": "at",
@@ -126,10 +215,23 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 24
+      "line": 36
     }
   ],
-  "nons": [],
+  "nons": [
+    {
+      "name": "lobby",
+      "description": "the set of rooms and who is in them",
+      "line": 39
+    }
+  ],
   "srvs": [],
+  "faultStatuses": {},
+  "bodyLines": [
+    4,
+    6,
+    8
+  ],
+  "faultLines": {},
   "errors": []
 }

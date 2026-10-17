@@ -11,7 +11,7 @@ use rune_cli::commands;
 
 #[derive(Parser)]
 #[command(name = "rune-syntax")]
-#[command(about = "Rune syntax tooling (parse/validate/format/render) — internal helper invoked by the `rune` CLI; codegen lives in the rune engine")]
+#[command(about = "Rune syntax tooling (format, editor install) — internal helper invoked by the `rune` CLI; checking and codegen live in the rune engine")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -20,13 +20,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Validate a .rune file
-    Validate {
-        /// Input .rune file
-        #[arg(value_hint = ValueHint::FilePath)]
-        input: PathBuf,
-    },
-
     /// Format a .rune file
     Format {
         /// Input .rune file
@@ -64,26 +57,6 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Validate { input } => {
-            match commands::validate(&input) {
-                Ok(errors) => {
-                    if errors.is_empty() {
-                        println!("No errors found");
-                        ExitCode::SUCCESS
-                    } else {
-                        for error in &errors {
-                            println!("{}:{}: {}", input.display(), error.line, error.message);
-                        }
-                        ExitCode::FAILURE
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    ExitCode::FAILURE
-                }
-            }
-        }
-
         Commands::Format { input, check } => {
             match commands::format(&input, check) {
                 Ok(is_formatted) => {

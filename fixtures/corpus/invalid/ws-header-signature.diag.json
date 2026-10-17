@@ -2,5 +2,13 @@
   {
     "id": "ws-header-signature",
     "line": 3
+  },
+  {
+    "id": "dto-unused",
+    "line": 5
+  },
+  {
+    "id": "dto-unused",
+    "line": 7
   }
 ]

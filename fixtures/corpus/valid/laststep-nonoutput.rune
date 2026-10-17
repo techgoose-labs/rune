@@ -2,8 +2,9 @@
 
 [REQ] search.run(QueryDto): ResultsDto
     db:index.query(QueryDto): ResultsDto
-      timeout
+      ! timeout
     db:audit.record(ResultsDto): AuditDto
+    [RET] ResultsDto
 
 [DTO] QueryDto: query
     a search query

@@ -11,7 +11,11 @@
 // The Drift gate (WO-1) runs this then `git diff --exit-code`: a clean tree
 // proves no derived artifact was hand-edited.
 
-import { buildGrammar, buildHighlights } from "./generate-core.mjs";
+import {
+  buildGrammar,
+  buildHighlights,
+  buildScannerConfig,
+} from "./generate-core.mjs";
 
 const HERE = new URL(".", import.meta.url);
 const registryUrl = new URL("../lang/keywords.json", HERE);
@@ -23,10 +27,12 @@ const dest = outOnly
   ? {
     grammar: new URL("grammar.js", outDir),
     highlights: new URL("highlights.scm", outDir),
+    scanner: new URL("scanner-config.h", outDir),
   }
   : {
     grammar: new URL("../lang/grammar/grammar.js", HERE),
     highlights: new URL("../lang/queries/highlights.scm", HERE),
+    scanner: new URL("../lang/grammar/src/scanner-config.h", HERE),
   };
 
 async function writeText(url, text) {
@@ -34,19 +40,23 @@ async function writeText(url, text) {
   await Deno.writeTextFile(url, text);
 }
 
-// Single source of truth: keywords.json (the rune-studio artifact). The Rust
-// tree-sitter grammar + highlight query under lang/ are DERIVED from it.
+// Single source of truth: lang/keywords.json. The tree-sitter grammar, the
+// highlight query and the scanner's constants under lang/ are DERIVED from it.
 const raw = await Deno.readTextFile(registryUrl);
 const reg = JSON.parse(raw);
 
 await writeText(dest.grammar, buildGrammar(reg));
 await writeText(dest.highlights, buildHighlights(reg));
+await writeText(dest.scanner, buildScannerConfig(reg));
 
 console.log(
   `Generated from ${reg.tags.length} tag(s)${outOnly ? " -> out/" : ""}:`,
 );
 console.log("  lang/grammar/grammar.js");
 console.log("  lang/queries/highlights.scm");
+console.log("  lang/grammar/src/scanner-config.h");
 if (!outOnly) {
-  console.log("(tree-sitter parser: run `tree-sitter generate` in rune/)");
+  console.log(
+    "(parser + wasm: `deno run -A scripts/build-grammar.ts` — needs tree-sitter + emcc)",
+  );
 }

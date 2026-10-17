@@ -1,7 +1,41 @@
 {
   "module": null,
   "moduleDescription": null,
-  "reqs": [],
+  "reqs": [
+    {
+      "noun": "audit",
+      "verb": "record",
+      "input": "LocalDto",
+      "output": "AuditDto",
+      "steps": [
+        {
+          "kind": "step",
+          "noun": "clock",
+          "verb": "now",
+          "params": [],
+          "output": "timestamp",
+          "isStatic": true,
+          "faults": [],
+          "line": 1
+        },
+        {
+          "kind": "step",
+          "noun": "audit",
+          "verb": "build",
+          "params": [
+            "id",
+            "timestamp"
+          ],
+          "output": "AuditDto",
+          "isStatic": true,
+          "faults": [],
+          "line": 2
+        }
+      ],
+      "isOpen": false,
+      "line": 0
+    }
+  ],
   "ents": [],
   "dtos": [
     {
@@ -13,7 +47,7 @@
       "description": "a shared audit record usable from any module",
       "isCore": true,
       "isOpen": false,
-      "line": 6
+      "line": 10
     },
     {
       "name": "LocalDto",
@@ -23,7 +57,7 @@
       "description": "a module-local contract that references a core type",
       "isCore": false,
       "isOpen": false,
-      "line": 9
+      "line": 13
     }
   ],
   "typs": [
@@ -36,7 +70,7 @@
       "modifiers": [
         "core"
       ],
-      "line": 0
+      "line": 4
     },
     {
       "name": "timestamp",
@@ -47,10 +81,24 @@
       "modifiers": [
         "core"
       ],
-      "line": 3
+      "line": 7
     }
   ],
-  "nons": [],
+  "nons": [
+    {
+      "name": "clock",
+      "description": "the wall clock",
+      "line": 16
+    },
+    {
+      "name": "audit",
+      "description": "an audit record in the making",
+      "line": 18
+    }
+  ],
   "srvs": [],
+  "faultStatuses": {},
+  "bodyLines": [],
+  "faultLines": {},
   "errors": []
 }

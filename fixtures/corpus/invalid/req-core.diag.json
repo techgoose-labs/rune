@@ -4,6 +4,10 @@
     "line": 1
   },
   {
+    "id": "ret-redundant",
+    "line": 4
+  },
+  {
     "id": "dto-prop-undefined",
     "line": 6
   },

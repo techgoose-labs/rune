@@ -71,7 +71,7 @@
                   "noun": "provider",
                   "verb": "download",
                   "params": [
-                    "url"
+                    "urls"
                   ],
                   "output": "data",
                   "isStatic": false,
@@ -110,7 +110,7 @@
                   "noun": "provider",
                   "verb": "download",
                   "params": [
-                    "url"
+                    "urls"
                   ],
                   "output": "data",
                   "isStatic": false,
@@ -142,6 +142,16 @@
           "line": 16
         },
         {
+          "kind": "step",
+          "noun": "id",
+          "verb": "toDto",
+          "params": [],
+          "output": "IdDto",
+          "isStatic": false,
+          "faults": [],
+          "line": 17
+        },
+        {
           "kind": "boundary",
           "service": "db",
           "noun": "metadata",
@@ -156,12 +166,12 @@
             "timeout",
             "network-error"
           ],
-          "line": 17
+          "line": 18
         },
         {
           "kind": "ctr",
           "className": "storage",
-          "line": 19
+          "line": 20
         },
         {
           "kind": "boundary",
@@ -178,17 +188,12 @@
             "timeout",
             "network-error"
           ],
-          "line": 20
+          "line": 21
         },
         {
-          "kind": "step",
-          "noun": "id",
-          "verb": "toDto",
-          "params": [],
-          "output": "IdDto",
-          "isStatic": false,
-          "faults": [],
-          "line": 22
+          "kind": "ret",
+          "value": "IdDto",
+          "line": 23
         }
       ],
       "isOpen": false,
@@ -213,12 +218,7 @@
           "faults": [
             "invalid"
           ],
-          "line": 26
-        },
-        {
-          "kind": "ctr",
-          "className": "storage",
-          "line": 28
+          "line": 27
         },
         {
           "kind": "step",
@@ -231,6 +231,11 @@
           "line": 29
         },
         {
+          "kind": "ctr",
+          "className": "storage",
+          "line": 30
+        },
+        {
           "kind": "boundary",
           "service": "os",
           "noun": "storage",
@@ -241,16 +246,16 @@
           "output": "DataDto",
           "isStatic": false,
           "faults": [
-            "woof",
+            "not-found",
             "timeout",
             "network-error"
           ],
-          "line": 30
+          "line": 31
         },
         {
           "kind": "ctr",
           "className": "metadata",
-          "line": 32
+          "line": 33
         },
         {
           "kind": "boundary",
@@ -267,7 +272,7 @@
             "timeout",
             "network-error"
           ],
-          "line": 33
+          "line": 34
         },
         {
           "kind": "step",
@@ -283,7 +288,7 @@
             "invalid-data",
             "invalid-metadata"
           ],
-          "line": 35
+          "line": 36
         },
         {
           "kind": "step",
@@ -293,11 +298,11 @@
           "output": "RecordingDto",
           "isStatic": false,
           "faults": [],
-          "line": 37
+          "line": 38
         }
       ],
       "isOpen": false,
-      "line": 25
+      "line": 26
     },
     {
       "noun": "recordingMetadata",
@@ -318,12 +323,17 @@
           "faults": [
             "invalid"
           ],
-          "line": 41
+          "line": 42
         },
         {
-          "kind": "ctr",
-          "className": "metadata",
-          "line": 43
+          "kind": "step",
+          "noun": "id",
+          "verb": "toDto",
+          "params": [],
+          "output": "IdDto",
+          "isStatic": false,
+          "faults": [],
+          "line": 44
         },
         {
           "kind": "boundary",
@@ -334,13 +344,14 @@
             "IdDto"
           ],
           "output": "MetadataDto",
+          "valueName": "stored",
           "isStatic": false,
           "faults": [
             "not-found",
             "timeout",
             "network-error"
           ],
-          "line": 44
+          "line": 45
         },
         {
           "kind": "boundary",
@@ -357,16 +368,16 @@
             "timeout",
             "network-error"
           ],
-          "line": 46
+          "line": 47
         },
         {
           "kind": "ret",
           "value": "MetadataDto",
-          "line": 48
+          "line": 49
         }
       ],
       "isOpen": false,
-      "line": 40
+      "line": 41
     }
   ],
   "ents": [],
@@ -379,7 +390,7 @@
       "description": "a list of URLs returned by provider search",
       "isCore": false,
       "isOpen": false,
-      "line": 78
+      "line": 79
     },
     {
       "name": "GetRecordingDto",
@@ -390,7 +401,7 @@
       "description": "input for retrieving a recording by provider and external ID",
       "isCore": false,
       "isOpen": false,
-      "line": 80
+      "line": 81
     },
     {
       "name": "SetMetadataDto",
@@ -401,7 +412,7 @@
       "description": "input for setting metadata on a recording",
       "isCore": false,
       "isOpen": false,
-      "line": 82
+      "line": 83
     },
     {
       "name": "DataDto",
@@ -411,7 +422,7 @@
       "description": "wrapper for binary recording data",
       "isCore": false,
       "isOpen": false,
-      "line": 84
+      "line": 85
     },
     {
       "name": "MetadataDto",
@@ -421,7 +432,7 @@
       "description": "wrapper for recording metadata",
       "isCore": false,
       "isOpen": false,
-      "line": 86
+      "line": 87
     },
     {
       "name": "RecordingDto",
@@ -432,7 +443,7 @@
       "description": "complete recording with data and metadata",
       "isCore": false,
       "isOpen": false,
-      "line": 88
+      "line": 89
     },
     {
       "name": "IdDto",
@@ -443,7 +454,7 @@
       "description": "unique identifier combining provider and external ID",
       "isCore": false,
       "isOpen": false,
-      "line": 90
+      "line": 91
     }
   ],
   "typs": [
@@ -454,7 +465,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 66
+      "line": 67
     },
     {
       "name": "providerName",
@@ -463,7 +474,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 68
+      "line": 69
     },
     {
       "name": "externalId",
@@ -472,7 +483,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 71
+      "line": 72
     },
     {
       "name": "data",
@@ -481,34 +492,34 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 74
+      "line": 75
     }
   ],
   "nons": [
     {
       "name": "storage",
       "description": "a class representing the storage system used to save and retrieve recording data",
-      "line": 51
+      "line": 52
     },
     {
       "name": "metadata",
       "description": "a key-value pair object containing metadata about the recording",
-      "line": 54
+      "line": 55
     },
     {
       "name": "recording",
       "description": "a class representing a recording, which includes both the binary data and associated metadata",
-      "line": 57
+      "line": 58
     },
     {
       "name": "id",
       "description": "a unique identifier for the recording generated by the system",
-      "line": 60
+      "line": 61
     },
     {
       "name": "provider",
       "description": "an instance of the provider class",
-      "line": 63
+      "line": 64
     }
   ],
   "srvs": [
@@ -520,7 +531,7 @@
       ],
       "description": "external http service",
       "docsLink": "https://docs.example.com/ex",
-      "line": 93
+      "line": 94
     },
     {
       "transport": "SIDECAR",
@@ -530,7 +541,7 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 97
+      "line": 98
     },
     {
       "transport": "SIDECAR",
@@ -540,8 +551,19 @@
       ],
       "description": "object storage",
       "docsLink": "https://docs.example.com/os",
-      "line": 101
+      "line": 102
     }
   ],
+  "faultStatuses": {},
+  "bodyLines": [],
+  "faultLines": {
+    "not-found": 46,
+    "timeout": 48,
+    "invalid-id": 12,
+    "network-error": 48,
+    "invalid": 43,
+    "invalid-data": 37,
+    "invalid-metadata": 37
+  },
   "errors": []
 }

@@ -3,14 +3,13 @@
     [PLY] channel.deliver(NotifyDto): ReceiptDto
         [CSE] email
         ex:smtp.send(NotifyDto): ReceiptDto
-          timeout invalid-address
+          ! timeout invalid-address
         [CSE] sms
         ex:carrier.send(NotifyDto): ReceiptDto
-          timeout invalid-number
+          ! timeout invalid-number
         [CSE] push
         ex:push.send(NotifyDto): ReceiptDto
-          timeout unregistered
-    [RET] ReceiptDto
+          ! timeout unregistered=410
 
 [NON] channel
     a delivery channel for notifications
@@ -29,4 +28,3 @@
 [SRV] (HTTP)ex: EX_URL
     external http service
     @docs https://docs.example.com/ex
-

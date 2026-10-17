@@ -3,7 +3,9 @@ import { parseBarrelTarget, planSync, polyBarrelNote } from "./mod.ts";
 
 const SPEC = `[MOD] orders
 [REQ] orders.place(PlaceDto): OrderDto
-    cart.total(): money
+    [NEW] cart
+    cart.total(): money as total
+    cart.toDto(): OrderDto
     db:store.save(OrderDto): void
     [RET] OrderDto
 
@@ -107,11 +109,24 @@ Deno.test("planSync — splits dev-owned orphans into toPruneOwned", () => {
 const PLY_SPEC = `[MOD] recording
 
 [REQ] recording.set(InDto): OutDto
+    [NEW] provider
     [PLY] provider.getRecording(id): data
         [CSE] genie
-        ex:provider.search(id): SearchDto
+        ex:provider.search(id): data
         [CSE] fiveNine
-        ex:provider.search(id): SearchDto`;
+        ex:provider.search(id): data
+    out::of(data): OutDto
+
+[NON] provider
+    a provider
+[DTO] InDto: id
+    in
+[DTO] OutDto: data
+    out
+[TYP] id: string
+    an id
+[TYP] data: Uint8Array
+    bytes`;
 
 Deno.test("planSync — a removed [CSE] arm's implementations/<case>/ is a dev-owned orphan", () => {
   const base = "src/recording/domain/business/provider";
@@ -217,12 +232,13 @@ const WIDGETS_V1 = `[MOD] widgets
     widget::newId(): widgetId
     widget::build(DefineWidgetDto, widgetId): WidgetDto
     kv:widget.set(widgetId, WidgetDto): void
-      timeout
+      ! timeout
     log:audit.widgetDefined(WidgetDto): void
     [RET] WidgetDto
 
 
 [ENT] widgets.widgetDefine(DefineWidgetDto): WidgetDto
+    [REQ] widget.define(DefineWidgetDto): WidgetDto
 
 
 [TYP] widgetId: string
@@ -245,20 +261,22 @@ const WIDGETS_V1 = `[MOD] widgets
 // a new audit event, and WidgetDto gains a field.
 const WIDGETS_V2 = WIDGETS_V1
   .replace(
-    "[ENT] widgets.widgetDefine(DefineWidgetDto): WidgetDto",
+    "[ENT] widgets.widgetDefine(DefineWidgetDto): WidgetDto\n    [REQ] widget.define(DefineWidgetDto): WidgetDto",
     `[REQ] widget.attach(WidgetPartDto): WidgetDto
     kv:widget.get(widgetId): WidgetDto
-      not-found
+      ! not-found
     kv:part.get(partId): PartDto
-      not-found
-    kv:widget.addPart(widgetId, partId): WidgetDto
-      timeout
-    log:audit.widgetPartAttached(WidgetDto): void
-    [RET] WidgetDto
+      ! not-found
+    kv:widget.addPart(widgetId, partId): WidgetDto as attached
+      ! timeout
+    log:audit.widgetPartAttached(attached): void
+    [RET] attached
 
 
 [ENT] widgets.widgetDefine(DefineWidgetDto): WidgetDto
-[ENT] widgets.widgetAttach(WidgetPartDto): WidgetDto`,
+    [REQ] widget.define(DefineWidgetDto): WidgetDto
+[ENT] widgets.widgetAttach(WidgetPartDto): WidgetDto
+    [REQ] widget.attach(WidgetPartDto): WidgetDto`,
   )
   .replace(
     "[TYP] widgetId: string",
@@ -297,7 +315,7 @@ Deno.test("growth — appends the new audit method to the preserved adapter (stu
   assertStringIncludes(content, "widgetDefined(");
   assertStringIncludes(
     content,
-    "widgetPartAttached(widgetDto: WidgetDto): Promise<void>",
+    "widgetPartAttached(attached: WidgetDto): Promise<void>",
   );
   assertStringIncludes(content, 'throw new Error("not implemented");');
   assertEquals(added.includes("method widgetPartAttached"), true);
@@ -469,7 +487,7 @@ const ACCESS_V1 = `[MOD] access
 
 [REQ] member.allow(MemberGrantDto): MemberDto
     firebase:claims.allow(ClaimKeyDto): void
-      timeout
+      ! timeout
     [RET] MemberDto
 
 
@@ -490,7 +508,7 @@ const ACCESS_V2 = ACCESS_V1
     "[TYP] userId: string",
     `[REQ] member.list(MemberFilterDto): MemberListDto
     kv:member.list(MemberFilterDto): MemberListDto
-      timeout
+      ! timeout
     [RET] MemberListDto
 
 
@@ -510,7 +528,7 @@ const ACCESS_V3 = ACCESS_V1.replace(
   "[TYP] userId: string",
   `[REQ] member.deny(MemberGrantDto): MemberDto
     firebase:claims.deny(ClaimKeyDto): void
-      timeout
+      ! timeout
     [RET] MemberDto
 
 

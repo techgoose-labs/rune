@@ -1,5 +1,6 @@
 import { assertEquals } from "#std/assert";
-import { DIAGNOSTIC_IDS, renderFinding } from "./mod.ts";
+import { renderFinding } from "./mod.ts";
+import { registry } from "@rune/domain/business/registry/mod.ts";
 
 Deno.test("REQ-013: renderFinding is path:line: message [id]", () => {
   assertEquals(
@@ -26,7 +27,8 @@ Deno.test("REQ-013: renderFinding is path:line: message [id]", () => {
 });
 
 Deno.test("REQ-013: diagnostic ids are unique", () => {
-  assertEquals(new Set(DIAGNOSTIC_IDS).size, DIAGNOSTIC_IDS.length);
+  const ids = registry.lint.map((r) => r.id);
+  assertEquals(new Set(ids).size, ids.length);
 });
 
 import { corpusParity } from "./corpus.ts";

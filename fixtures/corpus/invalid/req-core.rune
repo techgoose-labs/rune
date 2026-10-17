@@ -1,6 +1,6 @@
 [REQ:core] order.place(InDto): OutDto
     db:order.save(InDto): OutDto
-      timeout
+      ! timeout
     [RET] OutDto
 
 [DTO] InDto: a

@@ -1,7 +1,7 @@
 {
   "name": "Rune",
-  "schemaVersion": "1.0.0",
-  "description": "Single source of truth for the Rune language. The tree-sitter grammar, the syntax highlighter, the studio's registry copy (studio/data/keywords.json), the codegen templates, and the lint rule set (spec + generated, consumed by rune) are all derived from this file. Hand-edit here (or via the studio) and regenerate with new/generate.mjs.",
+  "schemaVersion": "2.0.0",
+  "description": "Single source of truth for the Rune language. Derived from this file: the tree-sitter grammar, highlight query and scanner config (scripts/generate.mjs), the doc tables and the LLM language card (scripts/gen-lang-docs.ts), the engine's modifier/transport/fault/indent tables and its rule catalogue (loaded at runtime), and the codegen templates. Hand-edit here and regenerate.",
   "palette": {
     "background": "#17120e",
     "foreground": "#cabfb2",
@@ -28,13 +28,8 @@
       "description": "Feature entry point / happy path. Format: noun.verb(InputDto): OutputDto",
       "group": "Structure",
       "syntax": "[REQ] noun.verb(InputDto): OutputDto",
-      "summary": "A requirement \u2014 one feature entry point, the happy-path end-to-end. Faults live on its steps, not here.",
-      "rules": [
-        "Input must be a DTO (or inline {})",
-        "Output must be a DTO",
-        "The last step must return the output DTO",
-        "Scope resets at each [REQ]"
-      ]
+      "summary": "A requirement — one feature entry point, the happy-path end-to-end. Input is a DTO (or inline {}), output is a DTO; the last step (or a [RET]) yields the output; faults live on its steps, not here; scope resets at each [REQ]. `[REQ:open]` is the openness marker — the endpoint is reachable without a credential (the only modifier [REQ] takes).",
+      "shapeRule": "req-signature"
     },
     {
       "id": "mod",
@@ -45,11 +40,8 @@
       "follows": "identifier",
       "color": "#89babf",
       "syntax": "[MOD] name",
-      "summary": "Names the module this file describes; fills the <module>/ path slot. Optional (defaults to the filename).",
-      "rules": [
-        "First non-comment line",
-        "kebab-case on disk"
-      ]
+      "summary": "Names the module this file describes; fills the <module>/ path slot. The first non-comment line; kebab-case on disk. Optional (defaults to the filename). `[MOD] name: prose` plus indented continuation lines is the module's front-door description.",
+      "shapeRule": "mod-name"
     },
     {
       "id": "ent",
@@ -59,9 +51,9 @@
       "indent": 0,
       "follows": "signature",
       "color": "#89babf",
-      "syntax": "[ENT] surface.action(InputDto): OutputDto",
-      "summary": "An inbound entrypoint (HTTP route, CLI command, queue handler) \u2014 the inverse of a boundary. Its body references the [REQ] it dispatches to. [ENT:ws] instead declares a WebSocket socket: a `[ENT:ws] <surface> @ /path` header with indented `verb(In): Out` message topics.",
-      "rules": []
+      "syntax": "[ENT] surface.action(InputDto): OutputDto\n    [REQ] noun.verb(InputDto): OutputDto",
+      "summary": "An inbound entrypoint (HTTP route) — the inverse of a boundary. Its body is ONE indented `[REQ] noun.verb(In): Out` line naming the coordinator it dispatches to (required — there is no signature matching). An optional `@ METHOD /template` clause between the name and the parens sets the verb and the route; `{field}` segments (and one trailing `{field*}` catch-all) bind URL parts to same-named input fields. `[ENT:ws] <surface> @ /path` declares a WebSocket socket whose indented `verb(In): Out` topics each carry their own indented `[REQ]` body line.",
+      "shapeRule": "ent-signature"
     },
     {
       "id": "ply",
@@ -74,8 +66,8 @@
       "description": "Opens a polymorphic block. The noun names an interface; each [CSE] is a concrete case.",
       "group": "Polymorphism",
       "syntax": "[PLY] noun.verb(args): type",
-      "summary": "Opens a polymorphic block where the noun names an interface. Each [CSE] is a concrete implementation; they all share the interface's return type. The block ends when indentation returns to step level.",
-      "rules": []
+      "summary": "Opens a polymorphic block where the noun names an interface. Each [CSE] is a concrete implementation; they all share the interface's return type, and each case's last step yields it. The block ends at the first line indented no deeper than the [PLY] (the one place relative indentation carries meaning).",
+      "shapeRule": "ply-signature"
     },
     {
       "id": "cse",
@@ -87,8 +79,8 @@
       "description": "A concrete case inside a [PLY] block. Followed by a camelCase case name.",
       "group": "Polymorphism",
       "syntax": "[CSE] caseName",
-      "summary": "A concrete case inside a [PLY] block (8-space indent, camelCase name), with its own sub-steps and faults.",
-      "rules": []
+      "summary": "A concrete case inside a [PLY] block (camelCase name), with its own sub-steps and faults, indented deeper than the [PLY].",
+      "shapeRule": "cse-name"
     },
     {
       "id": "new",
@@ -97,14 +89,11 @@
       "indent": 4,
       "follows": "identifier",
       "color": "#89babf",
-      "description": "Constructor shorthand. Instantiates a class and adds it to scope. No parens, no return type.",
+      "description": "Constructor shorthand. Instantiates a [NON] and adds it to scope. No parens, no return type.",
       "group": "Flow & modifiers",
-      "syntax": "[NEW] class",
-      "summary": "Constructor shorthand \u2014 instantiates a class and adds it to scope. No parentheses, no return type; construction details are an implementation concern.",
-      "rules": [],
-      "synonyms": [
-        "[CTR]"
-      ]
+      "syntax": "[NEW] noun",
+      "summary": "Constructor shorthand — instantiates a declared [NON] and adds it to scope under its own name. No parentheses, no return type; construction details are an implementation concern.",
+      "shapeRule": "new-name"
     },
     {
       "id": "ret",
@@ -116,8 +105,8 @@
       "description": "Return a value already created earlier in the flow. The value must be in scope.",
       "group": "Flow & modifiers",
       "syntax": "[RET] value",
-      "summary": "Returns a value created earlier in the flow \u2014 useful when the last operation is a side effect (like saving to a DB) but you need to return a DTO made earlier. The value must be in scope.",
-      "rules": []
+      "summary": "Returns a value already in scope — by its name (`[RET] loaded`) or, for an unnamed value, by its type (`[RET] TaskDto`). Use it when the last step is a side effect. Redundant right after a step that already returns the output.",
+      "shapeRule": "ret-value"
     },
     {
       "id": "typ",
@@ -128,9 +117,9 @@
       "color": "#89babf",
       "description": "Defines a named semantic type that resolves to a primitive. Format: name: primitive",
       "group": "Data",
-      "syntax": "[TYP] name: primitive",
-      "summary": "A named semantic type built on a primitive (string, number, boolean, void, Uint8Array, Class). Gives meaning to a raw primitive \u2014 `id` vs `string`. Generics (Array<url>), tuples ([x, y]), and string enums (\"a\" | \"b\") are allowed.",
-      "rules": []
+      "syntax": "[TYP:mod,mod] name: primitive",
+      "summary": "A named semantic type built on a primitive (string, number, boolean, void, Uint8Array). Gives meaning to a raw primitive — `id` vs `string`. Generics (Array<url>), tuples ([x, y]) and string enums (\"a\" | \"b\" — generated as a quoted union validated with @IsIn) are allowed. A [TYP] never resolves to a DTO; a noun is a [NON], never `[TYP] x: Class`. The bracket slot is a comma-separated modifier list: [TYP:ext,uuid], [TYP:min=0,max=100].",
+      "shapeRule": "typ-type"
     },
     {
       "id": "dto",
@@ -142,12 +131,8 @@
       "description": "Defines a reusable data contract. Name must end in Dto. Format: NameDto: prop1, prop2",
       "group": "Data",
       "syntax": "[DTO] NameDto: prop1, prop2",
-      "summary": "A reusable data contract; the name must end in Dto. Properties reference types or other DTOs. `url(s)` becomes `urls: Array<url>`. A description is required on the next line.",
-      "rules": [
-        "Each name unique",
-        "All defined DTOs must be used",
-        "Validated at system boundaries"
-      ]
+      "summary": "A reusable data contract; the name must end in Dto. Properties reference types or other DTOs by name; `url(s)` is `urls: Array<url>`, `tag(s?)` an array whose elements are not validated (dirty inbound data), `name?` an optional property. A description is required on the next line. `[DTO:core]` routes it to src/core; `[DTO:open]` is an opaque inbound payload — declared fields are validated, undeclared fields ride through. Every DTO must be used.",
+      "shapeRule": "dto-props"
     },
     {
       "id": "non",
@@ -159,10 +144,8 @@
       "description": "Declares a noun (subject) with a prose description on the following lines.",
       "group": "Data",
       "syntax": "[NON] noun",
-      "summary": "Declares a noun (a subject / class) with a prose description on the following lines. Its purity (pure vs data) is inferred from whether it's used at a boundary.",
-      "rules": [
-        "Grammar form; the spec is moving toward [TYP] noun: Class"
-      ]
+      "summary": "Declares a noun (a subject / class) with a prose description on the following lines. [NEW] instantiates it; instance steps `noun.verb()` need it in scope; static steps `Noun::verb()` do not. Every [NON] must be used.",
+      "shapeRule": "non-name"
     },
     {
       "id": "srv",
@@ -173,34 +156,17 @@
       "color": "#b38585",
       "description": "Declares a backing service: a transport (SDK/HTTP/WEBSOCKET/SIDECAR/NATIVE), a name referenced by service: boundary prefixes, its required env vars, and a required @docs link.",
       "group": "Data",
-      "syntax": "[SRV] (TRANSPORT)<name>: <ENV, ENV2>\\n    @docs <url>",
-      "summary": "Declares a backing service (transport + name + env vars + prose + required @docs link). Boundary calls reference it as service:noun.verb(...).",
-      "rules": [
-        "Transport is one of SDK/HTTP/WEBSOCKET/SIDECAR/NATIVE, written in parens: (SDK)name. NATIVE = an in-process runtime/std-lib boundary (filesystem, subprocess, crypto, clock).",
-        "Name must be referenced by a service: boundary prefix",
-        "Requires an indented `@docs <url>` line (the service's documentation link)"
-      ]
+      "syntax": "[SRV] (TRANSPORT)<name>: <ENV, ENV2>\n    <description>\n    @docs <url>",
+      "summary": "Declares a backing service — transport (one of the registry's transports, in parens), a name referenced by `service:` boundary prefixes, its env vars, a one-line prose description and a required `@docs <url>` line. Declared once, in src/core/core.rune; boundary calls reference it as service:noun.verb(...).",
+      "shapeRule": "srv-shape"
     }
   ],
-  "boundaries": {
-    "color": "#b38585",
-    "description": "2-char colon prefixes marking a step that crosses a system boundary.",
-    "prefixes": [
-      "db:",
-      "fs:",
-      "mq:",
-      "ex:",
-      "os:",
-      "lg:"
-    ]
-  },
   "builtins": [
     "string",
     "number",
     "boolean",
     "void",
     "Uint8Array",
-    "Class",
     "Primitive",
     "Array",
     "Record",
@@ -311,210 +277,762 @@
     {
       "id": "line-length",
       "type": "max-line-length",
-      "target": "spec",
-      "severity": "error",
-      "enabled": true,
       "params": {
         "max": 80
       },
-      "message": "line exceeds {max} characters"
+      "severity": "error",
+      "message": "line exceeds {max} characters ({found})",
+      "fix": "wrap the line; a fault line may continue on the next `! ` line, prose on the next indented line",
+      "doc": "Every line is at most the registry's column limit so a spec reads in any editor and diffs line by line.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "tag-indent",
       "type": "tag-indent",
+      "severity": "warning",
+      "message": "{tag} should be indented {expected} spaces (found {found})",
+      "fix": "run `rune fmt`",
+      "doc": "Indentation is presentation, owned by `rune fmt`: the registry's indent table says where each tag sits. The checker warns; it never changes meaning.",
       "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "mod-name",
+      "checker": "mod-name",
       "severity": "error",
-      "enabled": true,
-      "params": {},
-      "message": "{tag} should be indented {expected} spaces (found {found})"
+      "message": "[MOD] needs a name — {syntax}",
+      "doc": "The module directive names the module; an empty name cannot fill the src/<module>/ slot.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "mod-name-shape",
+      "checker": "mod-name-shape",
+      "severity": "error",
+      "message": "[MOD] invalid name \"{name}\" — must start with a letter or \"_\" and use only letters, digits, \"-\", \"_\"",
+      "doc": "A [MOD] name becomes a directory AND a JS identifier alias in the generated bootstrap registry, so it must be an identifier shape.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "mod-duplicate",
+      "checker": "mod-duplicate",
+      "severity": "error",
+      "message": "duplicate [MOD]: already set to \"{module}\"",
+      "fix": "remove the second [MOD]",
+      "doc": "A .rune file describes exactly one module.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "mod-underivable",
+      "checker": "mod-underivable",
+      "severity": "error",
+      "message": "no [MOD] directive and could not derive module name",
+      "fix": "add `[MOD] <name>` as the first line",
+      "doc": "Without a [MOD] the module name comes from the spec's filename; a path the engine cannot map to a module needs the directive.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "req-signature",
+      "checker": "req-signature",
+      "severity": "error",
+      "message": "[REQ] missing or malformed signature — {syntax}",
+      "doc": "A requirement is noun.verb(InputDto): OutputDto.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "req-modifier",
+      "checker": "req-modifier",
+      "severity": "error",
+      "message": "[REQ] unknown modifier \"{modifier}\" — the only one is :open",
+      "doc": "[REQ] takes exactly one modifier, the openness marker.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "req-core",
+      "checker": "req-core",
+      "severity": "error",
+      "message": "[REQ:core] is invalid — coordinators are module-level",
+      "doc": "core/ has no coordinators/ slot; a requirement always belongs to its module.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ent-signature",
+      "checker": "ent-signature",
+      "severity": "error",
+      "message": "[ENT] missing or malformed signature — {syntax}",
+      "doc": "An entrypoint is surface.action(InputDto): OutputDto, optionally with `@ METHOD /template` between the name and the parens.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ent-method",
+      "checker": "ent-method",
+      "severity": "error",
+      "message": "[ENT] HTTP method must be one of GET, POST, PUT, PATCH, DELETE (got \"{method}\")",
+      "doc": "The route clause's verb is an HTTP method.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ent-body-signature",
+      "checker": "ent-body-signature",
+      "severity": "error",
+      "message": "[ENT] body [REQ] has a malformed signature",
+      "doc": "The body line names the coordinator with its full signature.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ent-body-modifier",
+      "checker": "ent-body-modifier",
+      "severity": "error",
+      "message": "[ENT] body [REQ] does not take a modifier",
+      "doc": "Openness is declared on the top-level [REQ], not repeated in the body reference.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ent-delegate-required",
+      "checker": "ent-delegate-required",
+      "severity": "error",
+      "message": "[ENT] {surface}.{action} names no [REQ] — add an indented `[REQ] noun.verb({input}): {output}` line under it{candidates}",
+      "fix": "{fix}",
+      "doc": "An entrypoint dispatches to exactly the [REQ] its body names. There is no matching by signature: two [REQ]s with the same (input, output) would make the pick silent and wrong.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ent-delegate-undefined",
+      "checker": "ent-delegate-undefined",
+      "severity": "error",
+      "message": "[ENT] {surface}.{action} delegates to [REQ] {noun}.{verb}, which is not defined",
+      "doc": "The body [REQ] must exist in the same spec.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "surface-mixed",
+      "checker": "surface-mixed",
+      "severity": "error",
+      "message": "surface \"{surface}\" is declared as both an HTTP [ENT] and a WebSocket [ENT:ws]",
+      "fix": "give them distinct surfaces",
+      "doc": "A surface is one controller: either HTTP routes or one WebSocket socket.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ws-topic-shape",
+      "checker": "ws-topic-shape",
+      "severity": "error",
+      "message": "[ENT:ws] {surface}: malformed topic — expected \"<verb>(InputDto): OutputDto\"",
+      "doc": "Each indented line under a socket header is one message topic.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ws-header-signature",
+      "checker": "ws-header-signature",
+      "severity": "error",
+      "message": "[ENT:ws] malformed — expected \"[ENT:ws] <surface> @ /path\"",
+      "doc": "A socket header names the surface and the handshake path; topics are declared on the lines below, never on the header.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ws-no-topics",
+      "checker": "ws-no-topics",
+      "severity": "error",
+      "message": "[ENT:ws] {surface} has no topics — add at least one \"<verb>(InputDto): OutputDto\"",
+      "doc": "A socket with no topics handles no message.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "srv-shape",
+      "checker": "srv-shape",
+      "severity": "error",
+      "message": "[SRV] malformed — expected [SRV] (TRANSPORT)<name>: <ENV,…>",
+      "doc": "A service declaration is a parenthesized transport, a name, and its env vars.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "srv-transport",
+      "checker": "srv-transport",
+      "severity": "error",
+      "message": "[SRV] unknown transport \"{transport}\" — expected {transports}",
+      "doc": "Transports are the registry's closed set.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "srv-docs-url",
+      "checker": "srv-docs-url",
+      "severity": "error",
+      "message": "[SRV] {service}: @docs needs a URL",
+      "doc": "The documentation link is the one piece of provenance a dev needs to wire the service.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "srv-docs-duplicate",
+      "checker": "srv-docs-duplicate",
+      "severity": "error",
+      "message": "[SRV] {service}: duplicate @docs link",
+      "doc": "One documentation link per service.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "srv-docs-required",
+      "checker": "srv-docs-required",
+      "severity": "error",
+      "message": "[SRV] {service} requires an @docs <url> line",
+      "fix": "add `    @docs <url>` under the description",
+      "doc": "Every service declares where its documentation lives.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "srv-outside-core",
+      "checker": "srv-outside-core",
+      "severity": "error",
+      "message": "[SRV] ({transport}){service} declared in a module spec — shared services must be declared once in {core}",
+      "fix": "move the [SRV] to {core} and delete it here",
+      "doc": "Services are shared infrastructure, declared exactly once in src/core/core.rune and resolved from there by every module.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "core-spec-missing",
+      "checker": "core-spec-missing",
+      "severity": "error",
+      "message": "no core.rune found under the resolved project root \"{root}\" — shared services live in its src/core/core.rune and none was found there, so the boundary service{plural} {services} cannot be resolved. Pass `--root <project-dir>` or move the spec into that project.",
+      "doc": "Boundary services resolve against the project's core spec; a root with no core.rune is almost always a mis-resolved root.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "service-undeclared",
+      "checker": "service-undeclared",
+      "severity": "error",
+      "message": "undeclared service \"{service}\"",
+      "fix": "declare it as `[SRV] (TRANSPORT){service}: <ENV,…>` in src/core/core.rune",
+      "doc": "A boundary prefix names a declared service; there are no built-in boundary kinds.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "dto-props",
+      "checker": "dto-props",
+      "severity": "error",
+      "message": "[DTO] missing properties — {syntax}",
+      "doc": "A DTO lists its properties after the colon.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "dto-modifier",
+      "checker": "dto-modifier",
+      "severity": "error",
+      "message": "[DTO] unknown modifier \"{modifier}\" — expected :core or :open",
+      "doc": "A typo here would silently degrade to a strict DTO that strips an inbound payload's fields at runtime.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "dto-prop-undefined",
+      "checker": "dto-prop-undefined",
+      "severity": "error",
+      "message": "[DTO] {dto}: property \"{prop}\" has no [TYP] or [DTO]",
+      "fix": "declare `[TYP] {base}: <type>`",
+      "doc": "Every property resolves to a declared type — a [TYP], a nested [DTO] (named directly or via the <Name>Dto convention) — so no generated field is `unknown`.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "typ-type",
+      "checker": "typ-type",
+      "severity": "error",
+      "message": "[TYP] missing type — {syntax}",
+      "doc": "A type declaration names its primitive after the colon.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "typ-modifier-unknown",
+      "checker": "typ-modifier-unknown",
+      "severity": "error",
+      "message": "[TYP] unknown modifier \"{modifier}\" (allowed: {allowed})",
+      "doc": "The bracket slot takes only the registry's modifiers.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "typ-modifier-base",
+      "checker": "typ-modifier-base",
+      "severity": "error",
+      "message": "[TYP] modifier \"{modifier}\" requires a {base} type, but \"{name}\" is {type}",
+      "doc": "A constraint fits only its base primitive: string constraints on string types, number constraints on number types.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "typ-modifier-value",
+      "checker": "typ-modifier-value",
+      "severity": "error",
+      "message": "[TYP] modifier \"{modifier}\" requires a {kind} value (e.g. {example})",
+      "doc": "min/max take a numeric value; example/from take text.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "typ-modifier-no-value",
+      "checker": "typ-modifier-no-value",
+      "severity": "error",
+      "message": "[TYP] modifier \"{modifier}\" does not take a value",
+      "doc": "Only valued modifiers are written with `=`.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "typ-modifier-choice",
+      "checker": "typ-modifier-choice",
+      "severity": "error",
+      "message": "[TYP] modifier \"{modifier}\" must be one of {values} (got \"{value}\")",
+      "doc": "A closed-set modifier rejects anything outside its set.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "from-path-retired",
+      "checker": "from-path-retired",
+      "severity": "error",
+      "message": "[TYP:from={value}] is retired — path segments are bound by the [ENT]'s route template",
+      "fix": "write the route as `[ENT] surface.action @ METHOD /…/{{{name}}}(In): Out` (`{{{name}*}}` for a catch-all) and drop from={value}",
+      "doc": "One form per concept: the route template on the [ENT] is the only path binding.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "class-retired",
+      "checker": "class-retired",
+      "severity": "error",
+      "message": "[TYP] {name}: Class is retired — a noun is a [NON]",
+      "fix": "replace it with `[NON] {name}` and a description",
+      "doc": "[NON] declares a noun; [TYP] declares a primitive-backed type. Class was the second spelling of the first.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "non-name",
+      "checker": "non-name",
+      "severity": "error",
+      "message": "[NON] missing name — {syntax}",
+      "doc": "A noun declaration names its subject.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ply-signature",
+      "checker": "ply-signature",
+      "severity": "error",
+      "message": "[PLY] missing or malformed signature — {syntax}",
+      "doc": "A polymorphic step has the shape of a step.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ply-outside-req",
+      "checker": "ply-outside-req",
+      "severity": "error",
+      "message": "[PLY] outside [REQ]",
+      "doc": "Steps, including polymorphic ones, live under a requirement.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ply-nested",
+      "checker": "ply-nested",
+      "severity": "error",
+      "message": "nested [PLY] inside [CSE] not supported",
+      "doc": "One level of polymorphism per step.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ply-cases",
+      "checker": "ply-cases",
+      "severity": "error",
+      "message": "[PLY] {noun}.{verb} requires at least one [CSE] (a polymorphic step needs ≥1 variant case)",
+      "doc": "A [PLY] with no case generates a barrel pointing at nothing.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "cse-name",
+      "checker": "cse-name",
+      "severity": "error",
+      "message": "[CSE] missing case name — {syntax}",
+      "doc": "A case names its variant.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "cse-outside-ply",
+      "checker": "cse-outside-ply",
+      "severity": "error",
+      "message": "[CSE] outside [PLY] block",
+      "doc": "A case belongs to the polymorphic block above it.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "new-name",
+      "checker": "new-name",
+      "severity": "error",
+      "message": "[NEW] missing noun — {syntax}",
+      "doc": "[NEW] names the [NON] it instantiates.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ctr-retired",
+      "checker": "ctr-retired",
+      "severity": "error",
+      "message": "[CTR] is retired — write `[NEW] {noun}`",
+      "fix": "run `rune fmt` (it rewrites [CTR] to [NEW])",
+      "doc": "One spelling per concept.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ret-value",
+      "checker": "ret-value",
+      "severity": "error",
+      "message": "[RET] missing value — {syntax}",
+      "doc": "[RET] names the value it returns.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "boundary-signature",
+      "checker": "boundary-signature",
+      "severity": "error",
+      "message": "{service}: malformed signature — service:noun.verb(args): type",
+      "doc": "A boundary step is the service prefix followed by a step signature.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "step-outside-req",
+      "checker": "step-outside-req",
+      "severity": "error",
+      "message": "step outside [REQ]: {kind}",
+      "doc": "Every step belongs to the [REQ] above it.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "fault-outside-step",
+      "checker": "fault-outside-step",
+      "severity": "error",
+      "message": "! fault line must follow a step",
+      "doc": "A fault belongs to the step that raises it.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "fault-shape",
+      "checker": "fault-shape",
+      "severity": "error",
+      "message": "fault name \"{name}\" must be lowercase, hyphen-separated (optionally =STATUS)",
+      "doc": "Fault names are slugs: they become test names and class names.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "fault-marker",
+      "checker": "fault-marker",
+      "severity": "error",
+      "message": "bare fault line — faults are written `! {names}`",
+      "fix": "prefix the line with `! ` (`rune fmt` does this)",
+      "doc": "The `!` marker declares the line's kind, so indentation never has to.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "fault-status",
+      "checker": "fault-status",
+      "severity": "error",
+      "message": "fault \"{name}\" is not well-known and carries no status",
+      "fix": "write `! {name}=<HTTP status>` or use a well-known fault ({wellKnown})",
+      "doc": "The runtime maps every fault to an HTTP status: well-known names from the registry, custom names from their declared status.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "unrecognized-line",
+      "checker": "unrecognized-line",
+      "severity": "error",
+      "message": "unrecognized line: \"{text}\"",
+      "doc": "Every line is a tag, a step, a fault, a service doc link, or prose under a declaration.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "dto-suffix",
       "type": "name-suffix",
-      "target": "spec",
-      "severity": "error",
-      "enabled": true,
       "params": {
         "tag": "dto",
         "suffix": "Dto"
       },
-      "message": "DTO name \"{name}\" must end in {suffix}"
+      "severity": "error",
+      "message": "DTO name \"{name}\" must end in {suffix}",
+      "doc": "The suffix marks a validated contract everywhere it is referenced.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "dto-described",
       "type": "required-description",
-      "target": "spec",
-      "severity": "error",
-      "enabled": true,
       "params": {
         "tag": "dto"
       },
-      "message": "[DTO] {name} needs a description on the next line"
+      "severity": "error",
+      "message": "[DTO] {name} needs a description on the next line",
+      "doc": "The description is the contract's meaning; codegen puts it on the class.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "req-input-dto",
-      "type": "input-is-dto",
-      "target": "spec",
+      "checker": "req-input-dto",
       "severity": "error",
-      "enabled": true,
-      "params": {},
-      "message": "requirement input \"{input}\" must be a DTO or inline {}"
+      "message": "requirement input \"{input}\" must be a DTO or inline {}",
+      "doc": "Inputs are validated at the seam; only a DTO carries a contract.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "req-output-dto",
-      "type": "output-is-dto",
-      "target": "spec",
+      "checker": "req-output-dto",
       "severity": "error",
-      "enabled": true,
-      "params": {},
-      "message": "requirement output \"{output}\" must be a DTO"
+      "message": "requirement output \"{output}\" must be a DTO",
+      "doc": "Outputs are validated at the seam; only a DTO carries a contract.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "boundary-types",
-      "type": "boundary-types",
-      "target": "spec",
+      "checker": "boundary-types",
       "severity": "error",
-      "enabled": true,
-      "params": {},
-      "message": "{prefix}: boundary params/return must be DTO or primitive \u2014 got {bad}"
+      "message": "{service}: boundary params/return must be DTO or primitive — got {bad}",
+      "doc": "Only DTOs and primitives cross a system boundary.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "signature-consistency",
-      "type": "signature-consistency",
-      "target": "spec",
+      "checker": "signature-consistency",
       "severity": "error",
-      "enabled": true,
-      "params": {},
-      "message": "{key} has an inconsistent signature ({got} vs {first})"
+      "message": "{key} has an inconsistent signature ({got} vs {first})",
+      "doc": "The same noun.verb has one signature throughout the document; the first occurrence defines it.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "duplicate-req-signature",
+      "checker": "duplicate-req-signature",
+      "severity": "error",
+      "message": "[REQ] {key} is declared twice",
+      "doc": "One requirement per noun.verb — a second declaration would overwrite the first coordinator.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "typ-unique",
       "type": "unique-names",
-      "target": "spec",
-      "severity": "error",
-      "enabled": true,
       "params": {
         "tag": "typ"
       },
-      "message": "[TYP] {name} is defined more than once"
+      "severity": "error",
+      "message": "[TYP] {name} is defined more than once",
+      "doc": "Names are unique per kind.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "dto-unique",
       "type": "unique-names",
-      "target": "spec",
+      "params": {
+        "tag": "dto"
+      },
       "severity": "error",
-      "enabled": true,
-      "params": {
-        "tag": "dto"
-      },
-      "message": "[DTO] {name} is defined more than once"
-    },
-    {
-      "id": "typ-unused",
-      "type": "unused",
+      "message": "[DTO] {name} is defined more than once",
+      "doc": "Names are unique per kind.",
       "target": "spec",
-      "severity": "warning",
-      "enabled": true,
-      "params": {
-        "tag": "typ"
-      },
-      "message": "[TYP] {name} is never used"
-    },
-    {
-      "id": "dto-unused",
-      "type": "unused",
-      "target": "spec",
-      "severity": "warning",
-      "enabled": true,
-      "params": {
-        "tag": "dto"
-      },
-      "message": "[DTO] {name} is never used"
+      "enabled": true
     },
     {
       "id": "non-unique",
       "type": "unique-names",
-      "target": "spec",
-      "severity": "error",
-      "enabled": true,
       "params": {
         "tag": "non"
       },
-      "message": "[NON] {name} is defined more than once"
+      "severity": "error",
+      "message": "[NON] {name} is defined more than once",
+      "doc": "Names are unique per kind.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "typ-unused",
+      "type": "unused",
+      "params": {
+        "tag": "typ"
+      },
+      "severity": "warning",
+      "message": "[TYP] {name} is never used",
+      "doc": "A declared type no DTO or step references is dead vocabulary.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "dto-unused",
+      "type": "unused",
+      "params": {
+        "tag": "dto"
+      },
+      "severity": "warning",
+      "message": "[DTO] {name} is never used",
+      "doc": "A declared contract nothing references is dead vocabulary.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "non-unused",
       "type": "unused",
-      "target": "spec",
-      "severity": "warning",
-      "enabled": true,
       "params": {
         "tag": "non"
       },
-      "message": "[NON] {name} is never used"
+      "severity": "warning",
+      "message": "[NON] {name} is never used",
+      "doc": "A declared noun no step instantiates or calls is dead vocabulary.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "missing-return-type",
-      "type": "missing-return-type",
-      "target": "spec",
+      "checker": "missing-return-type",
       "severity": "error",
-      "enabled": true,
-      "params": {},
-      "message": "step \"{step}\" is missing a return type"
+      "message": "step \"{step}\" is missing a return type",
+      "fix": "write `: void` for a side effect",
+      "doc": "Every step declares what it yields; a side effect yields void.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "last-step-returns-output",
-      "type": "last-step-returns-output",
-      "target": "spec",
+      "checker": "last-step-returns-output",
       "severity": "error",
-      "enabled": true,
-      "params": {},
-      "message": "last step must return {output} (the REQ output), got {got}"
+      "message": "last step must return {output} (the REQ output), got {got}",
+      "fix": "add `[RET] {output}` after the side effect",
+      "doc": "A requirement ends by yielding its output: its last step returns it, or a [RET] names it.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "type-not-dto",
-      "type": "type-not-dto",
-      "target": "spec",
+      "checker": "type-not-dto",
       "severity": "error",
-      "enabled": true,
-      "params": {},
-      "message": "[TYP] {name} must be a primitive \u2014 it can't reference DTO {ref}"
-    },
-    {
-      "id": "typ-modifier",
-      "type": "typ-modifier",
+      "message": "[TYP] {name} must be a primitive — it can't reference DTO {ref}",
+      "doc": "A [TYP] aliases a primitive; a DTO is referenced by name.",
       "target": "spec",
-      "severity": "error",
-      "enabled": true,
-      "params": {},
-      "message": "[TYP] has an unknown or invalid modifier"
+      "enabled": true
     },
     {
       "id": "noun-in-scope",
-      "type": "noun-in-scope",
-      "target": "spec",
+      "checker": "noun-in-scope",
       "severity": "warning",
-      "enabled": true,
-      "params": {},
-      "message": "instance noun \"{noun}\" isn't in scope (use :: for static, or return it from an earlier step)"
+      "message": "instance noun \"{noun}\" isn't in scope (use :: for static, or [NEW] it, or return it from an earlier step)",
+      "doc": "An instance step operates on a value; the noun must be live in the requirement's scope.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "param-scope",
-      "type": "param-scope",
-      "target": "spec",
+      "checker": "param-scope",
       "severity": "warning",
-      "enabled": true,
-      "params": {},
-      "message": "parameter \"{param}\" isn't in scope (return it from a prior step or take it from the input DTO)"
+      "message": "parameter \"{param}\" isn't in scope (return it from a prior step or take it from the input DTO)",
+      "doc": "A step consumes only values in scope: the input DTO, its fields, and earlier results.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "undefined-ref",
-      "type": "undefined-ref",
-      "target": "spec",
+      "checker": "undefined-ref",
       "severity": "warning",
-      "enabled": true,
-      "params": {},
-      "message": "\"{ref}\" is not a defined [TYP], [DTO], [NON], or primitive"
+      "message": "\"{ref}\" is not a defined [TYP], [DTO], [NON], or primitive",
+      "doc": "Every type a step or DTO names is declared.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "value-duplicate",
+      "checker": "value-duplicate",
+      "severity": "error",
+      "message": "a value named \"{name}\" is already in scope (from {from})",
+      "fix": "name this one: `… : {type} as <name>`",
+      "doc": "One live value per name; a value's default name is its type, so a second value of the same type must be named with `as`.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "ret-redundant",
+      "checker": "ret-redundant",
+      "severity": "warning",
+      "message": "[RET] {value} is redundant — the step above already returns it",
+      "fix": "delete the [RET] line",
+      "doc": "A [RET] exists for a flow whose last step is a side effect.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "unbound-input-needs-example",
+      "checker": "unbound-input-needs-example",
+      "severity": "warning",
+      "message": "input field \"{field}\" of {ent} has no producer and no example",
+      "fix": "add `example=<value>` to `[TYP] {field}`",
+      "doc": "A required input field nothing produces is a guaranteed 422 in the cake/headless walk unless its [TYP] carries an example.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "edit-record-endpoint",
+      "checker": "edit-record-endpoint",
+      "severity": "warning",
+      "message": "[ENT] {surface}.{action} is a {method} — model a command verb instead of editing a record",
+      "doc": "The waist rule: reads are GET queries returning current-state DTOs; writes are POST command verbs. PUT/PATCH exist only for an upstream contract you don't control.",
+      "target": "spec",
+      "enabled": true
+    },
+    {
+      "id": "reserved-verb",
+      "checker": "reserved-verb",
+      "severity": "error",
+      "message": "verb \"{verb}\" is a JavaScript reserved word and cannot name a generated function",
+      "fix": "rename the verb (e.g. {suggestion})",
+      "doc": "Verbs become exported function and method names in the generated code.",
+      "target": "spec",
+      "enabled": true
     },
     {
       "id": "dto-validation",
@@ -523,7 +1041,8 @@
       "severity": "error",
       "enabled": true,
       "params": {},
-      "message": "generated DTO is missing runtime validation (class-validator / zod)"
+      "message": "generated DTO is missing runtime validation (class-validator / zod)",
+      "doc": "generated DTO is missing runtime validation (class-validator / zod)"
     },
     {
       "id": "fault-coverage",
@@ -532,7 +1051,8 @@
       "severity": "error",
       "enabled": true,
       "params": {},
-      "message": "fault \"{fault}\" from {req} has no Deno.test in the generated tests"
+      "message": "fault \"{fault}\" from {req} has no Deno.test in the generated tests",
+      "doc": "fault \"{fault}\" from {req} has no Deno.test in the generated tests"
     },
     {
       "id": "import-aliases",
@@ -541,7 +1061,8 @@
       "severity": "warning",
       "enabled": true,
       "params": {},
-      "message": "generated file uses a \"../\" relative import \u2014 use an @ alias"
+      "message": "generated file uses a \"../\" relative import — use an @ alias",
+      "doc": "generated file uses a \"../\" relative import — use an @ alias"
     },
     {
       "id": "external-imports",
@@ -550,7 +1071,8 @@
       "severity": "warning",
       "enabled": true,
       "params": {},
-      "message": "generated file imports npm:/jsr: directly \u2014 use a # alias"
+      "message": "generated file imports npm:/jsr: directly — use a # alias",
+      "doc": "generated file imports npm:/jsr: directly — use a # alias"
     },
     {
       "id": "signature-parity",
@@ -559,7 +1081,8 @@
       "severity": "error",
       "enabled": true,
       "params": {},
-      "message": "integration file doesn't reference its DTO {dto}"
+      "message": "integration file doesn't reference its DTO {dto}",
+      "doc": "integration file doesn't reference its DTO {dto}"
     },
     {
       "id": "layer-restrictions",
@@ -568,7 +1091,8 @@
       "severity": "error",
       "enabled": true,
       "params": {},
-      "message": "{from} layer may not import {to} layer ({spec})"
+      "message": "{from} layer may not import {to} layer ({spec})",
+      "doc": "{from} layer may not import {to} layer ({spec})"
     },
     {
       "id": "barrel-discipline",
@@ -577,7 +1101,8 @@
       "severity": "warning",
       "enabled": true,
       "params": {},
-      "message": "re-exports are only allowed in mod-root / poly-mod / bootstrap files"
+      "message": "re-exports are only allowed in mod-root / poly-mod / bootstrap files",
+      "doc": "re-exports are only allowed in mod-root / poly-mod / bootstrap files"
     },
     {
       "id": "poly-isolation",
@@ -586,7 +1111,8 @@
       "severity": "error",
       "enabled": true,
       "params": {},
-      "message": "import into a poly structure must go through poly-mod ({spec})"
+      "message": "import into a poly structure must go through poly-mod ({spec})",
+      "doc": "import into a poly structure must go through poly-mod ({spec})"
     },
     {
       "id": "module-isolation",
@@ -595,7 +1121,8 @@
       "severity": "error",
       "enabled": true,
       "params": {},
-      "message": "module {from} may not import module {to}'s internals ({spec}) \u2014 use core/ or its mod-root"
+      "message": "module {from} may not import module {to}'s internals ({spec}) — use core/ or its mod-root",
+      "doc": "module {from} may not import module {to}'s internals ({spec}) — use core/ or its mod-root"
     },
     {
       "id": "data-class-returns",
@@ -604,7 +1131,8 @@
       "severity": "error",
       "enabled": true,
       "params": {},
-      "message": "data-layer method returns a raw object \u2014 return a validated instance (assert/plainToInstance)"
+      "message": "data-layer method returns a raw object — return a validated instance (assert/plainToInstance)",
+      "doc": "data-layer method returns a raw object — return a validated instance (assert/plainToInstance)"
     },
     {
       "id": "no-dto-cast",
@@ -613,7 +1141,8 @@
       "severity": "error",
       "enabled": true,
       "params": {},
-      "message": "coordinator casts to \"{dto}\" \u2014 validate the seam with assert({dto}, ...) instead of a blind cast"
+      "message": "coordinator casts to \"{dto}\" — validate the seam with assert({dto}, ...) instead of a blind cast",
+      "doc": "coordinator casts to \"{dto}\" — validate the seam with assert({dto}, ...) instead of a blind cast"
     },
     {
       "id": "poly-detection",
@@ -624,7 +1153,8 @@
       "params": {
         "threshold": 3
       },
-      "message": "{count} sibling features export {name} with compatible signatures \u2014 extract a poly structure"
+      "message": "{count} sibling features export {name} with compatible signatures — extract a poly structure",
+      "doc": "{count} sibling features export {name} with compatible signatures — extract a poly structure"
     },
     {
       "id": "poly-stray",
@@ -633,7 +1163,8 @@
       "severity": "warning",
       "enabled": true,
       "params": {},
-      "message": "feature extends poly base {base} \u2014 it likely belongs inside that poly structure"
+      "message": "feature extends poly base {base} — it likely belongs inside that poly structure",
+      "doc": "feature extends poly base {base} — it likely belongs inside that poly structure"
     },
     {
       "id": "forbidden-dirs",
@@ -648,7 +1179,8 @@
           "internal"
         ]
       },
-      "message": "directory \"{name}\" is not allowed \u2014 name folders by role, not as generic buckets"
+      "message": "directory \"{name}\" is not allowed — name folders by role, not as generic buckets",
+      "doc": "directory \"{name}\" is not allowed — name folders by role, not as generic buckets"
     },
     {
       "id": "loose-files",
@@ -666,7 +1198,8 @@
           "helper"
         ]
       },
-      "message": "loose grab-bag file \"{name}\" \u2014 put code in a named feature/role folder"
+      "message": "loose grab-bag file \"{name}\" — put code in a named feature/role folder",
+      "doc": "loose grab-bag file \"{name}\" — put code in a named feature/role folder"
     },
     {
       "id": "module-fragmentation",
@@ -677,7 +1210,8 @@
       "params": {
         "minFiles": 5
       },
-      "message": "module {module} has only {count} source files (< {min}) \u2014 consider consolidating"
+      "message": "module {module} has only {count} source files (< {min}) — consider consolidating",
+      "doc": "module {module} has only {count} source files (< {min}) — consider consolidating"
     },
     {
       "id": "orphan-files",
@@ -686,7 +1220,8 @@
       "severity": "error",
       "enabled": true,
       "params": {},
-      "message": "file sits in a rune-managed slot but no rune element declares it (orphan)"
+      "message": "file sits in a rune-managed slot but no rune element declares it (orphan)",
+      "doc": "file sits in a rune-managed slot but no rune element declares it (orphan)"
     },
     {
       "id": "heal-todo",
@@ -695,7 +1230,8 @@
       "severity": "warning",
       "enabled": true,
       "params": {},
-      "message": "heal-rules entry still carries todo: true \u2014 enrich it (strict-gated: errors under rune lint --strict)"
+      "message": "heal-rules entry still carries todo: true — enrich it (strict-gated: errors under rune lint --strict)",
+      "doc": "heal-rules entry still carries todo: true — enrich it (strict-gated: errors under rune lint --strict)"
     }
   ],
   "modifiers": [
@@ -707,18 +1243,24 @@
         "dto",
         "typ"
       ],
+      "kind": "routing",
+      "base": null,
+      "param": "none",
       "syntax": "[DTO:core] / [TYP:core]",
-      "description": "Routes an element to the shared kernel (src/core/\u2026) instead of the current module. Core elements are importable from any module; module elements are not. Allowed on [DTO] and [TYP]; not on [REQ]."
+      "description": "Routes an element to the shared kernel (src/core/…) instead of the current module. Core elements are importable from any module; module elements are not. Allowed on [DTO] and [TYP]; not on [REQ]."
     },
     {
-      "id": "open-req",
+      "id": "open",
       "token": ":open",
       "label": "Open",
       "appliesTo": [
         "req"
       ],
+      "kind": "routing",
+      "base": null,
+      "param": "none",
       "syntax": "[REQ:open]",
-      "description": "The OPENNESS MARKER: this endpoint is reachable WITHOUT a credential. Codegen emits it as `access: \"open\"` on the generated @Endpoint, which surfaces as `x-bedrock-auth` on the operation's OpenAPI \u2014 where the backend's policy table comes from. An unmarked [REQ] is authenticated (the backend slot's default), so openness is always STATED in the spec beside the endpoint, never inferred and never hand-applied to generated code. The only modifier [REQ] takes."
+      "description": "The OPENNESS MARKER: this endpoint is reachable WITHOUT a credential. Codegen emits it as `access: \"open\"` on the generated @Endpoint, which surfaces as `x-bedrock-auth` on the operation's OpenAPI — where the backend's policy table comes from. An unmarked [REQ] is authenticated (the backend slot's default). The only modifier [REQ] takes."
     },
     {
       "id": "ext",
@@ -727,8 +1269,11 @@
       "appliesTo": [
         "typ"
       ],
+      "kind": "source",
+      "base": null,
+      "param": "none",
       "syntax": "[TYP:ext]",
-      "description": "Marks a type whose value is produced OUTSIDE this module (another module's endpoint, a human). The declaration file is still generated; entrypoint codegen turns unproduced input fields of this type into $name external-input binds (ghost stubs mint them in dev). Composes with constraint modifiers: [TYP:ext,uuid]."
+      "description": "Marks a type whose value is produced OUTSIDE this module (another module's endpoint, a human). Entrypoint codegen turns unproduced input fields of this type into $name external-input binds (ghost stubs mint them in dev). Composes with constraint modifiers: [TYP:ext,uuid]."
     },
     {
       "id": "uuid",
@@ -738,8 +1283,11 @@
         "typ"
       ],
       "kind": "constraint",
-      "decorator": "IsUUID",
+      "base": "string",
       "param": "none",
+      "decorator": "IsUUID",
+      "call": "@IsUUID()",
+      "eachCall": "@IsUUID(undefined, { each: true })",
       "syntax": "[TYP:uuid]",
       "description": "Constrains a string [TYP] to UUID format (class-validator @IsUUID)."
     },
@@ -751,8 +1299,11 @@
         "typ"
       ],
       "kind": "constraint",
-      "decorator": "IsEmail",
+      "base": "string",
       "param": "none",
+      "decorator": "IsEmail",
+      "call": "@IsEmail()",
+      "eachCall": "@IsEmail(undefined, { each: true })",
       "syntax": "[TYP:email]",
       "description": "Constrains a string [TYP] to email format (class-validator @IsEmail)."
     },
@@ -764,8 +1315,11 @@
         "typ"
       ],
       "kind": "constraint",
-      "decorator": "IsUrl",
+      "base": "string",
       "param": "none",
+      "decorator": "IsUrl",
+      "call": "@IsUrl()",
+      "eachCall": "@IsUrl(undefined, { each: true })",
       "syntax": "[TYP:url]",
       "description": "Constrains a string [TYP] to URL format (class-validator @IsUrl)."
     },
@@ -777,8 +1331,11 @@
         "typ"
       ],
       "kind": "constraint",
-      "decorator": "IsNotEmpty",
+      "base": "string",
       "param": "none",
+      "decorator": "IsNotEmpty",
+      "call": "@IsNotEmpty()",
+      "eachCall": "@IsNotEmpty({ each: true })",
       "syntax": "[TYP:nonempty]",
       "description": "Constrains a string [TYP] to be non-empty (class-validator @IsNotEmpty)."
     },
@@ -790,8 +1347,11 @@
         "typ"
       ],
       "kind": "constraint",
-      "decorator": "IsJSON",
+      "base": "string",
       "param": "none",
+      "decorator": "IsJSON",
+      "call": "@IsJSON()",
+      "eachCall": "@IsJSON({ each: true })",
       "syntax": "[TYP:json]",
       "description": "Marks a string [TYP] that carries a JSON-encoded object/array over the wire (no typed [DTO]); validates it PARSES at the boundary (class-validator @IsJSON) so invalid JSON 422s at the seam instead of degrading silently downstream."
     },
@@ -803,8 +1363,11 @@
         "typ"
       ],
       "kind": "constraint",
-      "decorator": "IsInt",
+      "base": "number",
       "param": "none",
+      "decorator": "IsInt",
+      "call": "@IsInt()",
+      "eachCall": "@IsInt({ each: true })",
       "syntax": "[TYP:int]",
       "description": "Constrains a number [TYP] to integers (class-validator @IsInt, replacing @IsNumber)."
     },
@@ -816,8 +1379,11 @@
         "typ"
       ],
       "kind": "constraint",
-      "decorator": "Min",
+      "base": "number",
       "param": "number",
+      "decorator": "Min",
+      "call": "@Min({value})",
+      "eachCall": "@Min({value}, { each: true })",
       "syntax": "[TYP:min=0]",
       "description": "Constrains a number [TYP] to a minimum value (class-validator @Min(N))."
     },
@@ -829,8 +1395,11 @@
         "typ"
       ],
       "kind": "constraint",
-      "decorator": "Max",
+      "base": "number",
       "param": "number",
+      "decorator": "Max",
+      "call": "@Max({value})",
+      "eachCall": "@Max({value}, { each: true })",
       "syntax": "[TYP:max=100]",
       "description": "Constrains a number [TYP] to a maximum value (class-validator @Max(N))."
     },
@@ -842,8 +1411,11 @@
         "typ"
       ],
       "kind": "constraint",
-      "decorator": "IsPositive",
+      "base": "number",
       "param": "none",
+      "decorator": "IsPositive",
+      "call": "@IsPositive()",
+      "eachCall": "@IsPositive({ each: true })",
       "syntax": "[TYP:positive]",
       "description": "Constrains a number [TYP] to be positive (class-validator @IsPositive)."
     },
@@ -854,11 +1426,11 @@
       "appliesTo": [
         "typ"
       ],
-      "kind": "constraint",
-      "decorator": "ApiProperty",
+      "kind": "doc",
+      "base": null,
       "param": "text",
       "syntax": "[TYP:example=orders]",
-      "description": "A real sample value for the field, emitted as @ApiProperty({ example }) \u2014 keep's runner and cake fill required, unbound input fields from it so headless walks don't 422. The value runs to the next comma/], so it cannot contain a comma. Composes: [TYP:ext,example=orders]."
+      "description": "A real sample value for the field, emitted as @ApiProperty({ example }) — keep's runner and cake fill required, unbound input fields from it so headless walks don't 422. The value runs to the next comma/], so it cannot contain a comma. Composes: [TYP:ext,example=orders]."
     },
     {
       "id": "from",
@@ -867,10 +1439,15 @@
       "appliesTo": [
         "typ"
       ],
-      "kind": "constraint",
+      "kind": "binding",
+      "base": null,
       "param": "text",
-      "syntax": "[TYP:from=path]",
-      "description": "Field-source binding (OpenAPI's parameter model): where this field is populated from at the HTTP boundary \u2014 path | path* | query | header. Body is the default, so a field with no from= routes exactly as before. `path*` is the catch-all path remainder. The codegen appends a route segment for path fields and binds every sourced field into the DTO server-side (path/query in the URL, headers as request headers). Composes: [TYP:from=query,example=widgets]."
+      "values": [
+        "query",
+        "header"
+      ],
+      "syntax": "[TYP:from=query]",
+      "description": "Field-source binding (OpenAPI's parameter model): where this field is populated from at the HTTP boundary — query | header. Body is the default, so a field with no from= routes exactly as before. Path segments are bound by the [ENT]'s `@ METHOD /path/{field}` route template, never by a modifier. Composes: [TYP:from=query,example=widgets]."
     }
   ],
   "bindings": {
@@ -923,14 +1500,14 @@
   },
   "codegen": {
     "templates": {
-      "coordinator-int-test": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n{{recipe}}\nimport { {{req.verb}} } from \"./mod.ts\";\n\nDeno.test(\"{{req.verb}} \u2014 happy path\", async () => {\n  // TODO: implement happy path test\n});\n{{#each faults}}\n\nDeno.test(\"{{this}}\", async () => {\n  // TODO: assert this fault path\n});\n{{/each}}\n",
+      "coordinator-int-test": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n{{recipe}}\nimport { {{req.verb}} } from \"./mod.ts\";\n\nDeno.test(\"{{req.verb}} — happy path\", async () => {\n  // TODO: implement happy path test\n});\n{{#each faults}}\n\nDeno.test(\"{{this}}\", async () => {\n  // TODO: assert this fault path\n});\n{{/each}}\n",
       "poly-base-mod": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n\n// Polymorphic base for \"{{ply.noun}}\". Variants extend this.\n{{nonDoc}}// rune signature: {{realSig}}\n// Variants (exactly one runs per call): {{variants}}\n\nexport abstract class {{ply.noun}}Base {\n  abstract {{ply.verb}}({{ply.params}}): {{ply.output}};\n}\n",
-      "poly-base-test": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n\n// Dispatch coverage \u2014 one variant runs per call: {{variants}}\nDeno.test(\"{{ply.noun}} base \u2014 placeholder\", () => {\n  // TODO: tests against the base abstraction\n});\n",
+      "poly-base-test": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n\n// Dispatch coverage — one variant runs per call: {{variants}}\nDeno.test(\"{{ply.noun}} base — placeholder\", () => {\n  // TODO: tests against the base abstraction\n});\n",
       "poly-mod": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n\n// Polymorphic barrel for \"{{ply.noun}}\". Re-exports the active variant.\nexport { default } from \"./implementations/{{firstVariant}}/mod.ts\";\n",
       "poly-impl-mod": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n\nimport { {{ply.noun}}Base } from \"{{baseImport}}\";\n\n// Variant: {{cse.name}}\n\nexport default class {{ply.noun}}{{cse.name}} extends {{ply.noun}}Base {\n  {{ply.verb}}({{ply.params}}): {{ply.output}} {\n    throw new Error(\"not implemented\");\n  }\n}\n",
-      "poly-impl-test": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n\nimport {{ply.noun}}{{cse.name}} from \"./mod.ts\";\n\nDeno.test(\"{{ply.noun}}/{{cse.name}} \u2014 placeholder\", () => {\n  // Arrange \u2014 const variant = new {{ply.noun}}{{cse.name}}();\n  // Act \u2014 {{ply.verb}}(...)\n  // Assert \u2014 TODO: assert this variant's behavior\n});\n",
-      "adapter-smk-test": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n{{methodList}}\nDeno.test(\"{{step.noun}} \u2014 connectivity\", () => {\n  // TODO: smoke test that verifies the boundary is reachable\n});\n{{#each faults}}\n\nDeno.test(\"{{this}}\", async () => {\n  // TODO: assert this fault path\n});\n{{/each}}\n",
-      "mod-root": "// Generated by rune manifest \u2014 DO NOT EDIT (regenerated on every `rune sync`).\n\n{{moduleDoc}}// Public API surface for module \"{{module}}\".\n{{#each reqs}}\nexport { {{this.binding}} } from \"./domain/coordinators/{{this.processFile}}/mod.ts\";\n{{/each}}\n"
+      "poly-impl-test": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n\nimport {{ply.noun}}{{cse.name}} from \"./mod.ts\";\n\nDeno.test(\"{{ply.noun}}/{{cse.name}} — placeholder\", () => {\n  // Arrange — const variant = new {{ply.noun}}{{cse.name}}();\n  // Act — {{ply.verb}}(...)\n  // Assert — TODO: assert this variant's behavior\n});\n",
+      "adapter-smk-test": "// Generated by rune manifest from {{runePath}}.\n// Edit the body. Re-running manifest will not overwrite this file.\n{{methodList}}\nDeno.test(\"{{step.noun}} — connectivity\", () => {\n  // TODO: smoke test that verifies the boundary is reachable\n});\n{{#each faults}}\n\nDeno.test(\"{{this}}\", async () => {\n  // TODO: assert this fault path\n});\n{{/each}}\n",
+      "mod-root": "// Generated by rune manifest — DO NOT EDIT (regenerated on every `rune sync`).\n\n{{moduleDoc}}// Public API surface for module \"{{module}}\".\n{{#each reqs}}\nexport { {{this.binding}} } from \"./domain/coordinators/{{this.processFile}}/mod.ts\";\n{{/each}}\n"
     },
     "policies": {
       "business-sig": {
@@ -1031,7 +1608,7 @@
       "serve-dev"
     ],
     "bootstrap/": {
-      "$desc": "Composition root \u2014 wires modules, starts the app",
+      "$desc": "Composition root — wires modules, starts the app",
       "mod": {
         "ext": [
           ".ts"
@@ -1048,25 +1625,25 @@
         "ext": [
           ".ts"
         ],
-        "desc": "module registry \u2014 generated by rune sync as runes are added/removed",
+        "desc": "module registry — generated by rune sync as runes are added/removed",
         "optional": true
       },
       "stubs": {
         "ext": [
           ".ts"
         ],
-        "desc": "ghost-stub registry \u2014 generated by rune sync to mint placeholders for unfulfilled [TYP:ext] inputs; evaporates once every external input has a real producer",
+        "desc": "ghost-stub registry — generated by rune sync to mint placeholders for unfulfilled [TYP:ext] inputs; evaporates once every external input has a real producer",
         "optional": true
       }
     },
     "src/": {
       "core/": {
-        "$desc": "Shared kernel \u2014 importable from any module",
+        "$desc": "Shared kernel — importable from any module",
         "core": {
           "ext": [
             ".rune"
           ],
-          "desc": "shared-service rune spec \u2014 the single [SRV] declaration site for the whole project",
+          "desc": "shared-service rune spec — the single [SRV] declaration site for the whole project",
           "optional": true
         },
         "business/": {
@@ -1176,7 +1753,7 @@
               "ext": [
                 ".ts"
               ],
-              "desc": "cross-cutting orchestration importable from any module (e.g. an auth guard) \u2014 may use core business + data"
+              "desc": "cross-cutting orchestration importable from any module (e.g. an auth guard) — may use core business + data"
             },
             "int.test": {
               "ext": [
@@ -1188,7 +1765,7 @@
         }
       },
       "<module-name>/": {
-        "$desc": "Isolated module \u2014 imports only from core or itself",
+        "$desc": "Isolated module — imports only from core or itself",
         "mod-root": {
           "ext": [
             ".ts"
@@ -1199,7 +1776,7 @@
           "ext": [
             ".rune"
           ],
-          "desc": "module-level rune spec \u2014 the source this module is generated from",
+          "desc": "module-level rune spec — the source this module is generated from",
           "optional": true
         },
         "domain/": {
@@ -1385,16 +1962,16 @@
       }
     },
     "spec/": {
-      "$desc": "rune staging area \u2014 authored specs (runes/), data design + cake artifacts (misc/), UI prototype (ui/), founding product docs (product/), the ratified contract's machine faces (contract/)",
+      "$desc": "rune staging area — authored specs (runes/), data design + cake artifacts (misc/), UI prototype (ui/), founding product docs (product/), the ratified contract's machine faces (contract/)",
       "<name>": {
         "ext": [
           ".rune"
         ],
-        "desc": "rune spec for a module (legacy flat layout \u2014 prefer spec/runes/)",
+        "desc": "rune spec for a module (legacy flat layout — prefer spec/runes/)",
         "optional": true
       },
       "runes/": {
-        "$desc": "Rune spec files \u2014 one per module (the canonical authoring home; core.rune holds shared [SRV]s)",
+        "$desc": "Rune spec files — one per module (the canonical authoring home; core.rune holds shared [SRV]s)",
         "<name>": {
           "ext": [
             ".rune"
@@ -1411,16 +1988,16 @@
         "$ignore": "*"
       },
       "product/": {
-        "$desc": "founding product docs \u2014 spec.md + user-stories.md (rune:scope output)",
+        "$desc": "founding product docs — spec.md + user-stories.md (rune:scope output)",
         "$ignore": "*"
       },
       "contract/": {
-        "$desc": "the ratified cross-repo contract's machine faces \u2014 generated OpenAPI + typed client, the prototype-seeded draft, the breakdown binding (queries + commands; see sprig's contract.md)",
+        "$desc": "the ratified cross-repo contract's machine faces — generated OpenAPI + typed client, the prototype-seeded draft, the breakdown binding (queries + commands; see sprig's contract.md)",
         "$ignore": "*"
       }
     },
     "specs/": {
-      "$desc": "Rune spec files \u2014 one per module",
+      "$desc": "Rune spec files — one per module",
       "<name>": {
         "ext": [
           ".rune"
@@ -1441,7 +2018,7 @@
         "ext": [
           ".json"
         ],
-        "desc": "keep cake self-heal rules \u2014 rune-generated starter, merge-owned",
+        "desc": "keep cake self-heal rules — rune-generated starter, merge-owned",
         "optional": true
       },
       "<category>/": {
@@ -1454,12 +2031,102 @@
       }
     },
     "dist/": {
-      "$desc": "Compiled output \u2014 not source-controlled",
+      "$desc": "Compiled output — not source-controlled",
       "$ignore": "*"
     },
     "app/": {
-      "$desc": "sprig UI app (frontend) \u2014 its own layout (src/pages, shell, islands) is owned and validated by sprig, not rune; rune hosts it via serve.ts (Bedrock). Ignored here like spec/ui",
+      "$desc": "sprig UI app (frontend) — its own layout (src/pages, shell, islands) is owned and validated by sprig, not rune; rune hosts it via serve.ts (Bedrock). Ignored here like spec/ui",
       "$ignore": "*"
     }
+  },
+  "columns": {
+    "max": 80
+  },
+  "indent": {
+    "unit": 4,
+    "step": 4,
+    "fault": 6,
+    "case": 8,
+    "caseStep": 8,
+    "caseFault": 10,
+    "description": 4,
+    "body": 4,
+    "faultOffset": 2,
+    "summary": "The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [ENT:ws] topics, [PLY] cases) is indented deeper than its opener."
+  },
+  "transports": [
+    {
+      "id": "SDK",
+      "summary": "a vendor SDK / client library"
+    },
+    {
+      "id": "HTTP",
+      "summary": "an HTTP API"
+    },
+    {
+      "id": "WEBSOCKET",
+      "summary": "a WebSocket peer"
+    },
+    {
+      "id": "SIDECAR",
+      "summary": "a co-located process (datastore, queue, object store)"
+    },
+    {
+      "id": "NATIVE",
+      "summary": "an in-process runtime/std-lib boundary (filesystem, subprocess, crypto, clock) — neither a network surface nor a co-located process; its faults are synchronous throws and its env-var list is optional"
+    }
+  ],
+  "faults": {
+    "marker": "!",
+    "syntax": "! name name=STATUS",
+    "shape": "^[a-z][a-z0-9-]*$",
+    "summary": "A fault line is `! ` followed by space-separated fault names, directly under the step that raises it. A well-known name carries its HTTP status from this table; any other name must carry its own (`! card-expired=402`). Codegen emits one typed fault class per name; the runtime maps a thrown fault to its status. Each fault implies a test case; a step with no faults cannot fail.",
+    "wellKnown": [
+      {
+        "id": "not-found",
+        "status": 404,
+        "summary": "the subject does not exist"
+      },
+      {
+        "id": "conflict",
+        "status": 409,
+        "summary": "the write collides with current state"
+      },
+      {
+        "id": "timeout",
+        "status": 504,
+        "summary": "the service did not answer in time"
+      },
+      {
+        "id": "unavailable",
+        "status": 503,
+        "summary": "the service is down"
+      },
+      {
+        "id": "declined",
+        "status": 402,
+        "summary": "a payment was refused"
+      },
+      {
+        "id": "unauthorized",
+        "status": 401,
+        "summary": "no valid credential"
+      },
+      {
+        "id": "forbidden",
+        "status": 403,
+        "summary": "the caller may not do this"
+      },
+      {
+        "id": "network-error",
+        "status": 502,
+        "summary": "the service could not be reached"
+      },
+      {
+        "id": "invalid-*",
+        "status": 422,
+        "summary": "any `invalid-<what>` (and `invalid` itself): the input is unprocessable"
+      }
+    ]
   }
 }

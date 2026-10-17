@@ -1,6 +1,6 @@
 # ADR 0003 — Parser of record: generated TS parser; tree-sitter editor-only (D2)
 
-Status: **Accepted** · Closes the decision behind G6
+Status: **Superseded by [ADR 0009](./0009-tree-sitter-everywhere.md)** (2026-10-16) · Closed the decision behind G6
 
 ## Context
 

@@ -2,7 +2,7 @@
 grammar/node_modules/
 grammar/*.dylib
 grammar/*.so
-grammar/*.wasm
+
 target/
 lsp/target/
 parser/target/

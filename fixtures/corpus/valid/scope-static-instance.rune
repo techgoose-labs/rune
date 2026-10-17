@@ -2,11 +2,12 @@
     id::create(OpenDto): IdDto
     [NEW] account
     account.activate(IdDto): AccountDto
-      already-active
-    [RET] AccountDto
+      ! already-active=409
 
 [NON] account
     a customer account
+[NON] id
+    an identity minted for a new account
 
 [DTO] OpenDto: name
     a request to open an account
@@ -19,3 +20,5 @@
 
 [TYP] name: string
     the name
+[TYP] id: string
+    the id

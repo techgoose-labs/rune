@@ -1,0 +1,15 @@
+[REQ] order.place(InDto): OutDto
+    [NEW]
+    db:order.save(InDto): OutDto
+      ! timeout
+
+[DTO] InDto: a
+    in
+
+[DTO] OutDto: b
+    out
+
+[TYP] a: string
+    a
+[TYP] b: string
+    b

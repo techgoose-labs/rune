@@ -37,6 +37,9 @@ export async function check(
   if (target === "folder" || !SOURCE_EXTS.has(target as string)) return null;
   if (!path.split("/").includes("dto")) return null;
   if (/\.(?:test|spec)\./.test(path)) return null;
+  // The module's typed fault classes live in dto/ (every layer may import
+  // them) but carry no contract to validate (REQ-018).
+  if (/\/dto\/faults\.ts$/.test(path)) return null;
 
   const content = await ctx.getFileContent(path);
 

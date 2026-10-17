@@ -1,0 +1,10 @@
+[REQ] task.delete(RefDto): TaskDto
+    db:task.load(id): TaskDto
+      ! not-found
+
+[DTO] RefDto: id
+    a reference
+[DTO] TaskDto: id
+    a task
+[TYP] id: string
+    the id

@@ -183,6 +183,10 @@ Deno.test("ensureBootstrap — a hand-written modules.ts is never clobbered", as
 const CHECKOUT_RUNE = `[MOD] checkout
 
 [ENT] http.start(StartDto): TicketDto
+    [REQ] ticket.open(StartDto): TicketDto
+
+[REQ] ticket.open(StartDto): TicketDto
+    ticket::open(item): TicketDto
 
 [DTO] StartDto: item, memberId
     what to buy and who buys it
@@ -191,7 +195,7 @@ const CHECKOUT_RUNE = `[MOD] checkout
 
 [TYP:ext] memberId: string
     minted by the members module
-[TYP] item: string
+[TYP:example=lamp] item: string
     a thing to buy
 [TYP] ticketId: string
     a ticket id
@@ -201,13 +205,17 @@ const CHECKOUT_RUNE = `[MOD] checkout
 const MEMBERS_RUNE = `[MOD] members
 
 [ENT] http.join(JoinDto): MemberDto
+    [REQ] member.join(JoinDto): MemberDto
+
+[REQ] member.join(JoinDto): MemberDto
+    member::join(alias): MemberDto
 
 [DTO] JoinDto: alias
     who joins
 [DTO] MemberDto: memberId
     the minted member
 
-[TYP] alias: string
+[TYP:example=ada] alias: string
     a display name
 [TYP] memberId: string
     a member id
@@ -464,20 +472,21 @@ async function exists(path: string): Promise<boolean> {
 const TABLES_SPEC = `[MOD] tables
 
 [ENT] http.enable(EnableDto): TableDto
+    [REQ] table.enable(EnableDto): TableDto
 [ENT] http.write(WriteDto): RowDto
+    [REQ] table.write(WriteDto): RowDto
 
 [REQ] table.enable(EnableDto): TableDto
     [NEW] table
-    db:table.save(TableDto): void
-      timeout
     table.toDto(): TableDto
+    db:table.save(TableDto): void
+      ! timeout
+    [RET] TableDto
 
 [REQ] table.write(WriteDto): RowDto
-    [NEW] row
     db:row.append(WriteDto): RowDto
-      not-enabled
-      quota-exceeded
-    row.toDto(): RowDto
+      ! not-enabled=409
+      ! quota-exceeded=429
 
 [DTO] EnableDto: name
     the table to track
@@ -488,11 +497,11 @@ const TABLES_SPEC = `[MOD] tables
 [DTO] RowDto: rowId
     a written row
 
-[TYP] name: string
+[TYP:example=orders] name: string
     a table name
 [TYP] tableId: string
     a table id
-[TYP] payload: string
+[TYP:example=row] payload: string
     row contents
 [TYP] rowId: string
     a row id
@@ -582,7 +591,7 @@ Deno.test("ensureHealRules — no endpoints / no slugs → no file", async () =>
     await addSpec(
       root,
       "lib",
-      "[REQ] util.do(InDto): OutDto\n    [NEW] out\n    db:out.save(OutDto): void\n      boom-failure\n    out.toDto(): OutDto\n\n[DTO] InDto: x\n    in\n[DTO] OutDto: y\n    out\n\n[TYP] x: string\n    x\n[TYP] y: string\n    y\n",
+      "[REQ] util.do(InDto): OutDto\n    [NEW] out\n    out.toDto(): OutDto\n    db:out.save(OutDto): void\n      ! boom-failure=500\n    [RET] OutDto\n\n[DTO] InDto: x\n    in\n[DTO] OutDto: y\n    out\n\n[TYP] x: string\n    x\n[TYP] y: string\n    y\n",
     );
     const notes = await ensureHealRules(root, []);
     assertEquals(notes, []);
@@ -619,8 +628,8 @@ Deno.test("ensureHealRules — merge keeps human edits, appends new, reports sta
       root,
       "tables",
       TABLES_SPEC.replace(
-        "      quota-exceeded\n",
-        "      quota-exceeded\n      payload-too-large\n",
+        "      ! quota-exceeded=429\n",
+        "      ! quota-exceeded=429\n      ! payload-too-large=413\n",
       ),
     );
     const notes = await ensureHealRules(root, []);
@@ -898,8 +907,9 @@ Deno.test("runSync --regen — no success log when the .new write fails", async 
 
 const REGEN_SPEC = `[MOD] orders
 [REQ] orders.place(PlaceDto): OrderDto
-    cart.total(): money
-    [RET] OrderDto
+    [NEW] cart
+    cart.total(): money as total
+    cart.toDto(): OrderDto
 
 
 [NON] cart
@@ -984,6 +994,10 @@ Deno.test("ensureImportMap — S11: a malformed existing deno.json errors, never
 const S10_SPEC = `[MOD] checkout
 
 [ENT] http.start(StartDto): TicketDto
+    [REQ] ticket.open(StartDto): TicketDto
+
+[REQ] ticket.open(StartDto): TicketDto
+    ticket::open(memberId): TicketDto
 
 [DTO] StartDto: memberId
     who buys

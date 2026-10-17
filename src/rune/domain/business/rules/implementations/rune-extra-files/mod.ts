@@ -5,6 +5,10 @@ import {
   type StepLike,
 } from "@rune/domain/business/rune-parse/mod.ts";
 import {
+  declaresFaults,
+  faultsFilePath,
+} from "@rune/domain/business/rune-manifest/mod.ts";
+import {
   applyCase,
   bindings,
   isProjectSpec,
@@ -154,6 +158,8 @@ async function getPredictions(ctx: PipelineContext): Promise<Predictions> {
       const surface = applyCase(ent.surface, "kebab");
       dirs.add(`src/${moduleName}/entrypoints/${surface}`);
     }
+    // The module's fault classes (REQ-018).
+    if (declaresFaults(ast)) files.add(faultsFilePath(moduleName));
   }
 
   const result: Predictions = { dirs, files, modules };

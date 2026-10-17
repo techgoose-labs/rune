@@ -14,9 +14,10 @@
           "noun": "store",
           "verb": "read",
           "params": [
-            "IdDto"
+            "id"
           ],
           "output": "RecordDto",
+          "valueName": "stored",
           "isStatic": false,
           "faults": [
             "not-found"
@@ -29,9 +30,10 @@
           "noun": "disk",
           "verb": "load",
           "params": [
-            "IdDto"
+            "id"
           ],
           "output": "RecordDto",
+          "valueName": "cached",
           "isStatic": false,
           "faults": [
             "not-found"
@@ -44,7 +46,7 @@
           "noun": "queue",
           "verb": "publish",
           "params": [
-            "RecordDto"
+            "stored"
           ],
           "output": "void",
           "isStatic": false,
@@ -59,9 +61,10 @@
           "noun": "api",
           "verb": "fetch",
           "params": [
-            "IdDto"
+            "id"
           ],
           "output": "RecordDto",
+          "valueName": "remote",
           "isStatic": false,
           "faults": [
             "timeout",
@@ -75,7 +78,7 @@
           "noun": "blob",
           "verb": "put",
           "params": [
-            "RecordDto"
+            "cached"
           ],
           "output": "void",
           "isStatic": false,
@@ -90,7 +93,7 @@
           "noun": "audit",
           "verb": "write",
           "params": [
-            "RecordDto"
+            "remote"
           ],
           "output": "void",
           "isStatic": false,
@@ -98,8 +101,15 @@
           "line": 11
         },
         {
-          "kind": "ret",
-          "value": "ResultDto",
+          "kind": "step",
+          "noun": "result",
+          "verb": "of",
+          "params": [
+            "id"
+          ],
+          "output": "ResultDto",
+          "isStatic": true,
+          "faults": [],
           "line": 12
         }
       ],
@@ -120,16 +130,6 @@
       "line": 14
     },
     {
-      "name": "IdDto",
-      "properties": [
-        "id"
-      ],
-      "description": "an identifier",
-      "isCore": false,
-      "isOpen": false,
-      "line": 17
-    },
-    {
       "name": "RecordDto",
       "properties": [
         "id",
@@ -138,7 +138,7 @@
       "description": "a stored record",
       "isCore": false,
       "isOpen": false,
-      "line": 20
+      "line": 17
     },
     {
       "name": "ResultDto",
@@ -148,10 +148,19 @@
       "description": "the sync result",
       "isCore": false,
       "isOpen": false,
-      "line": 23
+      "line": 20
     }
   ],
   "typs": [
+    {
+      "name": "id",
+      "typeName": "string",
+      "description": "an identifier",
+      "isCore": false,
+      "isExternal": false,
+      "modifiers": [],
+      "line": 23
+    },
     {
       "name": "payload",
       "typeName": "string",
@@ -159,10 +168,16 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 26
+      "line": 25
     }
   ],
-  "nons": [],
+  "nons": [
+    {
+      "name": "result",
+      "description": "the outcome of a sync",
+      "line": 28
+    }
+  ],
   "srvs": [
     {
       "transport": "SIDECAR",
@@ -172,7 +187,7 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 29
+      "line": 31
     },
     {
       "transport": "SIDECAR",
@@ -182,7 +197,7 @@
       ],
       "description": "file storage",
       "docsLink": "https://docs.example.com/fs",
-      "line": 33
+      "line": 35
     },
     {
       "transport": "SIDECAR",
@@ -192,7 +207,7 @@
       ],
       "description": "message queue",
       "docsLink": "https://docs.example.com/mq",
-      "line": 37
+      "line": 39
     },
     {
       "transport": "HTTP",
@@ -202,7 +217,7 @@
       ],
       "description": "external http service",
       "docsLink": "https://docs.example.com/ex",
-      "line": 41
+      "line": 43
     },
     {
       "transport": "SIDECAR",
@@ -212,7 +227,7 @@
       ],
       "description": "object storage",
       "docsLink": "https://docs.example.com/os",
-      "line": 45
+      "line": 47
     },
     {
       "transport": "SIDECAR",
@@ -222,8 +237,14 @@
       ],
       "description": "log sink",
       "docsLink": "https://docs.example.com/lg",
-      "line": 49
+      "line": 51
     }
   ],
+  "faultStatuses": {},
+  "bodyLines": [],
+  "faultLines": {
+    "not-found": 8,
+    "timeout": 10
+  },
   "errors": []
 }

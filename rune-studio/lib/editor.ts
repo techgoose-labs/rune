@@ -31,7 +31,7 @@ export const setRegistry = StateEffect.define();
 const registryField = StateField.define({
   create: () => ({
     tags: [],
-    boundaries: { prefixes: [] },
+    faults: { marker: "!" },
     tokens: {},
     builtins: [],
   }),
@@ -82,14 +82,17 @@ function tokenizeLine(text, lineStart, reg) {
     marks.push(...tokenizeRest(code, from + tagLen, lineStart, reg));
     return marks;
   }
-  const bp = reg.boundaries.prefixes.find((p) => body.startsWith(p));
+  // A boundary step: `service:` — any declared service name, one colon (not
+  // the `::` static separator).
+  const bp = body.match(/^[A-Za-z_][A-Za-z0-9_-]*:(?!:)/)?.[0];
   if (bp) {
     const from = lineStart + indent;
-    marks.push({ from, to: from + bp.length, color: reg.boundaries.color });
+    marks.push({ from, to: from + bp.length, color: reg.tokens.fault.color });
     marks.push(...tokenizeRest(code, from + bp.length, lineStart, reg));
     return marks;
   }
-  if (indent >= 6 && /^[a-z0-9][a-z0-9\- ]*$/.test(body)) {
+  // A fault line declares itself with the registry's marker (REQ-018).
+  if (body.startsWith(reg.faults?.marker ?? "!")) {
     marks.push({
       from: lineStart + indent,
       to: lineStart + codeEnd,

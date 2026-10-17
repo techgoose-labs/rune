@@ -14,20 +14,21 @@ import {
 const TABLES = `[MOD] tables
 
 [ENT] http.enable(EnableDto): TableDto
+    [REQ] table.enable(EnableDto): TableDto
 [ENT] http.write(WriteDto): RowDto
+    [REQ] table.write(WriteDto): RowDto
 
 [REQ] table.enable(EnableDto): TableDto
     [NEW] table
-    db:table.save(TableDto): void
-      timeout
     table.toDto(): TableDto
+    db:table.save(TableDto): void
+      ! timeout
+    [RET] TableDto
 
 [REQ] table.write(WriteDto): RowDto
-    [NEW] row
     db:row.append(WriteDto): RowDto
-      not-enabled
-      quota-exceeded
-    row.toDto(): RowDto
+      ! not-enabled=409
+      ! quota-exceeded=429
 
 [DTO] EnableDto: name
     the table to track
@@ -52,6 +53,7 @@ const TABLES = `[MOD] tables
 const ORPHAN_REQ = `[MOD] orphan
 
 [ENT] http.ping(PingDto): PongDto
+    [REQ] ping.do(PingDto): PongDto
 
 [REQ] ping.do(PingDto): PongDto
     [NEW] pong
@@ -59,8 +61,7 @@ const ORPHAN_REQ = `[MOD] orphan
 
 [REQ] secret.work(SecretDto): SecretOutDto
     db:secret.load(SecretDto): SecretOutDto
-      never-surfaces
-    secret.toDto(): SecretOutDto
+      ! never-surfaces=500
 
 [DTO] PingDto: ping
     a ping
@@ -250,10 +251,10 @@ Deno.test("planHealRules — [PLY] case faults are collected", () => {
     [PLY] channel.deliver(SendDto): SentDto
         [CSE] email
         ex:channel.sendEmail(SendDto): SentDto
-          bad-address
+          ! bad-address
         [CSE] push
         ex:channel.sendPush(SendDto): SentDto
-          token-expired
+          ! token-expired
     channel.toDto(): SentDto
 
 [DTO] SendDto: to, body

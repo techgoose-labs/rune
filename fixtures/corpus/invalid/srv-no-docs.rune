@@ -1,0 +1,3 @@
+[MOD] core
+[SRV] (SIDECAR)db: DB_URL
+    the datastore, without its documentation link

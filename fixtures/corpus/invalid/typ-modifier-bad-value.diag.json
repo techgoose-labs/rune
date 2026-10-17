@@ -1,6 +1,10 @@
 [
   {
-    "id": "typ-modifier",
+    "id": "typ-modifier-value",
+    "line": 1
+  },
+  {
+    "id": "typ-unused",
     "line": 1
   }
 ]

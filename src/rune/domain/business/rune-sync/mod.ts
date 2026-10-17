@@ -22,6 +22,8 @@ import {
   typFileName,
 } from "@rune/domain/business/rune-bindings/mod.ts";
 import {
+  declaresFaults,
+  faultsFilePath,
   type FilePlan,
   type ManifestOptions,
   planManifest,
@@ -152,6 +154,8 @@ function predictPaths(
   for (const ent of ast.ents) {
     dirs.add(`src/${module}/entrypoints/${applyCase(ent.surface, "kebab")}`);
   }
+  // The module's fault classes (REQ-018), emitted whenever a step declares a fault.
+  if (declaresFaults(ast)) files.add(faultsFilePath(module));
 
   return { dirs, files };
 }

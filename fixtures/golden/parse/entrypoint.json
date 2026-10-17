@@ -9,6 +9,23 @@
       "output": "OrderDto",
       "steps": [
         {
+          "kind": "ctr",
+          "className": "order",
+          "line": 8
+        },
+        {
+          "kind": "step",
+          "noun": "order",
+          "verb": "open",
+          "params": [
+            "item"
+          ],
+          "output": "OrderDto",
+          "isStatic": false,
+          "faults": [],
+          "line": 9
+        },
+        {
           "kind": "boundary",
           "service": "db",
           "noun": "order",
@@ -21,16 +38,16 @@
           "faults": [
             "timeout"
           ],
-          "line": 6
+          "line": 10
         },
         {
           "kind": "ret",
           "value": "OrderDto",
-          "line": 8
+          "line": 12
         }
       ],
       "isOpen": false,
-      "line": 5
+      "line": 7
     },
     {
       "noun": "payment",
@@ -44,23 +61,18 @@
           "noun": "payment",
           "verb": "charge",
           "params": [
-            "PayDto"
+            "id"
           ],
           "output": "ReceiptDto",
           "isStatic": false,
           "faults": [
             "timeout"
           ],
-          "line": 11
-        },
-        {
-          "kind": "ret",
-          "value": "ReceiptDto",
-          "line": 13
+          "line": 15
         }
       ],
       "isOpen": false,
-      "line": 10
+      "line": 14
     }
   ],
   "ents": [
@@ -72,7 +84,11 @@
       "modifier": null,
       "line": 2,
       "method": null,
-      "pathTemplate": null
+      "pathTemplate": null,
+      "delegate": {
+        "noun": "order",
+        "verb": "create"
+      }
     },
     {
       "surface": "http",
@@ -80,9 +96,13 @@
       "input": "PayDto",
       "output": "ReceiptDto",
       "modifier": null,
-      "line": 3,
+      "line": 4,
       "method": null,
-      "pathTemplate": null
+      "pathTemplate": null,
+      "delegate": {
+        "noun": "payment",
+        "verb": "pay"
+      }
     }
   ],
   "dtos": [
@@ -94,7 +114,7 @@
       "description": "a new order to create",
       "isCore": false,
       "isOpen": false,
-      "line": 15
+      "line": 18
     },
     {
       "name": "OrderDto",
@@ -105,7 +125,7 @@
       "description": "a created order",
       "isCore": false,
       "isOpen": false,
-      "line": 17
+      "line": 20
     },
     {
       "name": "PayDto",
@@ -115,7 +135,7 @@
       "description": "a payment for an order",
       "isCore": false,
       "isOpen": false,
-      "line": 19
+      "line": 22
     },
     {
       "name": "ReceiptDto",
@@ -125,7 +145,7 @@
       "description": "a receipt for a payment",
       "isCore": false,
       "isOpen": false,
-      "line": 21
+      "line": 24
     }
   ],
   "typs": [
@@ -135,8 +155,10 @@
       "description": "the item to order",
       "isCore": false,
       "isExternal": false,
-      "modifiers": [],
-      "line": 24
+      "modifiers": [
+        "example=lamp"
+      ],
+      "line": 27
     },
     {
       "name": "id",
@@ -145,7 +167,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 26
+      "line": 29
     },
     {
       "name": "receipt",
@@ -154,10 +176,16 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 28
+      "line": 31
     }
   ],
-  "nons": [],
+  "nons": [
+    {
+      "name": "order",
+      "description": "a customer order",
+      "line": 34
+    }
+  ],
   "srvs": [
     {
       "transport": "SIDECAR",
@@ -167,8 +195,16 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 31
+      "line": 37
     }
   ],
+  "faultStatuses": {},
+  "bodyLines": [
+    3,
+    5
+  ],
+  "faultLines": {
+    "timeout": 16
+  },
   "errors": []
 }

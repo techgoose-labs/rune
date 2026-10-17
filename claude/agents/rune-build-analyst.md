@@ -202,7 +202,7 @@ have historically crawled the disk for is already at hand:
   `@Endpoint`, `HttpException`, `getIdentity`, heal-rules — is documented in the
   skill references installed alongside you. Read them directly instead of
   hunting the source:
-  - `~/.claude/skills/rune:spec/references/constraints.md` — the assert contract
+  - `~/.claude/skills/rune:framework/references/endpoints.md` — the assert contract
     & seams
   - `~/.claude/skills/rune:framework/references/{endpoints,auth,deployment}.md`
     — runtime, bootstrap, auth, and error mapping

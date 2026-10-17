@@ -1,0 +1,22 @@
+[
+  {
+    "id": "req-input-dto",
+    "line": 1
+  },
+  {
+    "id": "req-output-dto",
+    "line": 1
+  },
+  {
+    "id": "boundary-types",
+    "line": 2
+  },
+  {
+    "id": "dto-suffix",
+    "line": 4
+  },
+  {
+    "id": "dto-suffix",
+    "line": 6
+  }
+]

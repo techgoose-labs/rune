@@ -28,8 +28,6 @@ export async function list(input: ListDto): Promise<ProductsDto> {
 // Pure business logic for product.list — no I/O. Takes the
 // request input and the dtos the reads loaded; returns the result.
 function listCore(input: ListDto, productQuery: ProductsDto): { result: ProductsDto } {
-  // Recipe from [REQ] product.list (run in order):
-  //   1. [RET] ProductsDto
-  // TODO: implement the steps above, then build the dtos
+  // TODO: run the pure steps on the inputs, build the dtos
   throw new Error("not implemented");
 }

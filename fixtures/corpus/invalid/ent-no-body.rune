@@ -1,0 +1,15 @@
+[MOD] shop
+[ENT] http.placeOrder(InDto): OutDto
+
+[REQ] order.place(InDto): OutDto
+    db:order.save(InDto): OutDto
+      ! timeout
+
+[DTO] InDto: a
+    in
+[DTO] OutDto: b
+    out
+[TYP:example=x] a: string
+    a
+[TYP] b: string
+    b

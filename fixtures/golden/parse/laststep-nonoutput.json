@@ -35,6 +35,11 @@
           "isStatic": false,
           "faults": [],
           "line": 5
+        },
+        {
+          "kind": "ret",
+          "value": "ResultsDto",
+          "line": 6
         }
       ],
       "isOpen": false,
@@ -51,7 +56,7 @@
       "description": "a search query",
       "isCore": false,
       "isOpen": false,
-      "line": 7
+      "line": 8
     },
     {
       "name": "ResultsDto",
@@ -61,7 +66,7 @@
       "description": "the matched results",
       "isCore": false,
       "isOpen": false,
-      "line": 10
+      "line": 11
     },
     {
       "name": "AuditDto",
@@ -71,7 +76,7 @@
       "description": "an audit record of the search",
       "isCore": false,
       "isOpen": false,
-      "line": 13
+      "line": 14
     }
   ],
   "typs": [
@@ -82,7 +87,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 16
+      "line": 17
     },
     {
       "name": "items",
@@ -91,7 +96,7 @@
       "isCore": false,
       "isExternal": false,
       "modifiers": [],
-      "line": 19
+      "line": 20
     }
   ],
   "nons": [],
@@ -104,8 +109,13 @@
       ],
       "description": "the primary datastore",
       "docsLink": "https://docs.example.com/db",
-      "line": 22
+      "line": 23
     }
   ],
+  "faultStatuses": {},
+  "bodyLines": [],
+  "faultLines": {
+    "timeout": 4
+  },
   "errors": []
 }

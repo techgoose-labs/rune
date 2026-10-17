@@ -2,6 +2,12 @@
 
 _What we want vs. what exists today. Audited 2026-05-27._
 
+> **2026-10-16 (REQ-031/035):** G6 and G9 are closed for parse and lint. The
+> grammar built from the registry is the one parser of record (ADR 0009): the
+> engine parses through `lang/grammar/rune.wasm`, the Rust binaries link the
+> generated `parser.c`, and the studio carries no parser or linter of its own —
+> `lib/engine.ts` calls the engine, served by `/api/check`.
+
 ## The target
 
 A low-code product where **the Studio UI is the only authoring surface for the

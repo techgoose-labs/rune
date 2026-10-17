@@ -4,25 +4,26 @@
 // the gateway is reachable without a credential
 [REQ:open] health.check({}): HealthDto
     ex:nmi.ping(): HealthDto
-      timeout
+      ! timeout
 
 // open (tokenise) a card
 [REQ] card.open(OpenCardDto): CardDto
     ex:nmi.tokenise(pan): cardId
       // the issuer said no
-      declined
+      ! declined
     // shape the response
     card::toDto(cardId): CardDto
 // charge a stored card; the brand picks the gateway call
 [REQ] card.charge(ChargeDto): ReceiptDto
+    [NEW] brand
     [PLY] brand.sale(ChargeDto): ReceiptDto
         [CSE] visa
         ex:nmi.sale(ChargeDto): ReceiptDto
-          declined
+          ! declined
         [CSE] amex
         // amex wants the 4-digit code on every sale
         ex:nmi.saleAmex(ChargeDto): ReceiptDto
-          declined
+          ! declined
 
 [TYP] ok: boolean
     whether the gateway answered

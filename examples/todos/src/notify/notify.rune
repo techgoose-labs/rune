@@ -3,19 +3,19 @@
 [REQ] notification.send(SendDto): ReceiptDto
     id::generate(): id
     [NEW] notification
-    notification.fill(message): notification
+    notification.fill(id, message): notification
+    [NEW] channel
     [PLY] channel.deliver(SendDto): ReceiptDto
         [CSE] email
         ex:channel.sendEmail(SendDto): ReceiptDto
-          timeout invalid-address
+          ! timeout invalid-address
         [CSE] push
         ex:channel.sendPush(SendDto): ReceiptDto
-          timeout
-    notification.toDto(): ReceiptDto
+          ! timeout
 
 [TYP] id: string
     a unique notification id
-[TYP] message: string
+[TYP:example=hello] message: string
     the notification body text
 [TYP] status: string
     the delivery status of the notification

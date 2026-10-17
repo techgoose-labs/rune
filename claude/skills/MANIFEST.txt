@@ -3,6 +3,7 @@ claude/skills/rune:cake/SKILL.md
 claude/skills/rune:cake/references/cake.md
 claude/skills/rune:cake/references/heal-rules.md
 claude/skills/rune:data/SKILL.md
+claude/skills/rune:data/evals/evals.json
 claude/skills/rune:data/scripts/render_review.ts
 claude/skills/rune:data/scripts/scan_spec.ts
 claude/skills/rune:data/scripts/validate_data.ts
@@ -17,8 +18,7 @@ claude/skills/rune:scope/SKILL.md
 claude/skills/rune:scope/references/example-spec.md
 claude/skills/rune:scope/references/example-user-stories.md
 claude/skills/rune:spec/SKILL.md
-claude/skills/rune:spec/references/constraints.md
+claude/skills/rune:spec/references/card.md
 claude/skills/rune:spec/references/cookbook.md
 claude/skills/rune:spec/references/example-core.rune
 claude/skills/rune:spec/references/example-tasks.rune
-claude/skills/rune:spec/references/spec.md

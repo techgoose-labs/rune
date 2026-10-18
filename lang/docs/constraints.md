@@ -32,10 +32,6 @@ overlay may tune a rule that is not locked.
 | `ent-body-modifier` | error | `[ENT] body [REQ] does not take a modifier` | — | Openness is declared on the top-level [REQ], not repeated in the body reference. |
 | `ent-delegate-required` | error | `[ENT] {surface}.{action} names no [REQ] — add an indented `[REQ] noun.verb({input}): {output}` line under it{candidates}` | `{fix}` | An entrypoint dispatches to exactly the [REQ] its body names. There is no matching by signature: two [REQ]s with the same (input, output) would make the pick silent and wrong. |
 | `ent-delegate-undefined` | error | `[ENT] {surface}.{action} delegates to [REQ] {noun}.{verb}, which is not defined` | — | The body [REQ] must exist in the same spec. |
-| `surface-mixed` | error | `surface "{surface}" is declared as both an HTTP [ENT] and a WebSocket [ENT:ws]` | `give them distinct surfaces` | A surface is one controller: either HTTP routes or one WebSocket socket. |
-| `ws-topic-shape` | error | `[ENT:ws] {surface}: malformed topic — expected "<verb>(InputDto): OutputDto"` | — | Each indented line under a socket header is one message topic. |
-| `ws-header-signature` | error | `[ENT:ws] malformed — expected "[ENT:ws] <surface> @ /path"` | — | A socket header names the surface and the handshake path; topics are declared on the lines below, never on the header. |
-| `ws-no-topics` | error | `[ENT:ws] {surface} has no topics — add at least one "<verb>(InputDto): OutputDto"` | — | A socket with no topics handles no message. |
 | `srv-shape` | error | `[SRV] malformed — expected [SRV] (TRANSPORT)<name>: <ENV,…>` | — | A service declaration is a parenthesized transport, a name, and its env vars. |
 | `srv-transport` | error | `[SRV] unknown transport "{transport}" — expected {transports}` | — | Transports are the registry's closed set. |
 | `srv-docs-url` | error | `[SRV] {service}: @docs needs a URL` | — | The documentation link is the one piece of provenance a dev needs to wire the service. |
@@ -129,7 +125,7 @@ validated seams, fault coverage, orphans:
 ## Indentation
 
 <!-- rune:gen indent -->
-The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [ENT:ws] topics, [PLY] cases) is indented deeper than its opener.
+The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [PLY] cases) is indented deeper than its opener.
 
 | Line | Column |
 | --- | --- |
@@ -139,7 +135,7 @@ The columns `rune fmt` writes. Indentation is presentation: a line's kind is its
 | `[CSE]` and the steps inside a case | 8 |
 | faults inside a case | 10 |
 | descriptions, `@docs` | 4 |
-| an `[ENT]` body `[REQ]`, `[ENT:ws]` topics | 4 |
+| an `[ENT]` body `[REQ]` | 4 |
 
 Lines are at most 80 characters.
 <!-- /rune:gen -->

@@ -20,11 +20,6 @@ function lineRuleBody(tag) {
       const sigForm = tag.allowFunctionName
         ? `seq(${t}, field("noun", $.identifier), optional(seq(choice(".", "::"), field("verb", $.method_name))), optional($.http_route), $.parameters, ":", $.return_type)`
         : `seq(${t}, $.signature, ":", $.return_type${tag.follows === "poly" ? ", optional($.value_name)" : ""})`;
-      // [ENT:ws] additionally accepts a socket header "[ENT:ws] <surface> @ /path" (no
-      // signature); its indented "verb(In): Out" topics parse as ws_topic_lines.
-      if (tag.id === "ent") {
-        return `choice(${sigForm}, seq(${t}, field("ws_surface", $.identifier), optional($.ws_route)))`;
-      }
       return sigForm;
     }
     case "typedef":
@@ -95,7 +90,6 @@ export function buildGrammar(reg) {
     "$.srv_docs_line",
     "$.boundary_line",
     "$.step_line",
-    "$.ws_topic_line",
     "$.fault_line",
     "$.dto_desc",
     "$.typ_desc",
@@ -150,11 +144,6 @@ ${tagRules}
     // route too. One anchored token (@ + space + verb …), so it never collides with @docs (no
     // space after the @) or // line comments.
     http_route: ($) => token(seq("@", /\\s+/, /[A-Za-z]+/, optional(seq(/\\s+/, "/", /[^\\s()]*/)))),
-
-    // [ENT:ws] socket-header path: "@ /path" — like http_route but with no HTTP verb (a WS
-    // handshake is always a GET). A distinct token so the lexer never confuses "@ /x" with
-    // "@ VERB /x" (http_route) or "@docs" (no space after the @).
-    ws_route: ($) => token(seq("@", /\\s+/, "/", /[^\\s()]*/)),
 
     // A parameter list may span lines: whitespace (newlines included) is
     // allowed after the opening paren and before the closing one.
@@ -233,13 +222,6 @@ ${tagRules}
     // optional in the grammar so a step that forgot it is still a step (the
     // engine reports missing-return-type), never an unrecognized line.
     step_line: ($) => seq($.signature, optional(seq(":", $.return_type, optional($.value_name)))),
-
-    // [ENT:ws] topic line: a bare "verb(InputDto): OutputDto" (no noun. prefix) under a socket
-    // header. step_line's signature requires a dotted noun.verb, so topics need their own rule.
-    // The verb MUST be $.identifier (the same leading token step_line uses) — using method_name
-    // would make the lexer commit to it before the parser sees a dotted form's ".", spuriously
-    // erroring real steps. After the identifier, the next token ("." / "::" vs "(") disambiguates.
-    ws_topic_line: ($) => seq(field("verb", $.identifier), $.parameters, ":", $.return_type),
 
     // The boundary prefix is the external service_prefix token (\`name:\`, a
     // single colon — distinct from the \`::\` static separator, which the DFA

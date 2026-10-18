@@ -633,3 +633,30 @@ the sixteen agents that cited it point there.
   lane falls back main → master when branch-model.deploy-branch is unset`
 - integration: n/a — two shell hooks read as text; nothing composes them
 - e2e: n/a — no page; the hooks run inside git
+
+## REQ-042 — rune has no WebSocket endpoint form; keep has no WebSocket decorators
+
+> Raphael, 2026-10-18, on learning that `[ENT:ws]` was the one non-HTTP
+> endpoint form: "yep rune does not need to support ws."
+
+`[ENT:ws] <surface> @ /path` and its indented `verb(In): Out` topics are gone
+from the language. The registry drops the `ws-topic-shape`,
+`ws-header-signature`, `ws-no-topics` and `surface-mixed` rules; the grammar
+drops `ws_route` and `ws_topic_line` (and the scanner's bare-topic shape); the
+parser drops the socket state, the topic parsing and `EntNode.kind`; the checks
+and the manifest treat every `[ENT]` as an HTTP route; `rune fmt` no longer
+knows a socket header or a topic. A `[ENT:ws]` header now reads as a malformed
+`[ENT]` (`ent-signature`). keep drops `WsEndpoint`, `WsEndpointController`,
+`WS_PROCESS_METADATA_KEY`, `getWsProcessMetadata` and the Swagger builder's
+WebSocket-controller filter — a breaking change to the runtime's exports, so
+keep moves to 8.0.0 and the codegen pin to `@^8`. The `[SRV]` `WEBSOCKET`
+transport (a backing service the backend talks to) is untouched: it is a
+boundary, not an endpoint.
+
+- unit: `src/rune/domain/business/rune-parse/test.ts` —
+  `REQ-042: [ENT:ws] is not a form — the header is an ent-signature error, no ws rule exists and an ent carries no transport kind`;
+  `src/rune/domain/business/rune-manifest/test.ts` —
+  `REQ-042: a retired [ENT:ws] socket plans no controller — the header is an ent-signature error`
+- integration: the Drift, grammar and L1 gates (`deno task verify`);
+  `cd lang && cargo test` (the formatter over the rebuilt grammar)
+- e2e: n/a — a language and runtime removal, no page

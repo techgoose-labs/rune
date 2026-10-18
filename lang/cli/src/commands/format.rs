@@ -5,7 +5,7 @@
 //! the registry's indent table. Nothing here decides what a line means by where
 //! the author put it, with the one documented exception: nesting is relative —
 //! a step the author indented deeper than its [PLY] belongs to the case, a
-//! `[REQ]` indented under an [ENT] (or a ws topic) is that entrypoint's body.
+//! `[REQ]` indented under an [ENT] is that entrypoint's body.
 //!
 //! The formatter also carries the mechanical migrations of the language
 //! changes: a pre-marker fault line is rewritten with the marker (REQ-018) and
@@ -87,9 +87,6 @@ enum Kind {
     Decl,
     Req,
     Ent,
-    /// `[ENT:ws] surface @ /path` — a socket header; its topics follow.
-    WsHeader,
-    WsTopic,
     Ply,
     Cse,
     /// [NEW] / [RET] / a step / a boundary step.
@@ -154,14 +151,7 @@ fn kind_of_node(n: &Node) -> Kind {
     match n.kind() {
         "mod_line" | "dto_line" | "typ_line" | "non_line" | "srv_line" => Kind::Decl,
         "req_line" => Kind::Req,
-        "ent_line" => {
-            if n.child_by_field_name("ws_surface").is_some() {
-                Kind::WsHeader
-            } else {
-                Kind::Ent
-            }
-        }
-        "ws_topic_line" => Kind::WsTopic,
+        "ent_line" => Kind::Ent,
         "ply_line" => Kind::Ply,
         "cse_line" => Kind::Cse,
         "new_line" | "ret_line" | "step_line" | "boundary_line" => Kind::Step,
@@ -230,11 +220,8 @@ fn format_content(content: &str) -> String {
     // The author's column of the open [PLY]: a step indented deeper belongs to
     // its case; one at or above it closes the block.
     let mut ply_col: Option<usize> = None;
-    // After an [ENT] header, an indented [REQ] is its body line; after a ws
-    // topic, a [REQ] indented deeper than the topic is that topic's body.
+    // After an [ENT] header, an indented [REQ] is its body line.
     let mut in_ent = false;
-    let mut in_ws = false;
-    let mut topic_col: Option<usize> = None;
     // The author's column of the last step, so a bare fault line (deeper than
     // it) is told from prose after a step (at or above it).
     let mut last_step_col: Option<usize> = None;
@@ -283,7 +270,6 @@ fn format_content(content: &str) -> String {
                 out.push(trimmed.to_string());
                 in_decl = true;
                 in_ent = false;
-                in_ws = false;
                 ply_col = None;
                 last_step_col = None;
             }
@@ -291,15 +277,10 @@ fn format_content(content: &str) -> String {
                 if in_ent && orig_indent > 0 {
                     // the [ENT]'s body line
                     out.push(pad(ind.body, trimmed));
-                    in_ent = false;
-                } else if in_ws && topic_col.is_some_and(|c| orig_indent > c) {
-                    // a ws topic's body line
-                    out.push(pad(ind.body * 2, trimmed));
                 } else {
                     out.push(trimmed.to_string());
-                    in_ent = false;
-                    in_ws = false;
                 }
+                in_ent = false;
                 in_decl = false;
                 ply_col = None;
                 last_step_col = None;
@@ -307,28 +288,8 @@ fn format_content(content: &str) -> String {
             Kind::Ent => {
                 out.push(trimmed.to_string());
                 in_ent = true;
-                in_ws = false;
                 in_decl = false;
                 ply_col = None;
-                last_step_col = None;
-            }
-            Kind::WsHeader => {
-                out.push(trimmed.to_string());
-                in_ws = true;
-                in_ent = false;
-                topic_col = None;
-                in_decl = false;
-                ply_col = None;
-                last_step_col = None;
-            }
-            Kind::WsTopic => {
-                if in_ws {
-                    out.push(pad(ind.body, trimmed));
-                    topic_col = Some(orig_indent);
-                } else {
-                    out.push(line.to_string());
-                }
-                in_decl = false;
                 last_step_col = None;
             }
             Kind::Ply => {
@@ -564,19 +525,6 @@ mod tests {
         let input = "[ENT] http.createOrder(NewOrderDto): OrderDto\n[ENT] http.payOrder(PayDto): ReceiptDto\n\n[REQ] order.create(NewOrderDto): OrderDto\n    db:order.save(OrderDto): void\n";
         let out = format_content(input);
         assert_eq!(out, input, "got:\n{out}");
-    }
-
-    #[test]
-    fn ent_ws_socket_topics_indent_to_four_and_their_bodies_to_eight() {
-        // [ENT:ws] header at column 0; its `verb(In): Out` topics normalize to the
-        // body column, a topic's `[REQ]` body line one body deeper (REQ-019).
-        let input = "[ENT:ws] chat @ /rooms/{room}\n    join(JoinDto): JoinedDto\n        [REQ] room.join(JoinDto): JoinedDto\n    leave(LeaveDto): LeftDto\n";
-        let out = format_content(input);
-        assert_eq!(out, input, "got:\n{out}");
-        // and a mis-indented topic + body are pulled back
-        let messy = "[ENT:ws] chat @ /rooms/{room}\n        join(JoinDto): JoinedDto\n            [REQ] room.join(JoinDto): JoinedDto\n";
-        let fixed = format_content(messy);
-        assert_eq!(fixed, "[ENT:ws] chat @ /rooms/{room}\n    join(JoinDto): JoinedDto\n        [REQ] room.join(JoinDto): JoinedDto\n", "got:\n{fixed}");
     }
 
     #[test]

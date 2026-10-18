@@ -60,7 +60,7 @@ Deno.test("sync scaffolds, then preserves fill-ins and prunes orphans", async ()
     );
     assertEquals(
       denoJson.imports["#assert"],
-      "jsr:@techgoose-labs/rune@^7/assert",
+      "jsr:@techgoose-labs/rune@^8/assert",
     );
     assertEquals(denoJson.compilerOptions.experimentalDecorators, true);
 

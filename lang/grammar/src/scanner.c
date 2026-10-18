@@ -38,22 +38,13 @@ static bool is_verb_char(int32_t c) {
 }
 
 // Does the line read as code — a step `noun.verb(` / `Noun::verb(` (with an
-// optional `@ METHOD /path` clause before the parens) or a ws topic
-// `verb(…):` — rather than prose? Prose like "e.g. put()" or "note(s) are kept"
-// does not: the step shape needs the separator and the paren contiguous with the
-// names, the topic shape needs `):` after the parens.
+// optional `@ METHOD /path` clause before the parens) — rather than prose?
+// Prose like "e.g. put()" or "note(s) are kept" does not: the step shape needs
+// the separator and the paren contiguous with the names.
 static bool looks_like_code(const char *buf, int len) {
   int i = 0;
   if (i >= len || !is_ident_start(buf[i])) return false;
   while (i < len && is_ident_char(buf[i])) i++;
-  if (i < len && buf[i] == '(') {
-    // ws topic: verb(…): …
-    while (i < len && buf[i] != ')') i++;
-    if (i >= len) return false;
-    i++;
-    while (i < len && buf[i] == ' ') i++;
-    return i < len && buf[i] == ':';
-  }
   if (i < len && buf[i] == '.') i++;
   else if (i + 1 < len && buf[i] == ':' && buf[i + 1] == ':') i += 2;
   else return false;

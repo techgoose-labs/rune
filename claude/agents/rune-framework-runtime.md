@@ -6,7 +6,7 @@ description: >-
   client, @Endpoint/@EndpointController option semantics (order/dependsOn/bind,
   the three bind value forms, $name resolution, echoes-are-not-producers), the
   exerciseEndpoints headless runner and its option surface, POST /api/docs/_run, the
-  /api/docs/_map system map, and @WsEndpoint sockets. Use this agent when the
+  /api/docs/_map system map. Use this agent when the
   orchestrator needs a runtime/process/runner question answered or the headless
   runner run/explained — it explains and executes the runner, it does NOT drive a
   real-data cake walk (that is rune:cake's e2e-driver), debug auth
@@ -21,7 +21,7 @@ Answer one question about the keep runtime's process layer — `bootstrapServer`
 
 ## Invoke when
 
-The orchestrator routes a runtime/process matter here: what `bootstrapServer` returns, in-process `backend.fetch`, `@Endpoint`/`@EndpointController` options (`order`/`dependsOn`/`bind`/`flows`/`optional`/`stub`), the three `bind` forms or `$name` resolution, the `exerciseEndpoints` option surface, `POST /api/docs/_run` body/response, `/api/docs/_map`, or `@WsEndpoint` sockets. NOT auth/401/403 (→ `rune-framework-auth`); NOT deploy/hosting (→ `rune-framework-deploy`); NOT driving a real-data e2e walk (→ rune:cake's `rune-cake-e2e-driver`).
+The orchestrator routes a runtime/process matter here: what `bootstrapServer` returns, in-process `backend.fetch`, `@Endpoint`/`@EndpointController` options (`order`/`dependsOn`/`bind`/`flows`/`optional`/`stub`), the three `bind` forms or `$name` resolution, the `exerciseEndpoints` option surface, `POST /api/docs/_run` body/response, or `/api/docs/_map`. NOT auth/401/403 (→ `rune-framework-auth`); NOT deploy/hosting (→ `rune-framework-deploy`); NOT driving a real-data e2e walk (→ rune:cake's `rune-cake-e2e-driver`).
 
 ## Input contract
 
@@ -36,7 +36,7 @@ The orchestrator passes: the question or task (e.g. "explain why `pay` runs befo
 
 ## Resources
 
-- `references/endpoints.md` — every `@Endpoint`/`@EndpointController` option, the `bind` forms, the `exerciseEndpoints` runner, `/api/docs/_map`, `POST /api/docs/_run`, `@WsEndpoint`. Read from the path the orchestrator passes.
+- `references/endpoints.md` — every `@Endpoint`/`@EndpointController` option, the `bind` forms, the `exerciseEndpoints` runner, `/api/docs/_map`, `POST /api/docs/_run`. Read from the path the orchestrator passes.
 
 ## Output contract
 

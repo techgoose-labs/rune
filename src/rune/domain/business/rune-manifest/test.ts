@@ -2772,87 +2772,30 @@ Deno.test("planManifest — S7: a [PLY] with no [CSE] emits an error and no brok
   }
 });
 
-Deno.test("planManifest — [ENT:ws] emits a WebSocket controller, not an HTTP one", () => {
+Deno.test("REQ-042: a retired [ENT:ws] socket plans no controller — the header is an ent-signature error", () => {
   const rune = `[MOD] chat
 
 [ENT:ws] chat @ /rooms/{room}
-    join(JoinDto): JoinedDto
-        [REQ] room.join(JoinDto): JoinedDto
     send(ChatDto): EchoDto
         [REQ] room.send(ChatDto): EchoDto
-    leave(LeaveDto): void
-        [REQ] room.leave(LeaveDto): JoinedDto
 
-[REQ] room.join(JoinDto): JoinedDto
-    lobby::admit(room): JoinedDto
 [REQ] room.send(ChatDto): EchoDto
     lobby::echo(text): EchoDto
-[REQ] room.leave(LeaveDto): JoinedDto
-    lobby::release(room): JoinedDto
 
 [NON] lobby
     the rooms
 
-[DTO] JoinDto: room
-    join
-[DTO] JoinedDto: room, members
-    joined
 [DTO] ChatDto: text
     chat
-[DTO] EchoDto: text, at
+[DTO] EchoDto: text
     echo
-[DTO] LeaveDto: room
-    leave
 
-[TYP] room: string
-    r
-[TYP] members: number
-    m
 [TYP] text: string
-    t
-[TYP] at: number
-    a`;
+    t`;
   const plan = planManifest("specs/chat.rune", rune, new Set());
-  assertEquals(plan.errors, []);
-  const mod = plan.toCreate.find((f) =>
-    f.path === "src/chat/entrypoints/chat/mod.ts"
-  );
-  assert(mod, "WS controller file must be emitted");
-  // The handshake path mounts via @WsEndpointController; {room} → :room.
-  assertStringIncludes(mod.content, '@WsEndpointController("rooms/:room")');
-  assertStringIncludes(mod.content, "WsEndpoint, WsEndpointController");
-  // One @WsEndpoint per topic; the topic is the verb.
-  assertStringIncludes(
-    mod.content,
-    '@WsEndpoint({ topic: "join", input: JoinDto, output: JoinedDto })',
-  );
-  assertStringIncludes(
-    mod.content,
-    '@WsEndpoint({ topic: "send", input: ChatDto, output: EchoDto })',
-  );
-  // A void topic mints no reply: no `output:` and a Promise<void> handler.
-  assertStringIncludes(
-    mod.content,
-    '@WsEndpoint({ topic: "leave", input: LeaveDto })',
-  );
-  assertStringIncludes(mod.content, "leave(data: LeaveDto): Promise<void>");
-  // It is a WS controller, never an HTTP one (no HTTP decorators leak in).
-  assert(
-    !mod.content.includes("@EndpointController"),
-    "no HTTP @EndpointController",
-  );
-  assert(!mod.content.includes("@Endpoint("), "no HTTP @Endpoint");
-  assert(
-    !/@(Get|Post|Put|Patch|Delete)\b/.test(mod.content),
-    "no HTTP method decorator",
-  );
-  // No HTTP e2e harness for a WS socket in v1.
-  assertEquals(
-    plan.toCreate.some((f) =>
-      f.path === "src/chat/entrypoints/chat/e2e.test.ts"
-    ),
-    false,
-  );
+  assert(plan.findings.some((f) => f.id === "ent-signature"), plan.errors.join("\n"));
+  assertEquals(plan.findings.some((f) => f.id.startsWith("ws-") || f.id === "surface-mixed"), false);
+  assertEquals(plan.toCreate.some((f) => f.path.startsWith("src/chat/entrypoints/")), false, "no controller for a retired socket");
 });
 
 Deno.test("REQ-013: plan.findings carry ids and plan.errors is their rendering", () => {

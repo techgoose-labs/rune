@@ -52,7 +52,7 @@
       "follows": "signature",
       "color": "#89babf",
       "syntax": "[ENT] surface.action(InputDto): OutputDto\n    [REQ] noun.verb(InputDto): OutputDto",
-      "summary": "An inbound entrypoint (HTTP route) — the inverse of a boundary. Its body is ONE indented `[REQ] noun.verb(In): Out` line naming the coordinator it dispatches to (required — there is no signature matching). An optional `@ METHOD /template` clause between the name and the parens sets the verb and the route; `{field}` segments (and one trailing `{field*}` catch-all) bind URL parts to same-named input fields. `[ENT:ws] <surface> @ /path` declares a WebSocket socket whose indented `verb(In): Out` topics each carry their own indented `[REQ]` body line.",
+      "summary": "An inbound entrypoint (HTTP route) — the inverse of a boundary. Its body is ONE indented `[REQ] noun.verb(In): Out` line naming the coordinator it dispatches to (required — there is no signature matching). An optional `@ METHOD /template` clause between the name and the parens sets the verb and the route; `{field}` segments (and one trailing `{field*}` catch-all) bind URL parts to same-named input fields.",
       "shapeRule": "ent-signature"
     },
     {
@@ -414,43 +414,6 @@
       "severity": "error",
       "message": "[ENT] {surface}.{action} delegates to [REQ] {noun}.{verb}, which is not defined",
       "doc": "The body [REQ] must exist in the same spec.",
-      "target": "spec",
-      "enabled": true
-    },
-    {
-      "id": "surface-mixed",
-      "checker": "surface-mixed",
-      "severity": "error",
-      "message": "surface \"{surface}\" is declared as both an HTTP [ENT] and a WebSocket [ENT:ws]",
-      "fix": "give them distinct surfaces",
-      "doc": "A surface is one controller: either HTTP routes or one WebSocket socket.",
-      "target": "spec",
-      "enabled": true
-    },
-    {
-      "id": "ws-topic-shape",
-      "checker": "ws-topic-shape",
-      "severity": "error",
-      "message": "[ENT:ws] {surface}: malformed topic — expected \"<verb>(InputDto): OutputDto\"",
-      "doc": "Each indented line under a socket header is one message topic.",
-      "target": "spec",
-      "enabled": true
-    },
-    {
-      "id": "ws-header-signature",
-      "checker": "ws-header-signature",
-      "severity": "error",
-      "message": "[ENT:ws] malformed — expected \"[ENT:ws] <surface> @ /path\"",
-      "doc": "A socket header names the surface and the handshake path; topics are declared on the lines below, never on the header.",
-      "target": "spec",
-      "enabled": true
-    },
-    {
-      "id": "ws-no-topics",
-      "checker": "ws-no-topics",
-      "severity": "error",
-      "message": "[ENT:ws] {surface} has no topics — add at least one \"<verb>(InputDto): OutputDto\"",
-      "doc": "A socket with no topics handles no message.",
       "target": "spec",
       "enabled": true
     },
@@ -2052,7 +2015,7 @@
     "description": 4,
     "body": 4,
     "faultOffset": 2,
-    "summary": "The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [ENT:ws] topics, [PLY] cases) is indented deeper than its opener."
+    "summary": "The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [PLY] cases) is indented deeper than its opener."
   },
   "transports": [
     {

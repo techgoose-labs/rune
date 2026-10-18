@@ -96,18 +96,12 @@ export {
   EndpointController,
   endpointModule,
   getProcessMetadata,
-  getWsProcessMetadata,
   PROCESS_METADATA_KEY,
-  WS_PROCESS_METADATA_KEY,
-  WsEndpoint,
-  WsEndpointController,
 } from "@foundation/domain/business/endpoint-decorator/mod.ts";
 export type {
   EndpointMethod,
   EndpointOptions,
   ProcessMetadata,
-  WsEndpointOptions,
-  WsProcessMetadata,
 } from "@foundation/domain/business/endpoint-decorator/mod.ts";
 export { endpointsFromDoc } from "@foundation/domain/business/endpoint-spec/mod.ts";
 export type {

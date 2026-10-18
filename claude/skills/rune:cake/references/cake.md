@@ -5,9 +5,7 @@ resolves and coerces values, the expectations contract, durable module setup,
 the `spec/misc/cake.json` and scenario artifacts, response-diff, and the flow
 selector. The cake, the system map, and `exerciseEndpoints` are three views of
 the same `x-keep-process` metadata that `@Endpoint` stamps into each module's
-OpenAPI doc — so a `[ENT:ws]` socket (which has no OpenAPI operation) is **not**
-walked by any of them; exercise a socket with a WebSocket client instead. (The
-`@Endpoint`/`@EndpointController` option tables and the
+OpenAPI doc. (The `@Endpoint`/`@EndpointController` option tables and the
 `exerciseEndpoints` runner option surface are owned by the `rune:framework` skill;
 the heal panel + heal-rules schema live in `references/heal-rules.md`.)
 

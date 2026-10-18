@@ -195,10 +195,10 @@ export function checkSpec(ast: RuneAst, text: string): Finding[] {
       const tag = registry.tags.find((t) => t.tag === `[${m[1]}]`);
       if (!tag) return;
       // Body lines sit deeper than the registry's column: an [ENT] body [REQ],
-      // a ws topic's [REQ], a [PLY] case (relative nesting is the author's).
+      // a [PLY] case (relative nesting is the author's).
       const expected = tag.indent;
       if (found === expected) return;
-      if (tag.id === "req" && ast.bodyLines.includes(i)) return; // an [ENT]/topic body line
+      if (tag.id === "req" && ast.bodyLines.includes(i)) return; // an [ENT] body line
       if ((tag.id === "cse" || tag.id === "ply" || tag.id === "new" || tag.id === "ret") && found > expected) return; // nested in a case
       emit(rule.id, i, { tag: tag.tag, expected, found });
     });
@@ -446,7 +446,6 @@ export function checkSpec(ast: RuneAst, text: string): Finding[] {
   }
 
   // ---- [ENT]: the waist rule and unbound inputs ----
-  const httpEnts = ast.ents.filter((e) => e.kind !== "ws");
   const minted = (e: EntNode): Set<string> => {
     const outDto = dtos.get(e.output);
     if (!outDto) return new Set();
@@ -454,7 +453,7 @@ export function checkSpec(ast: RuneAst, text: string): Finding[] {
     const echoed = new Set(inDto ? fieldNames(inDto).map((f) => f.name) : []);
     return new Set(fieldNames(outDto).map((f) => f.name).filter((f) => !echoed.has(f)));
   };
-  httpEnts.forEach((ent, i) => {
+  ast.ents.forEach((ent, i) => {
     if (ent.method === "put" || ent.method === "patch") {
       emit("edit-record-endpoint", ent.line, { surface: ent.surface, action: ent.action, method: ent.method.toUpperCase() });
     }
@@ -462,7 +461,7 @@ export function checkSpec(ast: RuneAst, text: string): Finding[] {
     if (!inDto) return;
     for (const { name, base } of fieldNames(inDto)) {
       if (/\?/.test(inDto.properties.find((p) => p.replace(/\(s\??\)/g, "").replace(/\?/g, "").trim() === base) ?? "")) continue; // optional
-      const produced = httpEnts.some((p, pi) => pi < i && minted(p).has(name));
+      const produced = ast.ents.some((p, pi) => pi < i && minted(p).has(name));
       if (produced) continue;
       const typ = typs.get(base);
       if (!typ) continue; // a nested DTO field is composed, not seeded

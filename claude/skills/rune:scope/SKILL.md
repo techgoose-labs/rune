@@ -287,7 +287,7 @@ means `spec.md` must make four things explicit, because they are exactly what
   ships (the exemplar's gateway, client, environment). `rune:spec` maps one
   deployable surface to one `[MOD]` — so name them as surfaces, not as doc chapters.
 - **The endpoint/trigger inventory → `[REQ]`s.** For each module, list what is
-  **externally callable**: HTTP routes, WS topics, cron/queue/webhook triggers.
+  **externally callable**: HTTP routes, cron/queue/webhook triggers.
   `rune:spec`'s hardest rule is *one `[REQ]` = one endpoint, authored from the wiring
   not the prose* — you make that possible by surfacing the real inventory here (e.g.
   the protocol/message table, the route list), so the REQ count and names fall out of

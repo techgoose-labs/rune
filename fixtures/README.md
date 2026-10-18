@@ -27,7 +27,7 @@ Every tag (`[REQ] [MOD] [ENT] [PLY] [CSE] [NEW] [RET] [TYP] [DTO] [NON] [SRV]`),
 six declared services used as boundary prefixes, faults (0/1/many, well-known
 and `=STATUS`), value names (`as`), polymorphism (single/many), `:core` on
 `[DTO]`/`[TYP]`, static `::` vs instance `.`, inline `{}` DTOs, `[ENT]` bodies,
-route templates, `from=query|header`, a WebSocket socket, the realistic
+route templates, `from=query|header`, the realistic
 end-to-end `example-e2e` (the copy of `lang/docs/example.rune`), plus one
 `invalid/` fixture per rule the checker enforces — each with a `.diag.json`
 sidecar pinning exactly which findings `rune check` reports (REQ-014). The

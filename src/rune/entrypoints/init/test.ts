@@ -76,7 +76,7 @@ async function fakeSprigScaffold(proj: string): Promise<void> {
         },
         imports: {
           "@sprig/core": "jsr:@sprig/core@^0.20.2",
-          "@techgoose-labs/rune": "jsr:@techgoose-labs/rune@^7.0.0",
+          "@techgoose-labs/rune": "jsr:@techgoose-labs/rune@^8.0.0",
           "reflect-metadata": "npm:reflect-metadata@0.1.13",
         },
       },
@@ -163,13 +163,13 @@ Deno.test("overlayRuneBackend — lays the rune keep backend + spec/ over a spri
     assertStringIncludes(denoJson, "@sprig/core", "sprig's pins must survive");
     assertStringIncludes(
       denoJson,
-      "jsr:@techgoose-labs/rune@^7.0.0",
+      "jsr:@techgoose-labs/rune@^8.0.0",
       "sprig's rune pin is preserved, not clobbered",
     );
     assertStringIncludes(denoJson, '"@/": "./"', "rune's @/ alias is added");
     assertStringIncludes(
       denoJson,
-      "jsr:@techgoose-labs/rune@^7/assert",
+      "jsr:@techgoose-labs/rune@^8/assert",
       "rune's #assert is added",
     );
   });

@@ -111,9 +111,6 @@ export const SPEC_CHECKERS = new Set<string>([
   "ent-method",
   "ent-body-signature",
   "ent-body-modifier",
-  "ws-topic-shape",
-  "ws-header-signature",
-  "ws-no-topics",
   "srv-shape",
   "srv-transport",
   "srv-docs-url",
@@ -149,7 +146,6 @@ export const SPEC_CHECKERS = new Set<string>([
   "service-undeclared",
   "ent-delegate-required",
   "ent-delegate-undefined",
-  "surface-mixed",
   "ply-cases",
   // checks (scope, references, prose rules)
   "from-path-retired",

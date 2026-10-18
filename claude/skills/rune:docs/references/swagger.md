@@ -5,12 +5,6 @@ how to make it specific and useful. The interactive walk on the same `/docs`
 prefix belongs to the **`rune:cake`** skill; the trust posture on the docs
 routes belongs to **`rune:framework`** (`references/auth.md`).
 
-> **WebSocket endpoints are not in the doc.** A `[ENT:ws]` socket generates a
-> `@WsEndpointController` that carries no HTTP verb, so the Swagger builder — which
-> enumerates GET/POST/PUT/PATCH/DELETE — never sees it, and the cake/headless walk skips it
-> too. OpenAPI doesn't model WS; document a socket's topics elsewhere. (The DSL form is
-> **`rune:spec`** `[ENT:ws]`; the runtime decorators are **`rune:framework`**.)
-
 ## DTO classes drive the schema
 
 Each `@Endpoint(opts)` carries `input` / `output` DTO classes — they drive the

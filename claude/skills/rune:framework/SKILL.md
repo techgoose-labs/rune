@@ -56,8 +56,8 @@ deploying / hosting under a sprig UI.
   vars. Owns `references/auth.md`.
 - **`rune-framework-runtime`** — the process layer: `bootstrapServer`, in-process
   `backend.fetch`, `@Endpoint`/`@EndpointController` semantics, the
-  `exerciseEndpoints` runner + `POST /api/docs/_run` + `/api/docs/_map`,
-  `@WsEndpoint`. Owns `references/endpoints.md`.
+  `exerciseEndpoints` runner + `POST /api/docs/_run` + `/api/docs/_map`.
+  Owns `references/endpoints.md`.
 - **`rune-framework-deploy`** — deployment & hosting: the composition root
   `Bedrock({ ui, backend, auth })`, standalone `listen()`, `withBasePath` /
   `mountsSelf`, wire paths, Deno Deploy, the one observability boundary. Owns
@@ -68,8 +68,8 @@ deploying / hosting under a sprig UI.
 1. **Classify the question by domain** (main session):
    - auth / 401 / 403 / guard-layer placement / removed auth vars → `rune-framework-auth`
    - `bootstrapServer` / `@Endpoint` semantics / `order`·`dependsOn`·`bind` / the
-     `exerciseEndpoints`·`/api/docs/_run`·`/api/docs/_map` runner surface / WS
-     sockets → `rune-framework-runtime`
+     `exerciseEndpoints`·`/api/docs/_run`·`/api/docs/_map` runner surface
+     → `rune-framework-runtime`
    - serving / the composition root / hosting under sprig / `withBasePath` /
      Deno Deploy / logging → `rune-framework-deploy`
 2. **Delegate** to that specialist via the Task tool. Pass: the question/symptom

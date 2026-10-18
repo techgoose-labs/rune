@@ -123,27 +123,3 @@ template `{field}` / trailing `{field*}` catch-all, `[TYP:from=query]`, or
 `[TYP:from=header]` — since a GET carries no JSON body. Commands stay `POST` intent
 verbs; don't reach for `PUT`/`PATCH` to model an "edit-this-record" endpoint (the
 waist rule).
-
-## A WebSocket socket is a surface of topics
-
-When the surface is a live socket rather than request/response, use `[ENT:ws]`. The
-header declares the handshake path once; each indented verb is a message **topic**.
-Model one verb per inbound message type — the topic *is* the discriminant, so you
-don't need a union DTO:
-
-```
-[ENT:ws] chat @ /rooms/{room}
-    join(JoinDto): JoinedDto      # client sends {topic:"join", data:{…}}; reply → sender
-        [REQ] room.join(JoinDto): JoinedDto
-    send(ChatDto): EchoDto
-        [REQ] room.send(ChatDto): EchoDto
-    leave(LeaveDto): void         # void ⇒ no reply
-        [REQ] room.leave(LeaveDto): LeftDto
-```
-
-Each topic names the `[REQ]` it dispatches to on an indented body line, just like
-an HTTP `[ENT]`, and a non-`void` return is sent back **to the sender**. Two things to remember: the
-handshake bindings (`{room}`, and a `[TYP:from=query]` auth token — a WS handshake
-can't set an `Authorization` header) are read once at connect, not per message; and a
-handler can only reply to its own sender — fan-out/broadcast to other clients isn't
-modeled (keep a connection registry yourself if you need it).

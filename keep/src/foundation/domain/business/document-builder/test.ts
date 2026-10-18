@@ -1,10 +1,6 @@
 import "#reflect-metadata";
 import { assertEquals, assertStringIncludes } from "#assert";
 import { DanetDocumentBuilder } from "./mod.ts";
-import {
-  WsEndpoint,
-  WsEndpointController,
-} from "@foundation/domain/business/endpoint-decorator/mod.ts";
 
 class TestModule {}
 Reflect.defineMetadata("module", {}, TestModule);
@@ -51,21 +47,4 @@ Deno.test("DanetDocumentBuilder - normalizePath adds leading slash", () => {
 
   assertEquals(builder.normalizePath("/already"), "/already");
   assertEquals(builder.normalizePath("missing"), "/missing");
-});
-
-Deno.test("DanetDocumentBuilder - createDocument skips a WebSocket controller (BUG 2: WS has no HTTP route)", async () => {
-  @WsEndpointController("rooms/:room")
-  class ChatSocket {
-    @WsEndpoint({ topic: "send" })
-    send(_data: unknown) {}
-  }
-  class ChatModule {}
-  Reflect.defineMetadata("module", { controllers: [ChatSocket] }, ChatModule);
-
-  const builder = new DanetDocumentBuilder();
-  // Before the fix this threw `trimSlash(undefined)` inside @danet/swagger (a WS topic has
-  // no HTTP route); now the WS controller is dropped from the doc, so the build succeeds and
-  // the WS controller contributes no HTTP paths.
-  const result = await builder.createDocument(builder.createSpec(ChatModule));
-  assertEquals(Object.keys(result.doc.paths ?? {}).length, 0);
 });

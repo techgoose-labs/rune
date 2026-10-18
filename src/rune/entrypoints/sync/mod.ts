@@ -506,14 +506,14 @@ const REQUIRED_IMPORTS: Record<string, string> = {
   // class-transformer copy — the single-copy invariant assert relies on. A
   // sprig-overlaid project (rune init) inherits its main pin from sprig, so
   // sprig's @techgoose-labs/rune major must match this one too.
-  "@techgoose-labs/rune": "jsr:@techgoose-labs/rune@^7",
+  "@techgoose-labs/rune": "jsr:@techgoose-labs/rune@^8",
   // The foundation: the composition root, the runtime, the one in-process
   // client, the observability boundary. `bootstrap/mod.ts` composes with it,
   // and the generated e2e tests serve through it.
   "@techgoose-labs/bedrock": "jsr:@techgoose-labs/bedrock@^1",
   // Generated coordinators validate their seams via keep's assert runtime,
   // published as the @techgoose-labs/rune/assert subpath (same major as above).
-  "#assert": "jsr:@techgoose-labs/rune@^7/assert",
+  "#assert": "jsr:@techgoose-labs/rune@^8/assert",
   // DTO [TYP:example=…] fields emit @ApiProperty({ example }) — the swagger
   // decorator keep's runner/cake read example values from. Same range keep
   // itself maps #danet/swagger to.

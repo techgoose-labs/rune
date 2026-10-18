@@ -96,7 +96,7 @@ function indentTable(): string {
         ["`[CSE]` and the steps inside a case", String(i.case)],
         ["faults inside a case", String(i.caseFault)],
         ["descriptions, `@docs`", String(i.description)],
-        ["an `[ENT]` body `[REQ]`, `[ENT:ws]` topics", String(i.body)],
+        ["an `[ENT]` body `[REQ]`", String(i.body)],
       ],
     ),
     "",

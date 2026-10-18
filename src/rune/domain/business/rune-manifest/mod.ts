@@ -63,7 +63,6 @@ export const EMITS = [
   "service-undeclared",
   "ent-delegate-required",
   "ent-delegate-undefined",
-  "surface-mixed",
   "ply-cases",
 ] as const;
 
@@ -393,15 +392,10 @@ export function planManifest(
   // Entrypoints: group [ENT]s by surface into one keep controller; compute each
   // ent's order/dependsOn/bind from the DTO field graph across all ents.
   if (ast.ents.length > 0) {
-    // A surface is either HTTP request/response [ENT]s or a WebSocket [ENT:ws] socket.
-    const httpEnts = ast.ents.filter((e) => e.kind !== "ws");
-    const wsEnts = ast.ents.filter((e) => e.kind === "ws");
     const externalTypes = new Set(
       ast.typs.filter((t) => t.isExternal).map((t) => t.name),
     );
-    // The process graph (order/dependsOn/bind) is an HTTP-flow concept — WS topics are
-    // independent message handlers, so only the HTTP ents participate.
-    const entProcess = computeEntProcess(httpEnts, dtoByName, externalTypes);
+    const entProcess = computeEntProcess(ast.ents, dtoByName, externalTypes);
     // ENT→[REQ] delegation is explicit only (REQ-019): the body [REQ] names the
     // coordinator. An [ENT] without one is an error whose fix names the [REQ](s)
     // whose signature matches — the migration aid, never a silent pick.
@@ -441,22 +435,10 @@ export function planManifest(
       }));
     }
     const bySurface = new Map<string, EntNode[]>();
-    for (const ent of httpEnts) {
+    for (const ent of ast.ents) {
       const list = bySurface.get(ent.surface) ?? [];
       list.push(ent);
       bySurface.set(ent.surface, list);
-    }
-    const wsBySurface = new Map<string, EntNode[]>();
-    for (const ent of wsEnts) {
-      const list = wsBySurface.get(ent.surface) ?? [];
-      list.push(ent);
-      wsBySurface.set(ent.surface, list);
-    }
-    // A surface can't be both an HTTP controller and a WebSocket socket.
-    for (const surface of wsBySurface.keys()) {
-      if (bySurface.has(surface)) {
-        plan.findings.push(finding("surface-mixed", runePath, wsBySurface.get(surface)![0].line + 1, { surface }));
-      }
     }
     for (const [surface, ents] of bySurface) {
       addEntrypointSurface(
@@ -466,17 +448,6 @@ export function planManifest(
         ents,
         ast.reqs,
         entProcess,
-        runePath,
-        types,
-      );
-    }
-    for (const [surface, ents] of wsBySurface) {
-      addWsSocketSurface(
-        emit,
-        module,
-        surface,
-        ents,
-        ast.reqs,
         runePath,
         types,
       );
@@ -2693,174 +2664,6 @@ function addEntrypointSurface(
     "entrypoint-e2e",
     `${dir}/e2e.test.ts`,
     renderEntrypointE2e(module, surface, runePath, ents, process, types.typMap),
-  );
-}
-
-// One keep WebSocket controller per [ENT:ws] socket surface: a @WsEndpointController mounted at
-// the handshake path, with one @WsEndpoint method per topic. Each topic asserts its inbound
-// message against the input DTO and (optionally) returns a reply DTO that Danet sends back to the
-// sender. A WS endpoint carries no HTTP verb, so it never enters the OpenAPI document or the
-// cake/headless endpoint walk. Topics delegate to a [REQ] coordinator exactly as HTTP ents do.
-function renderWsController(
-  module: string,
-  surface: string,
-  ents: EntNode[],
-  reqs: ReqNode[],
-  runePath: string,
-  types: TypeContext,
-): string {
-  const className = `${toPascal(surface)}Socket`;
-  const moduleConst = `${camel(surface)}Module`;
-
-  // Value imports (the DTO classes are referenced at runtime in @WsEndpoint). dtoImports
-  // already skips non-DTO names, so a `void` reply or an empty `()` payload imports nothing.
-  const dtos = dtoImports(
-    ents.flatMap((e) => [e.input, e.output]),
-    module,
-    types,
-  );
-
-  // Match each topic to its [REQ] coordinator by (input, output) DTO pair (or explicit delegate).
-  const coordImports = new Set<string>();
-  const entCoord = new Map<EntNode, string | null>();
-  const entReqNode = new Map<EntNode, ReqNode | null>();
-  for (const ent of ents) {
-    const req = ent.delegate
-      ? reqs.find((r) =>
-        r.noun === ent.delegate!.noun && r.verb === ent.delegate!.verb
-      )
-      : undefined;
-    entReqNode.set(ent, req ?? null);
-    if (!req) {
-      entCoord.set(ent, null);
-      continue;
-    }
-    const alias = `${camel(req.noun)}${toPascal(req.verb)}`;
-    coordImports.add(
-      `import { ${req.verb} as ${alias} } from "@/src/${module}/domain/coordinators/${
-        processName(req.noun, req.verb)
-      }/mod.ts";`,
-    );
-    entCoord.set(ent, alias);
-  }
-
-  // Every topic on a socket shares the handshake path (declared once on the [ENT:ws] header).
-  // Translate `{name}` → `:name` exactly like an HTTP route template; absent ⇒ the kebab surface.
-  const tpl = ents.find((e) => e.pathTemplate)?.pathTemplate ?? null;
-  const socketPath = tpl ? translateTemplate(tpl) : applyCase(surface, "kebab");
-
-  const L: string[] = [];
-  L.push(`// Generated by rune manifest from ${runePath}.`);
-  L.push("// Edit the body. Re-running manifest will not overwrite this file.");
-  L.push("");
-  L.push(
-    `import { endpointModule, WsEndpoint, WsEndpointController } from "@techgoose-labs/rune";`,
-  );
-  for (const d of dtos) {
-    L.push(`import { ${d.type} } from "@/${d.dir}/${d.file}.ts";`);
-  }
-  for (const line of coordImports) L.push(line);
-  L.push("");
-  L.push(`@WsEndpointController(${JSON.stringify(socketPath)})`);
-  L.push(`export class ${className} {`);
-  ents.forEach((ent, i) => {
-    if (i > 0) L.push("");
-    // Empty parens (`verb(): Out`) ⇒ no inbound payload; `void`/empty output ⇒ no reply sent.
-    const noInput = ent.input === "{}" || ent.input === "";
-    const hasReply = ent.output !== "" && ent.output !== "void";
-    const opts = [
-      `topic: ${JSON.stringify(ent.action)}`,
-      ...(noInput ? [] : [`input: ${ent.input}`]),
-      ...(hasReply ? [`output: ${ent.output}`] : []),
-    ];
-    const matched = entReqNode.get(ent) ?? null;
-    const dtoDesc = (n: string): string =>
-      types.dtoByName.get(n)?.description ?? "";
-    const jsdoc: string[] = [];
-    if (matched) {
-      jsdoc.push(
-        `Topic "${ent.action}" → coordinator ${matched.noun}.${matched.verb} (named by the body [REQ]).`,
-      );
-    } else {
-      jsdoc.push(
-        `Topic "${ent.action}" — no coordinator wired, see the handler body.`,
-      );
-    }
-    if (!noInput) {
-      const d = dtoDesc(ent.input);
-      jsdoc.push(
-        `@param data ${ent.input}${
-          d ? ` — ${d}` : ""
-        } (the inbound message payload)`,
-      );
-    }
-    if (hasReply) {
-      const od = dtoDesc(ent.output);
-      jsdoc.push(
-        `@returns ${ent.output}${
-          od ? ` — ${od}` : ""
-        } (sent back to the sender)`,
-      );
-    } else {
-      jsdoc.push(`@returns nothing — this topic sends no reply`);
-    }
-    if (matched) {
-      for (const { fault, raiser } of collectFaultRaisers(matched.steps)) {
-        jsdoc.push(`@throws ${fault} (${raiser})`);
-      }
-    }
-    L.push("  /**");
-    for (const d of jsdoc) L.push(`   * ${d}`);
-    L.push("   */");
-    // E37: spec provenance (+1 → the topic line).
-    L.push(`  // from ${runePath}:${ent.line + 1}`);
-    L.push(`  @WsEndpoint({ ${opts.join(", ")} })`);
-    const retType = hasReply ? ent.output : "void";
-    L.push(
-      `  ${ent.action}(${
-        noInput ? "" : `data: ${ent.input}`
-      }): Promise<${retType}> {`,
-    );
-    const alias = entCoord.get(ent);
-    if (alias) {
-      L.push(`    return ${alias}(${noInput ? "{}" : "data"});`);
-    } else {
-      const target = ent.delegate
-        ? processName(ent.delegate.noun, ent.delegate.verb)
-        : "<noun>-<verb>";
-      L.push(`    // No [REQ] matches (${ent.input || "{}"}): ${ent.output}.`);
-      L.push(
-        `    // Create src/${module}/domain/coordinators/${target}/mod.ts`,
-      );
-      L.push(`    throw new Error("not implemented");`);
-    }
-    L.push(`  }`);
-  });
-  L.push("}");
-  L.push("");
-  L.push(
-    `export const ${moduleConst} = endpointModule(${
-      JSON.stringify(toPascal(module))
-    }, [${className}]);`,
-  );
-  L.push("");
-  return L.join("\n");
-}
-
-function addWsSocketSurface(
-  emit: Emit,
-  module: string,
-  surface: string,
-  ents: EntNode[],
-  reqs: ReqNode[],
-  runePath: string,
-  types: TypeContext,
-): void {
-  const dir = `src/${module}/entrypoints/${applyCase(surface, "kebab")}`;
-  emit(
-    "entrypoint-mod",
-    `${dir}/mod.ts`,
-    renderWsController(module, surface, ents, reqs, runePath, types),
   );
 }
 

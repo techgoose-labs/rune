@@ -682,59 +682,13 @@ Every spec below checks clean.
     @docs https://docs.example.com/db
 ```
 
-### ws-chat.rune
-
-```rune
-[MOD] chat
-
-[ENT:ws] chat @ /rooms/{room}
-    join(JoinDto): JoinedDto
-        [REQ] room.join(JoinDto): JoinedDto
-    send(ChatDto): EchoDto
-        [REQ] room.send(ChatDto): EchoDto
-    leave(LeaveDto): LeftDto
-        [REQ] room.leave(LeaveDto): LeftDto
-
-[REQ] room.join(JoinDto): JoinedDto
-    lobby::admit(room): JoinedDto
-[REQ] room.send(ChatDto): EchoDto
-    lobby::echo(text): EchoDto
-[REQ] room.leave(LeaveDto): LeftDto
-    lobby::release(room): LeftDto
-
-[DTO] JoinDto: room
-    a request to join a room
-[DTO] JoinedDto: room, members
-    the join acknowledgement
-[DTO] ChatDto: text
-    a chat line typed by a member
-[DTO] EchoDto: text, at
-    the line echoed back with a server timestamp
-[DTO] LeaveDto: room
-    a request to leave a room
-[DTO] LeftDto: room
-    the leave acknowledgement
-
-[TYP] room: string
-    a room id, bound once from the handshake path
-[TYP] members: number
-    the current member count
-[TYP] text: string
-    the message text
-[TYP] at: number
-    a server timestamp
-
-[NON] lobby
-    the set of rooms and who is in them
-```
-
 ## Tags
 
 | Tag | Indent | Syntax | Meaning |
 | --- | --- | --- | --- |
 | `[REQ]` | 0 | `[REQ] noun.verb(InputDto): OutputDto` | A requirement — one feature entry point, the happy-path end-to-end. Input is a DTO (or inline {}), output is a DTO; the last step (or a [RET]) yields the output; faults live on its steps, not here; scope resets at each [REQ]. `[REQ:open]` is the openness marker — the endpoint is reachable without a credential (the only modifier [REQ] takes). |
 | `[MOD]` | 0 | `[MOD] name` | Names the module this file describes; fills the <module>/ path slot. The first non-comment line; kebab-case on disk. Optional (defaults to the filename). `[MOD] name: prose` plus indented continuation lines is the module's front-door description. |
-| `[ENT]` | 0 | `[ENT] surface.action(InputDto): OutputDto     [REQ] noun.verb(InputDto): OutputDto` | An inbound entrypoint (HTTP route) — the inverse of a boundary. Its body is ONE indented `[REQ] noun.verb(In): Out` line naming the coordinator it dispatches to (required — there is no signature matching). An optional `@ METHOD /template` clause between the name and the parens sets the verb and the route; `{field}` segments (and one trailing `{field*}` catch-all) bind URL parts to same-named input fields. `[ENT:ws] <surface> @ /path` declares a WebSocket socket whose indented `verb(In): Out` topics each carry their own indented `[REQ]` body line. |
+| `[ENT]` | 0 | `[ENT] surface.action(InputDto): OutputDto     [REQ] noun.verb(InputDto): OutputDto` | An inbound entrypoint (HTTP route) — the inverse of a boundary. Its body is ONE indented `[REQ] noun.verb(In): Out` line naming the coordinator it dispatches to (required — there is no signature matching). An optional `@ METHOD /template` clause between the name and the parens sets the verb and the route; `{field}` segments (and one trailing `{field*}` catch-all) bind URL parts to same-named input fields. |
 | `[PLY]` | 4 | `[PLY] noun.verb(args): type` | Opens a polymorphic block where the noun names an interface. Each [CSE] is a concrete implementation; they all share the interface's return type, and each case's last step yields it. The block ends at the first line indented no deeper than the [PLY] (the one place relative indentation carries meaning). |
 | `[CSE]` | 8 | `[CSE] caseName` | A concrete case inside a [PLY] block (camelCase name), with its own sub-steps and faults, indented deeper than the [PLY]. |
 | `[NEW]` | 4 | `[NEW] noun` | Constructor shorthand — instantiates a declared [NON] and adds it to scope under its own name. No parentheses, no return type; construction details are an implementation concern. |
@@ -791,7 +745,7 @@ Fault lines are written `! name name=STATUS`: A fault line is `! ` followed by s
 
 ## Indentation
 
-The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [ENT:ws] topics, [PLY] cases) is indented deeper than its opener.
+The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [PLY] cases) is indented deeper than its opener.
 
 | Line | Column |
 | --- | --- |
@@ -801,7 +755,7 @@ The columns `rune fmt` writes. Indentation is presentation: a line's kind is its
 | `[CSE]` and the steps inside a case | 8 |
 | faults inside a case | 10 |
 | descriptions, `@docs` | 4 |
-| an `[ENT]` body `[REQ]`, `[ENT:ws]` topics | 4 |
+| an `[ENT]` body `[REQ]` | 4 |
 
 Lines are at most 80 characters.
 
@@ -824,10 +778,6 @@ Lines are at most 80 characters.
 | `ent-body-modifier` | error | `[ENT] body [REQ] does not take a modifier` | — | Openness is declared on the top-level [REQ], not repeated in the body reference. |
 | `ent-delegate-required` | error | `[ENT] {surface}.{action} names no [REQ] — add an indented `[REQ] noun.verb({input}): {output}` line under it{candidates}` | `{fix}` | An entrypoint dispatches to exactly the [REQ] its body names. There is no matching by signature: two [REQ]s with the same (input, output) would make the pick silent and wrong. |
 | `ent-delegate-undefined` | error | `[ENT] {surface}.{action} delegates to [REQ] {noun}.{verb}, which is not defined` | — | The body [REQ] must exist in the same spec. |
-| `surface-mixed` | error | `surface "{surface}" is declared as both an HTTP [ENT] and a WebSocket [ENT:ws]` | `give them distinct surfaces` | A surface is one controller: either HTTP routes or one WebSocket socket. |
-| `ws-topic-shape` | error | `[ENT:ws] {surface}: malformed topic — expected "<verb>(InputDto): OutputDto"` | — | Each indented line under a socket header is one message topic. |
-| `ws-header-signature` | error | `[ENT:ws] malformed — expected "[ENT:ws] <surface> @ /path"` | — | A socket header names the surface and the handshake path; topics are declared on the lines below, never on the header. |
-| `ws-no-topics` | error | `[ENT:ws] {surface} has no topics — add at least one "<verb>(InputDto): OutputDto"` | — | A socket with no topics handles no message. |
 | `srv-shape` | error | `[SRV] malformed — expected [SRV] (TRANSPORT)<name>: <ENV,…>` | — | A service declaration is a parenthesized transport, a name, and its env vars. |
 | `srv-transport` | error | `[SRV] unknown transport "{transport}" — expected {transports}` | — | Transports are the registry's closed set. |
 | `srv-docs-url` | error | `[SRV] {service}: @docs needs a URL` | — | The documentation link is the one piece of provenance a dev needs to wire the service. |
@@ -1616,35 +1566,3 @@ Each spec below is wrong in one way; under it, what `rune check` says.
 ```
 
 - value-duplicate.rune:4: a value named "TaskDto" is already in scope (from step task.load) [value-duplicate] — fix: name this one: `… : TaskDto as <name>`
-
-### ws-bad-topic
-
-```rune
-[MOD] chat
-
-[ENT:ws] chat @ /rooms/{room}
-    notavalidtopic
-```
-
-- ws-bad-topic.rune:3: [ENT:ws] chat has no topics — add at least one "<verb>(InputDto): OutputDto" [ws-no-topics]
-- ws-bad-topic.rune:4: [ENT:ws] chat: malformed topic — expected "<verb>(InputDto): OutputDto" [ws-topic-shape]
-
-### ws-header-signature
-
-```rune
-[MOD] chat
-
-[ENT:ws] chat.send(ChatDto): EchoDto
-
-[DTO] ChatDto: text
-    a chat line typed by a member
-[DTO] EchoDto: text
-    the echoed line
-
-[TYP] text: string
-    the message text
-```
-
-- ws-header-signature.rune:3: [ENT:ws] malformed — expected "[ENT:ws] <surface> @ /path" [ws-header-signature]
-- ws-header-signature.rune:5: [DTO] ChatDto is never used [dto-unused]
-- ws-header-signature.rune:7: [DTO] EchoDto is never used [dto-unused]

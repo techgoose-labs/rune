@@ -24,7 +24,6 @@ export {
   endpointsFromDoc,
   exerciseEndpoints,
   getProcessMetadata,
-  getWsProcessMetadata,
   HttpAdapter,
   identity,
   InjectClass,
@@ -60,9 +59,6 @@ export {
   traceShipper,
   traceUser,
   withBasePath,
-  WS_PROCESS_METADATA_KEY,
-  WsEndpoint,
-  WsEndpointController,
 } from "@foundation/mod-root.ts";
 // Rune assert runtime (also exported as the "./assert" subpath): seam
 // validation for rune-generated code. bootstrapServer maps a thrown
@@ -116,8 +112,6 @@ export type {
   Trace,
   TraceSink,
   Unit,
-  WsEndpointOptions,
-  WsProcessMetadata,
 } from "@foundation/mod-root.ts";
 
 export function safeStart(cb: () => Promise<void>): Promise<void> | undefined {

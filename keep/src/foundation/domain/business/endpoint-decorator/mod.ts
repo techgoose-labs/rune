@@ -21,11 +21,9 @@ import {
   Delete,
   Get,
   Module,
-  OnWebSocketMessage,
   Patch,
   Post,
   Put,
-  WebSocketController,
 } from "#danet/core";
 import { BodyType, Description, ReturnedType } from "#danet/swagger/decorators";
 import { SwaggerDescription } from "@foundation/domain/business/swagger-description/mod.ts";
@@ -293,87 +291,4 @@ export function appModule(name: string, modules: Type[]): Type {
   const base = name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
   Object.defineProperty(AppModule, "name", { value: `${base}AppModule` });
   return AppModule as unknown as Type;
-}
-
-// ---- WebSocket endpoints (danet @WebSocketController / @OnWebSocketMessage) ----
-//
-// A rune `[ENT:ws]` socket becomes a live WebSocket controller: one handshake route danet upgrades,
-// then each inbound `{topic, data}` frame is dispatched to the `@WsEndpoint` whose topic matches.
-// Unlike `@Endpoint`, a WS handler is NOT an HTTP route — it carries no verb and never enters the
-// OpenAPI document. Whatever the handler returns is serialized and sent back to the SENDER (danet
-// has no built-in broadcast); a `void` handler stays silent.
-
-/** Where a `@WsEndpoint` handler's metadata is stored, keyed on (controller prototype, method). */
-export const WS_PROCESS_METADATA_KEY = "keep:ws-process";
-
-export interface WsEndpointOptions {
-  /** Message topic this handler answers — the `topic` of an inbound `{topic, data}` frame. */
-  topic: string;
-  /** Inbound message DTO. The `data` payload is validated against it (a failure is a RuneAssertError). */
-  input?: Type;
-  /** Reply DTO (informational). Whatever the handler returns is sent back to the sender as JSON. */
-  output?: Type;
-}
-
-/** Metadata attached to each `@WsEndpoint` handler (the WS analogue of ProcessMetadata). */
-export interface WsProcessMetadata {
-  kind: "ws";
-  topic: string;
-}
-
-/**
- * Decorate a controller method as the WebSocket handler for `opts.topic`. Composes danet's
- * `@OnWebSocketMessage` (topic routing over one upgraded socket) with rune `assert` on the inbound
- * payload: type the handler's parameter as the input DTO (`send(data: ChatDto)`) and the decorator
- * injects the validated message — do NOT add a danet `@Body()`. The per-message context is synthetic
- * (no real request body), so the payload is read from danet's `websocketMessage` on the execution
- * context. Whatever the handler returns is sent back to the sender; a `void` handler stays silent.
- */
-export function WsEndpoint(opts: WsEndpointOptions): MethodDecorator {
-  return (target, propertyKey, descriptor) => {
-    // 1) danet WS topic metadata — routes matching `{topic}` frames to this handler.
-    OnWebSocketMessage(opts.topic)(target, propertyKey, descriptor);
-
-    // 2) inbound payload — validate danet's per-message `websocketMessage` as the input DTO via
-    //    rune `assert` (a RuneAssertError runs through the controller's exception filters).
-    if (opts.input) {
-      const InputDto = opts.input;
-      const bindMessage = createParamDecorator((context) => {
-        const data = context.websocketMessage ?? {};
-        return assert(InputDto as unknown as { new (): object }, data);
-      });
-      bindMessage()(target, propertyKey as string, 0);
-    }
-
-    // 3) handler metadata (a WS topic, distinct from the HTTP process graph).
-    const meta: WsProcessMetadata = { kind: "ws", topic: opts.topic };
-    Reflect.defineMetadata(WS_PROCESS_METADATA_KEY, meta, target, propertyKey);
-  };
-}
-
-/** Reads the metadata stamped by `@WsEndpoint`, if any. */
-export function getWsProcessMetadata(
-  // deno-lint-ignore ban-types
-  target: Object,
-  propertyKey: string,
-): WsProcessMetadata | undefined {
-  return Reflect.getMetadata(WS_PROCESS_METADATA_KEY, target, propertyKey);
-}
-
-/**
- * Class decorator turning a plain class into a danet WebSocket controller served at `path` (the
- * handshake route — danet upgrades a single GET there and dispatches each `{topic, data}` frame to
- * the matching `@WsEndpoint`). `path` MUST be non-empty: danet routes a controller to its WebSocket
- * transport only when the `websocket-endpoint` metadata is truthy, so an empty path would silently
- * fall back to the HTTP router.
- */
-export function WsEndpointController(path: string): ClassDecorator {
-  if (!path) {
-    throw new Error(
-      "WsEndpointController requires a non-empty handshake path (an empty path would route to HTTP)",
-    );
-  }
-  return (target) => {
-    WebSocketController(path)(target as unknown as object);
-  };
 }

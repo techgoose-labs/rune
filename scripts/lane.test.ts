@@ -5,7 +5,7 @@ import { kindOf, plan, ROOT } from "./lane.ts";
 
 Deno.test("REQ-017: a test's kind is its filename, the gate's rule", () => {
   assertEquals(kindOf("src/rune/domain/data/lsp/smk.test.ts"), "smoke");
-  assertEquals(kindOf("keep/src/foundation/x/ws.e2e.test.ts"), "e2e");
+  assertEquals(kindOf("keep/src/foundation/x/walk.e2e.test.ts"), "e2e");
   assertEquals(
     kindOf("e2e/cake/src/cake/domain/business/batter/test.ts"),
     "e2e",

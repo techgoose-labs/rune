@@ -1144,7 +1144,7 @@ Deno.test("ensureImportMap — REQ-004: a workspace member never receives the ro
     // The rest of the required map still lands in the member.
     assertEquals(
       member.imports["@techgoose-labs/rune"],
-      "jsr:@techgoose-labs/rune@^7",
+      "jsr:@techgoose-labs/rune@^8",
     );
     assert(note !== null && !note.includes(BEDROCK), `note: ${note}`);
     // The root is untouched — it already pinned it.

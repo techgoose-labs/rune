@@ -79,10 +79,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "ws_topic_line"
-        },
-        {
-          "type": "SYMBOL",
           "name": "fault_line"
         },
         {
@@ -296,57 +292,23 @@
       }
     },
     "ent_line": {
-      "type": "CHOICE",
+      "type": "SEQ",
       "members": [
         {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "ent_tag"
-            },
-            {
-              "type": "SYMBOL",
-              "name": "signature"
-            },
-            {
-              "type": "STRING",
-              "value": ":"
-            },
-            {
-              "type": "SYMBOL",
-              "name": "return_type"
-            }
-          ]
+          "type": "SYMBOL",
+          "name": "ent_tag"
         },
         {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "ent_tag"
-            },
-            {
-              "type": "FIELD",
-              "name": "ws_surface",
-              "content": {
-                "type": "SYMBOL",
-                "name": "identifier"
-              }
-            },
-            {
-              "type": "CHOICE",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "ws_route"
-                },
-                {
-                  "type": "BLANK"
-                }
-              ]
-            }
-          ]
+          "type": "SYMBOL",
+          "name": "signature"
+        },
+        {
+          "type": "STRING",
+          "value": ":"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "return_type"
         }
       ]
     },
@@ -789,30 +751,6 @@
                 "type": "BLANK"
               }
             ]
-          }
-        ]
-      }
-    },
-    "ws_route": {
-      "type": "TOKEN",
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "@"
-          },
-          {
-            "type": "PATTERN",
-            "value": "\\s+"
-          },
-          {
-            "type": "STRING",
-            "value": "/"
-          },
-          {
-            "type": "PATTERN",
-            "value": "[^\\s()]*"
           }
         ]
       }
@@ -1288,31 +1226,6 @@
               "type": "BLANK"
             }
           ]
-        }
-      ]
-    },
-    "ws_topic_line": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "FIELD",
-          "name": "verb",
-          "content": {
-            "type": "SYMBOL",
-            "name": "identifier"
-          }
-        },
-        {
-          "type": "SYMBOL",
-          "name": "parameters"
-        },
-        {
-          "type": "STRING",
-          "value": ":"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "return_type"
         }
       ]
     },

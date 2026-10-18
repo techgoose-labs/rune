@@ -60,31 +60,6 @@ class-validator decorators (`@IsString()` etc.) — both emit the
 `design:type` metadata the schema builder needs. (How DTO classes drive the
 Swagger schema and `example=` is the **`rune:docs`** skill.)
 
-## `@WsEndpointController(path)` / `@WsEndpoint(opts)` — WebSocket sockets
-
-A spec's `[ENT:ws]` socket generates a WebSocket controller instead of an HTTP one.
-`@WsEndpointController("rooms/:room")` mounts the handshake route; each handler carries
-`@WsEndpoint({ topic, input?, output? })` — one per message topic. Built on danet 2.11's
-`@WebSocketController`/`@OnWebSocketMessage`: danet upgrades a single GET at the path, then
-routes each inbound `{topic, data}` frame to the matching handler. The decorator validates
-`data` against `input` (rune `assert`) and serializes whatever the handler returns back **to
-the sender** (`void` ⇒ no reply). Exported from `@techgoose-labs/rune` alongside `Endpoint` /
-`endpointModule`; group with `endpointModule("Chat", [ChatSocket])` like any controller.
-
-| Option | Meaning |
-| ------ | ------- |
-| `topic` | the message topic this handler answers (the `topic` of a `{topic, data}` frame) |
-| `input` | inbound message DTO — `data` is validated against it (DTOs need class-validator decorators) |
-| `output` | reply DTO (informational; the return value is serialized to the sender) |
-
-Differences from `@Endpoint`: no HTTP verb, so a WS socket **never enters the OpenAPI doc or
-the cake/headless walk** (those enumerate the 5 HTTP verbs); the path MUST be non-empty (danet
-routes to its WS transport only on a truthy `websocket-endpoint` — an empty path silently falls
-back to HTTP); and handshake bindings (`{room}`, a `[TYP:from=query]` token) are
-**connection-scoped** — read once at connect, since the per-message context is synthetic.
-Broadcast to *other* clients isn't built in (a handler replies only to its sender). The DSL
-form is the **`rune:spec`** skill.
-
 ## `exerciseEndpoints(opts)` — the headless runner
 
 Discovers endpoints from the bootstrapped app's docs (ALL composed modules),

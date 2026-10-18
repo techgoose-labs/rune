@@ -269,26 +269,19 @@ Deno.test("parse — [ENT] @ METHOD /template; a bad method", () => {
   assertEquals(parse("[ENT:card] http.pay(PayDto): PaymentDto").ents[0].modifier, "card");
 });
 
-Deno.test("parse — [ENT:ws] socket header + topics with their body [REQ]s", () => {
-  const ast = parse(`[MOD] chat
-[ENT:ws] chat @ /rooms/{room}
-    join(JoinDto): JoinedDto
-        [REQ] room.join(JoinDto): JoinedDto
-    leave(): void
-[ENT] http.ping({}): PongDto`);
-  assertEquals(ast.errors, []);
-  assertEquals(ast.ents.length, 3);
-  assertEquals(ast.ents[0], { surface: "chat", action: "join", input: "JoinDto", output: "JoinedDto", modifier: null, line: 2, method: null, pathTemplate: "/rooms/{room}", kind: "ws", delegate: { noun: "room", verb: "join" } });
-  assertEquals(ast.ents[1].input, "");
-  assertEquals(ast.ents[2].kind, undefined);
-  assertEquals(parse("[ENT:ws] chat\n    join(JoinDto): JoinedDto").ents[0].pathTemplate, null);
-});
-
-Deno.test("parse — [ENT:ws] findings: no topics (dedent and EOF), a malformed topic, a header with a signature", () => {
-  assertEquals(ids("[ENT:ws] chat @ /r\n[DTO] XDto: a\n    d\n[TYP] a: string\n    a"), ["1:ws-no-topics"]);
-  assertEquals(ids("[ENT:ws] chat @ /r"), ["1:ws-no-topics"]);
-  assertEquals(ids("[ENT:ws] chat @ /r\n    notavalidtopic"), ["1:ws-no-topics", "2:ws-topic-shape"]);
-  assertEquals(ids("[ENT:ws] chat.send(ChatDto): EchoDto"), ["1:ws-header-signature"]);
+Deno.test("REQ-042: [ENT:ws] is not a form — the header is an ent-signature error, no ws rule exists and an ent carries no transport kind", () => {
+  // The retired socket header carries no signature, so it is the generic [ENT] shape error.
+  assertEquals(ids("[ENT:ws] chat @ /rooms/{room}")[0], "1:ent-signature");
+  // Nothing the retired form produced survives: no ws-* finding, no socket topics as ents.
+  const old = parse("[ENT:ws] chat @ /rooms/{room}\n    join(JoinDto): JoinedDto\n        [REQ] room.join(JoinDto): JoinedDto");
+  assertEquals(old.errors.some((e) => e.id.startsWith("ws-")), false, old.errors.map((e) => e.id).join(","));
+  assertEquals(old.ents, []);
+  for (const id of ["ws-topic-shape", "ws-header-signature", "ws-no-topics"]) {
+    assertEquals((EMITS as readonly string[]).includes(id), false, id);
+  }
+  // An [ENT] is an HTTP route, full stop: no transport discriminator on the node.
+  const ent = parse("[ENT] http.a(IDto): ODto\n    [REQ] a.b(IDto): ODto").ents[0];
+  assertEquals("kind" in ent, false);
 });
 
 Deno.test("parse — comments are stripped, pure-comment lines ignored, URLs survive", () => {

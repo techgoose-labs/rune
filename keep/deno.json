@@ -1,6 +1,6 @@
 {
   "name": "@techgoose-labs/rune",
-  "version": "7.1.0",
+  "version": "8.0.0",
   "description": "Opinionated Deno backend framework: DI bootstrap, auto Swagger docs, an interactive process cake, and rune's assert runtime. Returns a bedrock Unit — compose it with Bedrock({ backend }); the runtime, observability, and auth composition are @techgoose-labs/bedrock's.",
   "license": "MIT",
   "exports": {

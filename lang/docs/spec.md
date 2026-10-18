@@ -28,7 +28,7 @@ indent table below), and nesting is relative — a body line (an `[ENT]`'s
 | --- | --- | --- | --- |
 | `[REQ]` | 0 | `[REQ] noun.verb(InputDto): OutputDto` | A requirement — one feature entry point, the happy-path end-to-end. Input is a DTO (or inline {}), output is a DTO; the last step (or a [RET]) yields the output; faults live on its steps, not here; scope resets at each [REQ]. `[REQ:open]` is the openness marker — the endpoint is reachable without a credential (the only modifier [REQ] takes). |
 | `[MOD]` | 0 | `[MOD] name` | Names the module this file describes; fills the <module>/ path slot. The first non-comment line; kebab-case on disk. Optional (defaults to the filename). `[MOD] name: prose` plus indented continuation lines is the module's front-door description. |
-| `[ENT]` | 0 | `[ENT] surface.action(InputDto): OutputDto     [REQ] noun.verb(InputDto): OutputDto` | An inbound entrypoint (HTTP route) — the inverse of a boundary. Its body is ONE indented `[REQ] noun.verb(In): Out` line naming the coordinator it dispatches to (required — there is no signature matching). An optional `@ METHOD /template` clause between the name and the parens sets the verb and the route; `{field}` segments (and one trailing `{field*}` catch-all) bind URL parts to same-named input fields. `[ENT:ws] <surface> @ /path` declares a WebSocket socket whose indented `verb(In): Out` topics each carry their own indented `[REQ]` body line. |
+| `[ENT]` | 0 | `[ENT] surface.action(InputDto): OutputDto     [REQ] noun.verb(InputDto): OutputDto` | An inbound entrypoint (HTTP route) — the inverse of a boundary. Its body is ONE indented `[REQ] noun.verb(In): Out` line naming the coordinator it dispatches to (required — there is no signature matching). An optional `@ METHOD /template` clause between the name and the parens sets the verb and the route; `{field}` segments (and one trailing `{field*}` catch-all) bind URL parts to same-named input fields. |
 | `[PLY]` | 4 | `[PLY] noun.verb(args): type` | Opens a polymorphic block where the noun names an interface. Each [CSE] is a concrete implementation; they all share the interface's return type, and each case's last step yields it. The block ends at the first line indented no deeper than the [PLY] (the one place relative indentation carries meaning). |
 | `[CSE]` | 8 | `[CSE] caseName` | A concrete case inside a [PLY] block (camelCase name), with its own sub-steps and faults, indented deeper than the [PLY]. |
 | `[NEW]` | 4 | `[NEW] noun` | Constructor shorthand — instantiates a declared [NON] and adds it to scope under its own name. No parentheses, no return type; construction details are an implementation concern. |
@@ -40,7 +40,7 @@ indent table below), and nesting is relative — a body line (an `[ENT]`'s
 <!-- /rune:gen -->
 
 <!-- rune:gen indent -->
-The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [ENT:ws] topics, [PLY] cases) is indented deeper than its opener.
+The columns `rune fmt` writes. Indentation is presentation: a line's kind is its first token, and only nesting is relative — a body line ([ENT] body [REQ], [PLY] cases) is indented deeper than its opener.
 
 | Line | Column |
 | --- | --- |
@@ -50,7 +50,7 @@ The columns `rune fmt` writes. Indentation is presentation: a line's kind is its
 | `[CSE]` and the steps inside a case | 8 |
 | faults inside a case | 10 |
 | descriptions, `@docs` | 4 |
-| an `[ENT]` body `[REQ]`, `[ENT:ws]` topics | 4 |
+| an `[ENT]` body `[REQ]` | 4 |
 
 Lines are at most 80 characters.
 <!-- /rune:gen -->
@@ -381,22 +381,6 @@ A bracket modifier names the flow an endpoint belongs to: `[ENT:card]`,
 every flow. `[ENT:optional]` is attempted but never required. Outputs declare
 what an endpoint **mints**, not what it echoes, and process direction follows
 declaration order — declare `[ENT]`s in the order the process runs.
-
-### WebSocket entrypoints (`[ENT:ws]`)
-
-`[ENT:ws] <surface> @ /path` declares a socket; the indented `verb(In): Out`
-lines are its topics, each with its own indented `[REQ]` body line:
-
-```
-[ENT:ws] chat @ /rooms/{room}
-    join(JoinDto): JoinedDto
-        [REQ] room.join(JoinDto): JoinedDto
-    send(ChatDto): EchoDto
-        [REQ] room.send(ChatDto): EchoDto
-```
-
-Handshake bindings (`{room}`, `from=query` fields) are read once at connect. A
-surface is either HTTP or WS, never both (`surface-mixed`).
 
 ### External inputs and ghost stubs
 

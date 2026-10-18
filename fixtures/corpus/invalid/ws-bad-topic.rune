@@ -1,4 +1,0 @@
-[MOD] chat
-
-[ENT:ws] chat @ /rooms/{room}
-    notavalidtopic
